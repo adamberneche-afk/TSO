@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Skill {
+  id          String   @id @default(uuid())
+  skillHash   String   @unique @map("skill_hash")
+  name        String
+  version     String
+  description String?
+  author      String   // Wallet address
+  
+  // IPFS CIDs
+  manifestCid String   @map("manifest_cid")
+  packageCid  String?  @map("package_cid")
+  
+  // On-chain data
+  contractAddress String? @map("contract_address")
+  tokenId         String? @map("token_id")
+  
+  // Metadata
+  permissions   Json     // Stored as JSON
+  trustScore    Float    @default(0) @map("trust_score")
+  downloadCount Int      @default(0) @map("download_count")
+  
+  // Status
+  status      SkillStatus @default(PENDING)
+  isBlocked   Boolean     @default(false) @map("is_blocked")
+  blockedAt   DateTime?   @map("blocked_at")
+  blockedReason String?   @map("blocked_reason")
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  audits    Audit[]
+  categories SkillCategory[]
+  tags      SkillTag[]
+  
+  @@index([skillHash])
+  @@index([author])
+  @@index([status])
+  @@index([trustScore])
+  @@map("skills")
+}
+
+model Audit {
+  id          String   @id @default(uuid())
+  skillId     String   @map("skill_id")
+  skill       Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  
+  auditor     String   // Wallet address
+  auditorNft  String?  @map("auditor_nft") // NFT token ID
+  
+  status      AuditStatus
+  findings    Json?    // Array of YARA findings
+  signature   String   // Cryptographic signature
+  
+  // On-chain verification
+  txHash      String?  @map("tx_hash")
+  verifiedAt  DateTime? @map("verified_at")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  @@index([skillId])
+  @@index([auditor])
+  @@index([status])
+  @@map("audits")
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  
+  skills      SkillCategory[]
+  
+  @@map("categories")
+}
+
+model Tag {
+  id    String @id @default(uuid())
+  name  String @unique
+  
+  skills SkillTag[]
+  
+  @@map("tags")
+}
+
+model SkillCategory {
+  skillId    String   @map("skill_id")
+  skill      Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  categoryId String   @map("category_id")
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  @@id([skillId, categoryId])
+  @@map("skill_categories")
+}
+
+model SkillTag {
+  skillId String @map("skill_id")
+  skill   Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  tagId   String @map("tag_id")
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@id([skillId, tagId])
+  @@map("skill_tags")
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  name      String
+  owner     String   // Wallet address or email
+  
+  // Rate limiting
+  tier      ApiTier  @default(FREE)
+  requestsThisMonth Int @default(0) @map("requests_this_month")
+  
+  // Status
+  isActive  Boolean  @default(true) @map("is_active")
+  expiresAt DateTime? @map("expires_at")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  lastUsedAt DateTime? @map("last_used_at")
+  
+  @@index([key])
+  @@index([owner])
+  @@map("api_keys")
+}
+
+enum SkillStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum AuditStatus {
+  SAFE
+  SUSPICIOUS
+  MALICIOUS
+}
+
+enum ApiTier {
+  FREE
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+model SecurityScan {
+  id          String   @id @default(uuid())
+  skillHash   String   @map("skill_hash")
+  
+  severity    String   // 'safe', 'suspicious', 'malicious'
+  findings    Json     // Array of YARA findings
+  summary     Json     // Scan summary statistics
+  
+  scanDuration  Int    @map("scan_duration") // milliseconds
+  scannedFiles  Int    @map("scanned_files")
+  scannedBytes  Int    @map("scanned_bytes")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  @@index([skillHash])
+  @@index([severity])
+  @@index([createdAt])
+  @@map("security_scans")
+}

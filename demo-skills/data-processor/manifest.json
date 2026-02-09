@@ -1,0 +1,42 @@
+{
+  "name": "data-processor",
+  "version": "2.0.1",
+  "description": "Transform, filter, and analyze JSON data with powerful utilities for data manipulation",
+  "author": "0x9876543210987654321098765432109876543210",
+  "skill_hash": "b2c3d4e5f6a7890123456789012345678901abcdef2345678901abcdef234567",
+  "permissions": {
+    "network": {
+      "domains": [],
+      "methods": []
+    },
+    "filesystem": {
+      "read": ["/data/input"],
+      "write": ["/data/output", "/tmp"]
+    },
+    "env_vars": [],
+    "modules": [
+      "lodash",
+      "moment"
+    ]
+  },
+  "provenance": {
+    "author_signature": "0xabcdef1234567890...",
+    "timestamp": "2024-01-20T15:45:00Z",
+    "auditor_signatures": [
+      {
+        "auditor": "0x1234567890abcdef...",
+        "signature": "0xfedcba098765...",
+        "timestamp": "2024-01-21T09:30:00Z"
+      },
+      {
+        "auditor": "0xabcdef1234567890...",
+        "signature": "0x9876543210fedcba...",
+        "timestamp": "2024-01-21T11:15:00Z"
+      }
+    ]
+  },
+  "entry_point": "index.js",
+  "keywords": ["data", "transform", "filter", "json", "analytics"],
+  "license": "MIT",
+  "repository": "https://github.com/demo-skills/data-processor"
+}

@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: tais-registry
+    runtime: node
+    repo: https://github.com/YOUR_USERNAME/TSO
+    branch: main
+    rootDir: packages/registry
+    buildCommand: npm install && npm run build && npx prisma generate && npx prisma migrate deploy
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tais-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: IPFS_ENABLED
+        value: true
+      - key: IPFS_HOST
+        value: ipfs.infura.io
+      - key: IPFS_PORT
+        value: 5001
+      - key: IPFS_PROTOCOL
+        value: https
+      - key: IPFS_PROJECT_ID
+        sync: false
+      - key: IPFS_PROJECT_SECRET
+        sync: false
+      - key: ENABLE_BLOCKCHAIN_VERIFICATION
+        value: false
+      - key: ENABLE_IPFS_STORAGE
+        value: true
+      - key: ENABLE_FIAT_PAYMENTS
+        value: false
+      - key: CORS_ORIGIN
+        value: "*"
+    healthCheckPath: /api/health
+    autoDeploy: true
+
+databases:
+  - name: tais-db
+    databaseName: tais_registry
+    user: tais
+    plan: free
+
+version: "1"

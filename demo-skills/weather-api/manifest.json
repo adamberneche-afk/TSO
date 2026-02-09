@@ -1,0 +1,43 @@
+{
+  "name": "weather-api",
+  "version": "1.2.0",
+  "description": "Get real-time weather data from multiple sources including OpenWeatherMap and WeatherAPI",
+  "author": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+  "skill_hash": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
+  "permissions": {
+    "network": {
+      "domains": [
+        "api.openweathermap.org",
+        "api.weatherapi.com"
+      ],
+      "methods": ["GET"]
+    },
+    "filesystem": {
+      "read": [],
+      "write": ["/tmp/weather-cache"]
+    },
+    "env_vars": [
+      "OPENWEATHER_API_KEY",
+      "WEATHERAPI_KEY"
+    ],
+    "modules": [
+      "axios",
+      "moment"
+    ]
+  },
+  "provenance": {
+    "author_signature": "0x1234567890abcdef...",
+    "timestamp": "2024-01-15T10:30:00Z",
+    "auditor_signatures": [
+      {
+        "auditor": "0x9876543210fedcba...",
+        "signature": "0xabcdef123456...",
+        "timestamp": "2024-01-16T14:22:00Z"
+      }
+    ]
+  },
+  "entry_point": "index.js",
+  "keywords": ["weather", "forecast", "temperature", "api"],
+  "license": "MIT",
+  "repository": "https://github.com/demo-skills/weather-api"
+}

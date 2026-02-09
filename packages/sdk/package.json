@@ -1,0 +1,13 @@
+{
+  "name": "@think/profile-sdk",
+  "version": "1.6.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@think/core": "file:../core",
+    "@think/types": "file:../types"
+  }
+}
