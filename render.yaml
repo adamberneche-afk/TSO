@@ -5,7 +5,7 @@ services:
     repo: https://github.com/YOUR_USERNAME/TSO
     branch: main
     rootDir: packages/registry
-    buildCommand: npm install --workspaces=false && npm run build --workspaces=false && npx prisma generate && npx prisma migrate deploy
+    buildCommand: NPM_CONFIG_WORKSPACES=false npm install && NPM_CONFIG_WORKSPACES=false npm run build && npx prisma generate
     startCommand: npm start
     envVars:
       - key: NODE_ENV
