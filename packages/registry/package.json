@@ -2,7 +2,6 @@
   "name": "@think/registry",
   "version": "1.0.0",
   "description": "TAIS Skill Registry Server - Hybrid on-chain/off-chain skill registry",
-  "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "postinstall": "npx prisma generate",
