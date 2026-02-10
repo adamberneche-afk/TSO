@@ -31,6 +31,20 @@ npm run build
 echo "Generating Prisma client..."
 npx prisma generate
 
+# Run database migrations (if DATABASE_URL is set)
+if [ -n "$DATABASE_URL" ]; then
+    echo "Running database migrations..."
+    npx prisma migrate deploy || echo "Migration may have already been applied"
+else
+    echo "DATABASE_URL not set, skipping migrations"
+fi
+
+# Seed database (optional, only if SEED_DATABASE is set to true)
+if [ "$SEED_DATABASE" = "true" ]; then
+    echo "Seeding database..."
+    npx prisma db seed || echo "Seed may have already been run"
+fi
+
 # Restore root package.json
 if [ -f "$ROOT_DIR/package.json.bak" ]; then
     echo "Restoring workspace configuration..."
