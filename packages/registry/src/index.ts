@@ -57,10 +57,10 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting
+// Rate limiting - Beta configuration (relaxed limits)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 200, // Beta: relaxed to 200 requests per window
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -118,6 +118,8 @@ app.get('/', (req, res) => {
     name: 'TAIS Skill Registry',
     version: '1.0.0',
     status: 'operational',
+    mode: 'beta',
+    disclaimer: 'This is a beta release. Features and data may change. Please report issues at https://github.com/adamberneche-afk/TSO/issues',
     documentation: '/api/docs',
     endpoints: {
       health: '/health',
@@ -128,6 +130,20 @@ app.get('/', (req, res) => {
       monitoring: '/api/monitoring',
       scan: '/api/scan',
       admin: '/api/admin'
+    },
+    beta: {
+      active: true,
+      access: 'Genesis holders can publish, all can browse',
+      limits: {
+        fileSize: '1MB',
+        uploadsPerDay: 10,
+        rateLimit: '200 requests per 15 minutes'
+      },
+      features: {
+        ipfsUploads: true,
+        yaraScanning: 'report-only',
+        trustScores: true
+      }
     }
   });
 });
