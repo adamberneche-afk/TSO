@@ -13,6 +13,7 @@ import { authRoutes } from './routes/auth';
 import { healthRoutes } from './routes/health';
 import { monitoringRoutes } from './routes/monitoring';
 import { scanRoutes } from './routes/scan';
+import { adminRoutes } from './routes/admin';
 import { setupSwagger } from './config/swagger';
 import { initializeSentry, setupRequestHandler, setupErrorHandler } from './monitoring/sentry';
 import { metricsMiddleware } from './monitoring/metrics';
@@ -101,6 +102,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/scan', scanRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Setup Swagger documentation
 setupSwagger(app);
@@ -119,7 +121,8 @@ app.get('/', (req, res) => {
       search: '/api/search',
       auth: '/api/auth',
       monitoring: '/api/monitoring',
-      scan: '/api/scan'
+      scan: '/api/scan',
+      admin: '/api/admin'
     }
   });
 });
