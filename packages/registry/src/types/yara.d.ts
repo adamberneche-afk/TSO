@@ -1,4 +1,4 @@
-declare module 'yara' {
+declare module '@automattic/yara' {
   export interface Rules {
     scanFile(filePath: string, options: any, callback: (error: any, result: any) => void): void;
     scan(options: { buffer: Buffer }, callback: (error: any, result: any) => void): void;

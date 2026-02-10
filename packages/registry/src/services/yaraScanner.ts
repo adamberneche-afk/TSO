@@ -1,4 +1,4 @@
-import yara from 'yara';
+import yara from '@automattic/yara';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
