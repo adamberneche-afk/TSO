@@ -1,18 +1,13 @@
-// IPFS client with dynamic import for ESM compatibility
-let ipfsClient: any = null;
+import { create, IPFSHTTPClient } from 'ipfs-http-client';
 
-export async function getIPFSClient(): Promise<any> {
+export function createIPFSClient(): IPFSHTTPClient | null {
   if (process.env.IPFS_ENABLED !== 'true') {
+    console.log('ℹ️  IPFS is disabled');
     return null;
   }
 
-  if (ipfsClient) {
-    return ipfsClient;
-  }
-
   try {
-    const { create } = await import('ipfs-http-client');
-    ipfsClient = create({
+    const client = create({
       host: process.env.IPFS_HOST || 'ipfs.infura.io',
       port: parseInt(process.env.IPFS_PORT || '5001'),
       protocol: (process.env.IPFS_PROTOCOL as 'http' | 'https') || 'https',
@@ -24,21 +19,14 @@ export async function getIPFSClient(): Promise<any> {
     });
 
     console.log('✅ IPFS client initialized');
-    return ipfsClient;
+    return client;
   } catch (error) {
     console.error('❌ Failed to create IPFS client:', error);
     return null;
   }
 }
 
-// For backward compatibility - returns null immediately, client loads async
-export function createIPFSClient(): any {
-  if (process.env.IPFS_ENABLED !== 'true') {
-    console.log('ℹ️  IPFS is disabled');
-    return null;
-  }
-  
-  // Initialize async but return null for now
-  getIPFSClient().catch(console.error);
-  return null;
+// For backward compatibility
+export function getIPFSClient(): IPFSHTTPClient | null {
+  return createIPFSClient();
 }
