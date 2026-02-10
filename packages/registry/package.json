@@ -43,6 +43,7 @@
     "tar": "^6.2.0",
     "winston": "^3.11.0",
     "@automattic/yara": "^2.6.0-beta.2",
+    "ethers": "^6.13.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
