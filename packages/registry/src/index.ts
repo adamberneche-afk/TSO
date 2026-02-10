@@ -18,6 +18,7 @@ import { setupSwagger } from './config/swagger';
 import { initializeSentry, setupRequestHandler, setupErrorHandler } from './monitoring/sentry';
 import { metricsMiddleware } from './monitoring/metrics';
 import { AlertManager } from './monitoring/alerts';
+import { nftVerification } from './services/nftVerification';
 
 dotenv.config();
 
@@ -41,6 +42,10 @@ const prisma = new PrismaClient();
 
 // Initialize IPFS client
 const ipfs = createIPFSClient();
+
+// Initialize NFT verification
+const nftStatus = nftVerification.getStatus();
+logger.info('NFT Verification status:', nftStatus);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
