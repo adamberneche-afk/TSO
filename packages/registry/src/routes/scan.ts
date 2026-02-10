@@ -208,7 +208,7 @@ async function storeScanResult(prisma: PrismaClient, result: SecurityScanResult)
       data: {
         skillHash: result.skillHash,
         severity: result.severity,
-        findings: result.findings,
+        findings: result.findings as any,
         summary: result.summary,
         scanDuration: result.scanDuration,
         scannedFiles: result.scannedFiles,

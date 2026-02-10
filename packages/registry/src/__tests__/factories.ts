@@ -25,7 +25,7 @@ export const createSkill = async (overrides: Partial<Skill> = {}): Promise<Skill
   };
 
   return await prisma.skill.create({
-    data: { ...defaultSkill, ...overrides },
+    data: { ...defaultSkill, ...overrides } as any,
   });
 };
 
@@ -40,7 +40,7 @@ export const createAudit = async (skillId: string, overrides: Partial<Audit> = {
   };
 
   return await prisma.audit.create({
-    data: { ...defaultAudit, ...overrides },
+    data: { ...defaultAudit, ...overrides } as any,
   });
 };
 

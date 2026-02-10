@@ -1,5 +1,4 @@
 import { init, configureScope, captureException, captureMessage, withScope } from '@sentry/node';
-import { ProfilingIntegration } from '@sentry/profiling-node';
 import type { Express } from 'express';
 
 export function initializeSentry(app: Express): void {
@@ -16,13 +15,7 @@ export function initializeSentry(app: Express): void {
     // Performance monitoring
     tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
     
-    // Enable profiling
-    profilesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
-    
-    integrations: [
-      // Enable HTTP calls tracing
-      new ProfilingIntegration(),
-    ],
+    integrations: [],
 
     // Set user context
     beforeSend(event) {

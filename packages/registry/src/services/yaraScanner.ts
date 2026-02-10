@@ -180,7 +180,7 @@ export class YaraScanner {
     const startTime = Date.now();
 
     return new Promise((resolve, reject) => {
-      this.rules!.scanBuffer(buffer, {}, (error: any, result: any) => {
+      this.rules!.scan({ buffer }, (error: any, result: any) => {
         if (error) {
           reject(new Error(`Scan failed: ${error.message}`));
           return;
