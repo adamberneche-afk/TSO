@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -103,8 +104,22 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="px-4 py-8 border-t border-[var(--border-default)]">
-        <div className="mx-auto max-w-6xl text-center text-sm text-[var(--text-muted)]">
+        <div className="mx-auto max-w-6xl flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-[var(--text-muted)]">
           <p>© 2026 TAIS Platform. Powered by THINK Protocol.</p>
+          <div className="flex gap-6">
+            <Link 
+              href="/terms" 
+              className="hover:text-[var(--text-primary)] transition-colors"
+            >
+              Terms of Service
+            </Link>
+            <Link 
+              href="/privacy" 
+              className="hover:text-[var(--text-primary)] transition-colors"
+            >
+              Privacy Policy
+            </Link>
+          </div>
         </div>
       </footer>
     </main>
