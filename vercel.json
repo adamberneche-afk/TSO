@@ -1,0 +1,47 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "name": "tais-frontend",
+  "framework": "nextjs",
+  "buildCommand": "cd tais-frontend && npm run build",
+  "outputDirectory": "tais-frontend/dist",
+  "installCommand": "cd tais-frontend && npm install",
+  "devCommand": "cd tais-frontend && npm run dev",
+  "regions": ["iad1"],
+  "env": {
+    "NEXT_PUBLIC_REGISTRY_URL": "https://tso.onrender.com",
+    "NEXT_PUBLIC_RPC_URL": "https://cloudflare-eth.com",
+    "NEXT_PUBLIC_GENESIS_CONTRACT": "0x11B3EfbF04F0bA505F380aC20444B6952970AdA6"
+  },
+  "builds": [
+    {
+      "src": "tais-frontend/next.config.ts",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ]
+}

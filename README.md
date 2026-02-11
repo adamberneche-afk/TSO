@@ -4,7 +4,8 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-blue.svg)](https://www.postgresql.org/)
-[![Status](https://img.shields.io/badge/Status-Public%20Beta-orange.svg)]()
+[![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)]()
+[![Frontend](https://img.shields.io/badge/Frontend-Vercel%20Ready-black.svg)]()
 
 **Production-Ready • NFT-Verified • Decentralized Storage**
 
@@ -140,7 +141,7 @@ TAIS includes a **configuration-first interview system** that guides users throu
 3. **Skill Selection** - Browse and select from verified registry skills
 4. **Deployment** - Launch as Web, Desktop, or API agent
 
-**Current Status:** 🚧 **In Development** (95% Complete)
+**Current Status:** ✅ **COMPLETE** (100%)
 - ✅ Interview wizard with 8 steps
 - ✅ THINK design system (dark theme)
 - ✅ Zustand state management with persistence
@@ -148,7 +149,9 @@ TAIS includes a **configuration-first interview system** that guides users throu
 - ✅ Trust score visualization (color-coded badges)
 - ✅ **MetaMask wallet connection** (ethers.js v6)
 - ✅ **Monaco Editor for JSON preview**
-- 🚧 Deployment pipeline
+- ✅ **Deployment pipeline** (Vercel ready)
+
+**Deploy:** See `DEPLOY.md` for deployment instructions
 
 **Frontend Stack:**
 - **Framework:** Next.js 14 with App Router
@@ -165,9 +168,28 @@ TAIS includes a **configuration-first interview system** that guides users throu
 - 🚀 **One-Click Deploy** - Web, Desktop, or API
 - 🌓 **Dark/Light Mode** - THINK brand design system
 
-**Status:** 🚧 **In Development** - See `frontend.md` for detailed specs
+**Status:** ✅ **Complete** - Ready for deployment
 
 **Location:** `tais-frontend/` directory
+
+## 🚀 Deployment
+
+### Frontend (Vercel)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/TSO)
+
+One-click deploy to Vercel, or see `DEPLOY.md` for detailed instructions.
+
+**Environment Variables:**
+```bash
+NEXT_PUBLIC_REGISTRY_URL=https://tso.onrender.com
+NEXT_PUBLIC_RPC_URL=https://cloudflare-eth.com
+NEXT_PUBLIC_GENESIS_CONTRACT=0x11B3EfbF04F0bA505F380aC20444B6952970AdA6
+```
+
+### Backend (Render)
+The registry API is already deployed at `https://tso.onrender.com`
+
+See `RENDER_DEPLOY.md` for backend deployment details.
 
 ## 🛠️ Development
 
