@@ -140,13 +140,13 @@ TAIS includes a **configuration-first interview system** that guides users throu
 3. **Skill Selection** - Browse and select from verified registry skills
 4. **Deployment** - Launch as Web, Desktop, or API agent
 
-**Current Status:** 🚧 **In Development** (75% Complete)
+**Current Status:** 🚧 **In Development** (90% Complete)
 - ✅ Interview wizard with 8 steps
 - ✅ THINK design system (dark theme)
 - ✅ Zustand state management with persistence
 - ✅ **Skills integration with live registry API**
 - ✅ Trust score visualization (color-coded badges)
-- 🚧 Wallet connection (MetaMask)
+- ✅ **MetaMask wallet connection** (ethers.js v6)
 - 🚧 Monaco Editor for JSON preview
 - 🚧 Deployment pipeline
 

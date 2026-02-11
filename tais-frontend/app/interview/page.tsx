@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useInterviewStore, SelectedSkill } from "@/hooks/use-interview-store";
+import { useWallet, formatAddress } from "@/hooks/use-wallet";
 import { registryClient, Skill } from "@/lib/registry-client";
 import { 
   Sparkles, 
@@ -610,6 +611,16 @@ function PrivacyStep() {
 
 function IdentityStep() {
   const { answers, updateAnswers } = useInterviewStore();
+  const { address, isConnected, isConnecting, error, connect, disconnect } = useWallet();
+
+  // Update wallet address in store when connected
+  useEffect(() => {
+    if (isConnected && address) {
+      updateAnswers({ walletAddress: address });
+    } else if (!isConnected) {
+      updateAnswers({ walletAddress: undefined });
+    }
+  }, [isConnected, address, updateAnswers]);
 
   return (
     <div className="space-y-6">
@@ -629,21 +640,106 @@ function IdentityStep() {
         </p>
       </div>
 
-      <div className="p-4 rounded-lg bg-[var(--accent-subtle)] border border-[var(--accent-primary)]/20">
-        <div className="flex items-center gap-3">
-          <Wallet className="w-5 h-5 text-[var(--accent-primary)]" />
-          <div>
-            <p className="text-sm font-medium text-[var(--text-primary)]">
-              Connect Wallet (Optional)
-            </p>
-            <p className="text-xs text-[var(--text-secondary)]">
-              Connect to own this agent as an NFT and access Genesis features
-            </p>
-          </div>
-        </div>
-        <Button variant="secondary" size="sm" className="mt-3">
-          Connect MetaMask
-        </Button>
+      {/* Wallet Connection Card */}
+      <div className={`p-4 rounded-lg border ${isConnected ? 'bg-green-500/10 border-green-500/30' : 'bg-[var(--accent-subtle)] border-[var(--accent-primary)]/20'}`}>
+        {!isConnected ? (
+          /* Not Connected State */
+          <>
+            <div className="flex items-center gap-3">
+              <Wallet className="w-5 h-5 text-[var(--accent-primary)]" />
+              <div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">
+                  Connect Wallet (Optional)
+                </p>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Connect to own this agent as an NFT and access Genesis features
+                </p>
+              </div>
+            </div>
+
+            {error && (
+              <div className="mt-3 p-3 rounded bg-red-500/10 border border-red-500/30">
+                <p className="text-sm text-red-500 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  {error}
+                </p>
+              </div>
+            )}
+
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-3"
+              onClick={connect}
+              disabled={isConnecting}
+            >
+              {isConnecting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Connect MetaMask
+                </>
+              )}
+            </Button>
+          </>
+        ) : (
+          /* Connected State */
+          <>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <Wallet className="w-5 h-5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">
+                    Wallet Connected
+                  </p>
+                  <p className="text-xs text-[var(--text-secondary)] font-mono">
+                    {formatAddress(address!)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-xs text-green-500">Connected</span>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-green-500/20">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-[var(--text-secondary)]">
+                  <p>✓ Genesis holder features unlocked</p>
+                  <p>✓ NFT ownership enabled</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={disconnect}
+                  className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                >
+                  Disconnect
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Info Box */}
+      <div className="p-4 rounded-lg bg-[var(--surface)] border border-[var(--border-default)]">
+        <h4 className="text-sm font-medium text-[var(--text-primary)] mb-2">
+          Why connect a wallet?
+        </h4>
+        <ul className="text-sm text-[var(--text-secondary)] space-y-1 list-disc list-inside">
+          <li>Own your agent as an NFT on the blockchain</li>
+          <li>Access exclusive Genesis holder features</li>
+          <li>Publish and audit skills in the registry</li>
+          <li>Completely optional - skip if you prefer</li>
+        </ul>
       </div>
     </div>
   );
@@ -717,6 +813,17 @@ function ReviewStep() {
               <span className="text-sm text-[var(--text-muted)]">Autonomy:</span>
               <p className="font-medium capitalize">{answers.autonomy}</p>
             </div>
+            <div>
+              <span className="text-sm text-[var(--text-muted)]">Wallet:</span>
+              {answers.walletAddress ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <p className="font-medium text-sm font-mono">{formatAddress(answers.walletAddress)}</p>
+                </div>
+              ) : (
+                <p className="text-[var(--text-muted)] italic">Not connected</p>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -746,6 +853,10 @@ function ReviewStep() {
                   personality: answers.personality,
                   autonomy: answers.autonomy,
                   privacy: answers.privacy,
+                  owner: answers.walletAddress ? {
+                    address: answers.walletAddress,
+                    type: "ethereum"
+                  } : null,
                 },
               }, null, 2)}
             </pre>

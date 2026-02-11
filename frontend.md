@@ -375,20 +375,36 @@ Connector line: #333333 (upcoming), #3B82F6 (completed)
       - Code execution
     - Maps to: `agent.permissions`
 
-**Step 5: Identity & Naming (1 minute)**
-- Screen: Form inputs
-- Questions:
-  - "Agent name"
-    - Type: Text input
+**Step 5: Identity & Naming (1 minute)** ✅ **IMPLEMENTED**
+- Screen: Form inputs + wallet connection card
+- Features:
+  - **Agent Name Input**
+    - Type: Text input with validation
     - Placeholder: "e.g., DataAnalyzer, CalendarAssistant"
-    - Validation: Required, alphanumeric + hyphens
+    - Validation: Required, alphanumeric + hyphens, no spaces
     - Maps to: `agent.name`
   
-  - "Connect wallet (optional)"
-    - Button: "Connect MetaMask"
-    - Text: "Connect your wallet to own this agent as an NFT"
-    - Shows: Connected wallet address if connected
-    - Maps to: `agent.owner.walletAddress`
+  - **Wallet Connection** ✅ Complete MetaMask Integration
+    - **Not Connected State:**
+      - "Connect MetaMask" button with wallet icon
+      - Loading spinner during connection
+      - Error messages for rejections or failures
+      - Info box explaining wallet benefits
+    - **Connected State:**
+      - Green styling with success indicator
+      - Formatted wallet address (0x1234...5678)
+      - Pulse animation for live connection
+      - Genesis holder features list:
+        - ✓ Own agent as NFT on blockchain
+        - ✓ Access exclusive Genesis features
+        - ✓ Publish and audit skills
+      - Disconnect button
+    - **Auto-sync:** Wallet address automatically saved to configuration
+    - **Event Handling:** Listens for account changes and chain switches
+    - Maps to: `agent.walletAddress`
+    - **Library:** ethers.js v6 with BrowserProvider
+- **Status:** ✅ Complete and functional
+- **Commit:** `use-wallet` hook + IdentityStep updates
 
 **Step 6: Review Configuration (2 minutes)**
 - Screen: Split view
