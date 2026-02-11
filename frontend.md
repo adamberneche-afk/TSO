@@ -406,21 +406,39 @@ Connector line: #333333 (upcoming), #3B82F6 (completed)
 - **Status:** ✅ Complete and functional
 - **Commit:** `use-wallet` hook + IdentityStep updates
 
-**Step 6: Review Configuration (2 minutes)**
-- Screen: Split view
-- Left side: Interview summary
-  - Goals (editable)
-  - Selected skills (editable - remove/add)
-  - Behavior settings (editable)
-  - Privacy settings (editable)
-- Right side: Generated JSON preview
-  - Monaco Editor with syntax highlighting
-  - Read-only by default
-  - "Edit JSON" toggle for advanced users
+**Step 6: Review Configuration (2 minutes)** ✅ **IMPLEMENTED**
+- Screen: Split view with summary and JSON editor
+- Left side: Interview summary card
+  - Agent name
+  - Goals list
+  - Selected skills with trust scores
+  - Personality settings (Tone, Verbosity, Formality)
+  - Privacy level
+  - Autonomy level
+  - Wallet connection status (with green indicator if connected)
+- Right side: Monaco Editor JSON preview ✅ Complete
+  - **Editor Features:**
+    - Monaco Editor with syntax highlighting
+    - Dark theme (vs-dark) matching app design
+    - Fira Code font with ligatures
+    - Line numbers, bracket matching, code folding
+    - Word wrap and indentation guides
+  - **Toolbar Controls:**
+    - Edit/View toggle button
+    - Format JSON button (in edit mode)
+    - Copy to clipboard button
+    - Loading spinner during initialization
+  - **Modes:**
+    - Read-only by default (green status indicator)
+    - Edit mode for advanced users (yellow status indicator)
+    - Changes in editor don't affect store (preview only)
+  - **Status Bar:**
+    - Shows current mode (Read-Only or Editing)
+    - Language indicator (JSON)
 - Actions:
-  - "Edit" buttons for each section
-  - "Download JSON" button
-  - "Continue to Deploy" button
+  - "Edit Configuration" button (placeholder)
+- **Status:** ✅ Complete with Monaco Editor
+- **Commit:** MonacoEditor component + ReviewStep updates
 
 **Step 7: Deployment Options (1 minute)**
 - Screen: Cards for deployment options

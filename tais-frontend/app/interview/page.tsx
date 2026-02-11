@@ -18,6 +18,7 @@ import {
   ExternalLink,
   RefreshCw
 } from "lucide-react";
+import { MonacoEditor } from "@/components/ui/monaco-editor";
 
 export default function InterviewPage() {
   const { currentStep, nextStep, setStep } = useInterviewStore();
@@ -836,11 +837,11 @@ function ReviewStep() {
         <Card className="h-full">
           <CardHeader>
             <CardTitle>Generated JSON</CardTitle>
-            <CardDescription>Preview of agent configuration</CardDescription>
+            <CardDescription>Preview and edit agent configuration</CardDescription>
           </CardHeader>
           <CardContent>
-            <pre className="text-xs text-[var(--text-secondary)] overflow-auto max-h-96 bg-[var(--surface)] p-4 rounded-lg">
-              {JSON.stringify({
+            <MonacoEditor
+              value={JSON.stringify({
                 agent: {
                   name: answers.name,
                   goals: answers.goals,
@@ -859,7 +860,11 @@ function ReviewStep() {
                   } : null,
                 },
               }, null, 2)}
-            </pre>
+              height="400px"
+              readOnly={true}
+              language="json"
+              theme="vs-dark"
+            />
           </CardContent>
         </Card>
       </div>
