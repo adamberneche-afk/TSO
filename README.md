@@ -96,10 +96,18 @@ TSO/
 │   ├── core/              # Security services (shared)
 │   ├── types/             # TypeScript schemas
 │   └── sdk/               # Client SDK
+├── tais-frontend/         # Next.js interview system (NEW)
+│   ├── app/               # Next.js App Router
+│   ├── components/        # React components
+│   │   ├── ui/            # Base UI components
+│   │   └── interview/     # Interview wizard
+│   ├── lib/               # Utilities & configs
+│   └── types/             # TypeScript types
 ├── demo-skills/           # Example skills
 │   ├── weather-api/
 │   ├── data-processor/
 │   └── crypto-price/
+├── frontend.md            # Frontend development guide
 └── render.yaml            # Infrastructure as code
 ```
 
@@ -116,8 +124,40 @@ TSO/
 | **Security** | YARA + Custom Rules | Automated code scanning |
 | **Monitoring** | Prometheus + Sentry | Metrics & error tracking |
 | **Hosting** | Render (Free Tier) | Production deployment |
+| **Frontend** | Next.js 14 + Tailwind | Interview wizard & agent builder |
+| **State Management** | Zustand | Interview progress & config |
+| **Animations** | Framer Motion | UI transitions |
 
 ---
+
+## 🎨 Frontend (Interview System)
+
+TAIS includes a **configuration-first interview system** that guides users through creating custom AI agents:
+
+**How It Works:**
+1. **Structured Interview** (7-8 steps) - Answer questions about goals, skills, behavior
+2. **Configuration Generation** - System creates JSON agent configuration
+3. **Skill Selection** - Browse and select from verified registry skills
+4. **Deployment** - Launch as Web, Desktop, or API agent
+
+**Frontend Stack:**
+- **Framework:** Next.js 14 with App Router
+- **Styling:** Tailwind CSS with THINK design system
+- **State:** Zustand for interview progress
+- **Animations:** Framer Motion for smooth transitions
+- **Editor:** Monaco Editor for JSON preview
+- **Web3:** Ethers.js for wallet integration
+
+**Key Features:**
+- 🎯 **Goal-Oriented** - Interview discovers user intent
+- 🧩 **Skill Browser** - Select from registry with trust scores
+- 🎨 **Visual Config** - Real-time JSON preview
+- 🚀 **One-Click Deploy** - Web, Desktop, or API
+- 🌓 **Dark/Light Mode** - THINK brand design system
+
+**Status:** 🚧 **In Development** - See `frontend.md` for detailed specs
+
+**Location:** `tais-frontend/` directory
 
 ## 🛠️ Development
 
