@@ -1,8 +1,7 @@
 // packages/registry/src/routes/configurations.ts
 // Agent configuration persistence routes for genesis holders
 
-import { Router } from 'express';
-import { authenticate } from '../middleware/auth.js';
+import { Router, Request, Response } from 'express';
 import {
   canCreateConfiguration,
   getWalletConfigurations,
@@ -11,7 +10,17 @@ import {
   deleteConfiguration,
   verifyNFTOwnership
 } from '../services/genesisConfigLimits.js';
-import { safeLog } from '../utils/safeLog.js';
+
+// Extend Express Request type to include user
+interface AuthenticatedRequest extends Request {
+  user?: {
+    walletAddress: string;
+  };
+  body: any;
+  params: {
+    id: string;
+  };
+}
 
 const router = Router();
 
@@ -19,9 +28,9 @@ const router = Router();
  * GET /api/configurations/status
  * Check configuration limits for authenticated wallet
  */
-router.get('/status', authenticate, async (req, res) => {
+router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.walletAddress;
+    const walletAddress = req.user?.walletAddress;
     
     if (!walletAddress) {
       return res.status(401).json({
@@ -39,7 +48,7 @@ router.get('/status', authenticate, async (req, res) => {
     });
     
   } catch (error) {
-    safeLog.error('Error checking configuration status', { error });
+    console.error('Error checking configuration status', error);
     res.status(500).json({
       error: 'Failed to check configuration status',
       allowed: false
@@ -51,9 +60,9 @@ router.get('/status', authenticate, async (req, res) => {
  * GET /api/configurations
  * Get all configurations for authenticated wallet
  */
-router.get('/', authenticate, async (req, res) => {
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.walletAddress;
+    const walletAddress = req.user?.walletAddress;
     
     if (!walletAddress) {
       return res.status(401).json({
@@ -72,7 +81,7 @@ router.get('/', authenticate, async (req, res) => {
     });
     
   } catch (error) {
-    safeLog.error('Error fetching configurations', { error });
+    console.error('Error fetching configurations', error);
     res.status(500).json({
       error: 'Failed to fetch configurations'
     });
@@ -83,9 +92,9 @@ router.get('/', authenticate, async (req, res) => {
  * POST /api/configurations
  * Save a new configuration
  */
-router.post('/', authenticate, async (req, res) => {
+router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.walletAddress;
+    const walletAddress = req.user?.walletAddress;
     
     if (!walletAddress) {
       return res.status(401).json({
@@ -138,7 +147,7 @@ router.post('/', authenticate, async (req, res) => {
       description?.trim()
     );
     
-    safeLog.info('Configuration saved', {
+    console.log('Configuration saved', {
       walletAddress,
       configId: result.config.id,
       name: result.config.name
@@ -152,7 +161,7 @@ router.post('/', authenticate, async (req, res) => {
     });
     
   } catch (error) {
-    safeLog.error('Error saving configuration', { error });
+    console.error('Error saving configuration', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Failed to save configuration'
     });
@@ -163,9 +172,9 @@ router.post('/', authenticate, async (req, res) => {
  * PUT /api/configurations/:id
  * Update an existing configuration
  */
-router.put('/:id', authenticate, async (req, res) => {
+router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.walletAddress;
+    const walletAddress = req.user?.walletAddress;
     const { id } = req.params;
     
     if (!walletAddress) {
@@ -214,7 +223,7 @@ router.put('/:id', authenticate, async (req, res) => {
     // Update configuration
     const config = await updateConfiguration(id, walletAddress, updates);
     
-    safeLog.info('Configuration updated', {
+    console.log('Configuration updated', {
       walletAddress,
       configId: id,
       name: config.name
@@ -226,7 +235,7 @@ router.put('/:id', authenticate, async (req, res) => {
     });
     
   } catch (error) {
-    safeLog.error('Error updating configuration', { error });
+    console.error('Error updating configuration', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Failed to update configuration'
     });
@@ -237,9 +246,9 @@ router.put('/:id', authenticate, async (req, res) => {
  * DELETE /api/configurations/:id
  * Soft delete a configuration
  */
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.walletAddress;
+    const walletAddress = req.user?.walletAddress;
     const { id } = req.params;
     
     if (!walletAddress) {
@@ -254,7 +263,7 @@ router.delete('/:id', authenticate, async (req, res) => {
     // Get updated status
     const status = await canCreateConfiguration(walletAddress);
     
-    safeLog.info('Configuration deleted', {
+    console.log('Configuration deleted', {
       walletAddress,
       configId: id
     });
@@ -266,7 +275,7 @@ router.delete('/:id', authenticate, async (req, res) => {
     });
     
   } catch (error) {
-    safeLog.error('Error deleting configuration', { error });
+    console.error('Error deleting configuration', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Failed to delete configuration'
     });
@@ -277,9 +286,9 @@ router.delete('/:id', authenticate, async (req, res) => {
  * GET /api/configurations/nft/verify
  * Verify NFT ownership for authenticated wallet
  */
-router.get('/nft/verify', authenticate, async (req, res) => {
+router.get('/nft/verify', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.walletAddress;
+    const walletAddress = req.user?.walletAddress;
     
     if (!walletAddress) {
       return res.status(401).json({
@@ -301,7 +310,7 @@ router.get('/nft/verify', authenticate, async (req, res) => {
     });
     
   } catch (error) {
-    safeLog.error('Error verifying NFT ownership', { error });
+    console.error('Error verifying NFT ownership', error);
     res.status(500).json({
       error: 'Failed to verify NFT ownership'
     });

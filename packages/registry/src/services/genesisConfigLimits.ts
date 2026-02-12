@@ -2,7 +2,9 @@
 // Genesis holder configuration limits and persistence
 
 import { ethers } from 'ethers';
-import { prisma } from '../index.js';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 const GENESIS_CONTRACT = '0x11B3EfbF04F0bA505F380aC20444B6952970AdA6';
 const RPC_URL = process.env.RPC_URL || 'https://cloudflare-eth.com';
