@@ -154,23 +154,23 @@ export function LandingPage({ onStartInterview, onViewDashboard, onPublishSkill,
         </div>
       </section>
 
-      {/* Genesis NFT Collection CTA */}
+      {/* THINK Agent Bundle Collection CTA */}
       <section className="py-20 px-6 bg-gradient-to-r from-[#1a1a1a] via-[#2a1a3a] to-[#1a1a1a]">
         <div className="max-w-5xl mx-auto text-center space-y-8">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#3B82F6]/20 border border-[#3B82F6]/30">
             <Sparkles className="w-4 h-4 text-[#3B82F6]" />
-            <span className="text-sm text-[#3B82F6]">Limited Collection</span>
+            <span className="text-sm text-[#3B82F6]">Live on OpenSea</span>
           </div>
           <h2 className="text-4xl md:text-5xl font-bold">
             Own a Piece of the
             <br />
             <span className="bg-gradient-to-r from-[#3B82F6] to-[#8B5CF6] bg-clip-text text-transparent">
-              Genesis Collection
+              THINK Agent Bundle
             </span>
           </h2>
           <p className="text-xl text-[#888888] max-w-2xl mx-auto">
-            Genesis Pass holders get exclusive benefits including early access to premium skills, 
-            governance rights, and revenue sharing from skill marketplace fees.
+            Digital Souls NFT holders get exclusive access to the TAIS platform, including early access to premium skills, 
+            governance rights, and participation in the skill marketplace economy.
           </p>
           <div className="flex items-center justify-center gap-6">
             <a
@@ -195,18 +195,22 @@ export function LandingPage({ onStartInterview, onViewDashboard, onPublishSkill,
               Learn Benefits
             </Button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto pt-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto pt-8">
             <GenesisBenefit
-              value="10,000"
+              value="2,022"
               label="Total Supply"
             />
             <GenesisBenefit
-              value="$THINK"
-              label="Token Rewards"
+              value="0.0298 ETH"
+              label="Floor Price"
             />
             <GenesisBenefit
-              value="Lifetime"
-              label="Access"
+              value="192.15 ETH"
+              label="Total Volume"
+            />
+            <GenesisBenefit
+              value="759"
+              label="Unique Owners"
             />
           </div>
         </div>
