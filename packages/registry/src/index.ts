@@ -225,6 +225,14 @@ apiV1Router.use('/admin',
   adminRoutes
 );
 
+// Genesis Holder: Agent configuration persistence routes
+import configurationRoutes from './routes/configurations';
+apiV1Router.use('/configurations',
+  authMiddleware,
+  rateLimiters.authenticated,
+  configurationRoutes
+);
+
 // Mount API v1 router
 app.use('/api/v1', apiV1Router);
 

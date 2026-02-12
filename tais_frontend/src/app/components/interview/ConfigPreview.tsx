@@ -1,22 +1,54 @@
 // TAIS Platform - Configuration Preview Component
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import { AgentConfig } from '../../../types/agent';
 import { Button } from '../ui/button';
-import { Download, Copy, Check } from 'lucide-react';
+import { Download, Copy, Check, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { configApi } from '../../../services/configApi';
 
 interface ConfigPreviewProps {
   config: AgentConfig;
   onUpdate?: (config: AgentConfig) => void;
   editable?: boolean;
+  onSaveSuccess?: () => void;
 }
 
-export function ConfigPreview({ config, onUpdate, editable = false }: ConfigPreviewProps) {
+export function ConfigPreview({ config, onUpdate, editable = false, onSaveSuccess }: ConfigPreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [canSave, setCanSave] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<{
+    allowed: boolean;
+    currentCount: number;
+    limit: number;
+    remaining: number;
+    isHolder: boolean;
+  } | null>(null);
   const configJSON = JSON.stringify(config, null, 2);
+
+  useEffect(() => {
+    checkSaveEligibility();
+  }, []);
+
+  const checkSaveEligibility = async () => {
+    try {
+      const status = await configApi.getStatus();
+      setSaveStatus({
+        allowed: status.allowed,
+        currentCount: status.currentCount,
+        limit: status.limit,
+        remaining: status.remaining,
+        isHolder: status.tokenCount > 0
+      });
+      setCanSave(status.allowed);
+    } catch (error) {
+      console.error('Failed to check save eligibility:', error);
+      setCanSave(false);
+    }
+  };
 
   const handleDownload = () => {
     const blob = new Blob([configJSON], { type: 'application/json' });
@@ -44,7 +76,7 @@ export function ConfigPreview({ config, onUpdate, editable = false }: ConfigPrev
 
   const handleEditorChange = (value: string | undefined) => {
     if (!value || !onUpdate) return;
-    
+
     try {
       const updatedConfig = JSON.parse(value);
       onUpdate(updatedConfig);
@@ -53,11 +85,71 @@ export function ConfigPreview({ config, onUpdate, editable = false }: ConfigPrev
     }
   };
 
+  const handleSave = async () => {
+    if (!canSave) {
+      if (!saveStatus?.isHolder) {
+        toast.error('NFT Required', {
+          description: 'Only THINK Agent Bundle holders can save configurations.',
+        });
+      } else {
+        toast.error('Limit Reached', {
+          description: `You've reached your limit of ${saveStatus?.limit} configurations.`,
+        });
+      }
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const result = await configApi.saveConfiguration(
+        config.agent.name,
+        config,
+        `Configuration for ${config.agent.name} created via Interview Wizard`
+      );
+
+      toast.success('Configuration Saved!', {
+        description: `You have ${result.remaining} of ${result.limit} saves remaining.`,
+      });
+
+      // Refresh status
+      await checkSaveEligibility();
+
+      if (onSaveSuccess) {
+        onSaveSuccess();
+      }
+    } catch (error) {
+      toast.error('Failed to Save', {
+        description: error instanceof Error ? error.message : 'Please try again.',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white">Agent Configuration</h3>
         <div className="flex gap-2">
+          {canSave && (
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              variant="outline"
+              size="sm"
+              className="border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6] hover:text-white"
+              title={saveStatus ? `${saveStatus.remaining} of ${saveStatus.limit} saves remaining` : 'Save to cloud'}
+            >
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              <span className="ml-2">
+                {isSaving ? 'Saving...' : `Save (${saveStatus?.remaining ?? '?'}/${saveStatus?.limit ?? '?'})`}
+              </span>
+            </Button>
+          )}
           {editable && (
             <Button
               onClick={() => setIsEditing(!isEditing)}
@@ -137,6 +229,52 @@ export function ConfigPreview({ config, onUpdate, editable = false }: ConfigPrev
           </div>
         </dl>
       </div>
+
+      {/* Genesis Holder Info */}
+      {saveStatus?.isHolder ? (
+        <div className="bg-[#1a1a3a] border border-[#3B82F6]/30 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-[#3B82F6]/20 rounded-lg">
+              <Save className="w-5 h-5 text-[#3B82F6]" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-white mb-1">Genesis Holder Benefit</h4>
+              <p className="text-sm text-[#888888]">
+                You can save up to {saveStatus.limit} configurations ({saveStatus.limit / 2} NFTs × 2).
+                {' '}
+                {saveStatus.remaining > 0 ? (
+                  <span className="text-[#10B981]">{saveStatus.remaining} saves remaining.</span>
+                ) : (
+                  <span className="text-[#EF4444]">Limit reached. Delete old configs to save new ones.</span>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-[#1a1a1a] border border-[#333333] rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-[#F59E0B]/20 rounded-lg">
+              <Save className="w-5 h-5 text-[#F59E0B]" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-white mb-1">Want to Save Configurations?</h4>
+              <p className="text-sm text-[#888888]">
+                Hold a THINK Agent Bundle NFT to save up to 2 configurations per token.
+                {' '}
+                <a
+                  href="https://opensea.io/collection/think-agent-bundle"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#3B82F6] hover:underline"
+                >
+                  View Collection on OpenSea
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

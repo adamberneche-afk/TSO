@@ -209,3 +209,6 @@ class NFTVerificationService {
 
 export { NFTVerificationService, CircuitBreaker };
 export default NFTVerificationService;
+
+// Additional exports for genesis holder configuration management
+export * from './genesisConfigLimits.js';

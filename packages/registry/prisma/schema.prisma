@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Skill {
@@ -198,4 +197,33 @@ model TokenBlacklist {
   @@index([tokenHash])
   @@index([walletAddress])
   @@map("token_blacklist")
+}
+
+// Genesis Holder Agent Configurations
+model AgentConfiguration {
+  id          String   @id @default(uuid())
+  walletAddress String @map("wallet_address")
+  
+  // NFT ownership verification
+  nftTokenId  String   @map("nft_token_id")
+  nftContractAddress String @map("nft_contract_address")
+  verifiedAt  DateTime @map("verified_at")
+  
+  // Configuration data
+  name        String
+  description String?
+  configData  Json     @map("config_data") // The full agent configuration JSON
+  
+  // Metadata
+  version     Int      @default(1)
+  isActive    Boolean  @default(true) @map("is_active")
+  
+  // Timestamps
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@index([walletAddress])
+  @@index([nftTokenId])
+  @@index([isActive])
+  @@map("agent_configurations")
 }
