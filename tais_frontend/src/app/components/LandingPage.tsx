@@ -174,7 +174,7 @@ export function LandingPage({ onStartInterview, onViewDashboard, onPublishSkill,
           </p>
           <div className="flex items-center justify-center gap-6">
             <a
-              href="https://opensea.io/collection/tais-genesis-pass"
+              href="https://opensea.io/collection/think-agent-bundle"
               target="_blank"
               rel="noopener noreferrer"
             >
