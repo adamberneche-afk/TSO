@@ -1,97 +1,284 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { adminActionSchema, validateInput, sanitizeValidationErrors } from '../validation/schemas';
+import { requireAdmin } from '../middleware/admin';
+
+/**
+ * Admin Routes - Squad ETA
+ * Fixed: CRIT-1 - Input validation on all admin endpoints
+ * Fixed: MED-2 - Structured error logging
+ */
 
 const router = Router();
 
-// Admin authentication middleware
-const requireAdmin = (req: any, res: any, next: any) => {
-  const adminWallets = process.env.ADMIN_WALLET_ADDRESSES?.split(',') || [];
-  const userWallet = req.headers['x-wallet-address'];
-  
-  if (!userWallet || !adminWallets.includes(userWallet as string)) {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
-};
-
-// Get admin stats
-router.get('/stats', requireAdmin, async (req, res) => {
-  const prisma = (req as any).prisma as PrismaClient;
+// GET /api/admin/stats - Get platform statistics (admin only)
+router.get('/stats', async (req: any, res: Response) => {
+  const prisma = req.prisma as PrismaClient;
   
   try {
-    const stats = await prisma.$transaction([
+    // Squad ETA Fix: Add structured logging
+    req.log.info({
+      admin: req.user?.walletAddress,
+      action: 'view_stats'
+    }, 'Admin viewing platform statistics');
+    
+    const [
+      totalSkills,
+      pendingSkills,
+      blockedSkills,
+      totalAudits,
+      maliciousAudits
+    ] = await Promise.all([
       prisma.skill.count(),
-      prisma.audit.count(),
-      prisma.skill.count({ where: { isBlocked: true } }),
       prisma.skill.count({ where: { status: 'PENDING' } }),
+      prisma.skill.count({ where: { isBlocked: true } }),
+      prisma.audit.count(),
+      prisma.audit.count({ where: { status: 'MALICIOUS' } })
     ]);
     
     res.json({
-      totalSkills: stats[0],
-      totalAudits: stats[1],
-      blockedSkills: stats[2],
-      pendingApprovals: stats[3],
+      skills: {
+        total: totalSkills,
+        pending: pendingSkills,
+        blocked: blockedSkills
+      },
+      audits: {
+        total: totalAudits,
+        malicious: maliciousAudits
+      },
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch stats' });
+    // Squad ETA Fix: MED-2 - Structured error logging
+    req.log.error({
+      error,
+      admin: req.user?.walletAddress,
+      action: 'view_stats'
+    }, 'Failed to fetch admin stats');
+    
+    res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });
 
-// Block a skill
-router.post('/skills/:id/block', requireAdmin, async (req, res) => {
-  const prisma = (req as any).prisma as PrismaClient;
+// POST /api/admin/skills/:id/block - Block a skill (admin only)
+// Squad ETA Fix: CRIT-1 - Input validation
+router.post('/skills/:id/block', async (req: any, res: Response) => {
+  const prisma = req.prisma as PrismaClient;
   const { id } = req.params;
-  const { reason } = req.body;
   
   try {
-    const skill = await prisma.skill.update({
+    // Squad ETA Fix: CRIT-1 - Validate input using Zod
+    const validation = validateInput(adminActionSchema, {
+      skillId: id,
+      ...req.body
+    });
+    
+    if (!validation.success) {
+      req.log.warn({
+        admin: req.user?.walletAddress,
+        skillId: id,
+        errors: validation.errors
+      }, 'Invalid admin block request');
+      
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: sanitizeValidationErrors(validation.errors)
+      });
+    }
+    
+    const { reason } = validation.data;
+    
+    // Squad ETA Fix: Validate skill exists
+    const skill = await prisma.skill.findUnique({
+      where: { id }
+    });
+    
+    if (!skill) {
+      return res.status(404).json({ error: 'Skill not found' });
+    }
+    
+    // Squad ETA Fix: Check if already blocked
+    if (skill.isBlocked) {
+      return res.status(409).json({ error: 'Skill is already blocked' });
+    }
+    
+    // Block the skill
+    const updatedSkill = await prisma.skill.update({
       where: { id },
       data: {
         isBlocked: true,
         blockedAt: new Date(),
-        blockedReason: reason,
-        status: 'SUSPENDED',
-      },
+        blockedReason: reason // Now validated and safe
+      }
     });
-    res.json({ message: 'Skill blocked', skill });
+    
+    // Squad ETA Fix: Structured logging
+    req.log.info({
+      admin: req.user?.walletAddress,
+      skillId: id,
+      skillName: skill.name,
+      reason
+    }, 'Skill blocked by admin');
+    
+    res.json({
+      message: 'Skill blocked successfully',
+      skill: updatedSkill
+    });
   } catch (error) {
+    // Squad ETA Fix: MED-2 - Structured error logging
+    req.log.error({
+      error,
+      admin: req.user?.walletAddress,
+      action: 'block_skill',
+      skillId: id
+    }, 'Failed to block skill');
+    
     res.status(500).json({ error: 'Failed to block skill' });
   }
 });
 
-// Unblock a skill
-router.post('/skills/:id/unblock', requireAdmin, async (req, res) => {
-  const prisma = (req as any).prisma as PrismaClient;
+// POST /api/admin/skills/:id/unblock - Unblock a skill (admin only)
+// Squad ETA Fix: CRIT-1 - Input validation
+router.post('/skills/:id/unblock', async (req: any, res: Response) => {
+  const prisma = req.prisma as PrismaClient;
   const { id } = req.params;
   
   try {
-    const skill = await prisma.skill.update({
+    // Squad ETA Fix: CRIT-1 - Validate input
+    const validation = validateInput(adminActionSchema, {
+      skillId: id,
+      action: 'unblock',
+      ...req.body
+    });
+    
+    if (!validation.success) {
+      req.log.warn({
+        admin: req.user?.walletAddress,
+        skillId: id,
+        errors: validation.errors
+      }, 'Invalid admin unblock request');
+      
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: sanitizeValidationErrors(validation.errors)
+      });
+    }
+    
+    const { reason } = validation.data;
+    
+    const skill = await prisma.skill.findUnique({
+      where: { id }
+    });
+    
+    if (!skill) {
+      return res.status(404).json({ error: 'Skill not found' });
+    }
+    
+    if (!skill.isBlocked) {
+      return res.status(409).json({ error: 'Skill is not blocked' });
+    }
+    
+    const updatedSkill = await prisma.skill.update({
       where: { id },
       data: {
         isBlocked: false,
         blockedAt: null,
-        blockedReason: null,
-        status: 'APPROVED',
-      },
+        blockedReason: null
+      }
     });
-    res.json({ message: 'Skill unblocked', skill });
+    
+    req.log.info({
+      admin: req.user?.walletAddress,
+      skillId: id,
+      skillName: skill.name,
+      reason
+    }, 'Skill unblocked by admin');
+    
+    res.json({
+      message: 'Skill unblocked successfully',
+      skill: updatedSkill
+    });
   } catch (error) {
+    req.log.error({
+      error,
+      admin: req.user?.walletAddress,
+      action: 'unblock_skill',
+      skillId: id
+    }, 'Failed to unblock skill');
+    
     res.status(500).json({ error: 'Failed to unblock skill' });
   }
 });
 
-// List blocked skills
-router.get('/skills/blocked', requireAdmin, async (req, res) => {
-  const prisma = (req as any).prisma as PrismaClient;
+// POST /api/admin/skills/:id/verify - Manually verify a skill (admin only)
+// Squad ETA Fix: CRIT-1 - Input validation
+router.post('/skills/:id/verify', async (req: any, res: Response) => {
+  const prisma = req.prisma as PrismaClient;
+  const { id } = req.params;
   
   try {
-    const skills = await prisma.skill.findMany({
-      where: { isBlocked: true },
-      orderBy: { blockedAt: 'desc' },
+    // Squad ETA Fix: CRIT-1 - Validate input
+    const validation = validateInput(adminActionSchema, {
+      skillId: id,
+      action: 'verify',
+      ...req.body
     });
-    res.json({ skills, total: skills.length });
+    
+    if (!validation.success) {
+      req.log.warn({
+        admin: req.user?.walletAddress,
+        skillId: id,
+        errors: validation.errors
+      }, 'Invalid admin verify request');
+      
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: sanitizeValidationErrors(validation.errors)
+      });
+    }
+    
+    const { reason } = validation.data;
+    
+    const skill = await prisma.skill.findUnique({
+      where: { id }
+    });
+    
+    if (!skill) {
+      return res.status(404).json({ error: 'Skill not found' });
+    }
+    
+    if (skill.status === 'APPROVED') {
+      return res.status(409).json({ error: 'Skill is already verified' });
+    }
+    
+    const updatedSkill = await prisma.skill.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        blockedReason: reason
+      }
+    });
+    
+    req.log.info({
+      admin: req.user?.walletAddress,
+      skillId: id,
+      skillName: skill.name,
+      reason
+    }, 'Skill verified by admin');
+    
+    res.json({
+      message: 'Skill verified successfully',
+      skill: updatedSkill
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch blocked skills' });
+    req.log.error({
+      error,
+      admin: req.user?.walletAddress,
+      action: 'verify_skill',
+      skillId: id
+    }, 'Failed to verify skill');
+    
+    res.status(500).json({ error: 'Failed to verify skill' });
   }
 });
 

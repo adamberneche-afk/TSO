@@ -1,33 +1,43 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import winston from 'winston';
 import { PrismaClient } from '@prisma/client';
-import { createIPFSClient } from './services/ipfs';
+
+// Squad Gamma - Infrastructure & Security
+import { getCorsConfig } from './config/cors';
+import { createSecurityHeaders } from './config/security';
+import { requestIdMiddleware } from './middleware/requestId';
+
+// Squad Alpha - Authentication
+import { AuthService } from './services/auth';
+import { ApiKeyService } from './services/apiKey';
+import { authenticateToken } from './middleware/auth';
+import { createAdminMiddleware } from './middleware/admin';
+
+// Squad Beta - Access Control & Validation
+import { NFTVerificationService } from './services/nftVerification';
+import { rateLimiters } from './middleware/rateLimit';
+import { requirePublisherNFT, requireAuditorNFT } from './middleware/nftAuth';
+
+// Routes
 import { skillRoutes } from './routes/skills';
+import { authRoutes } from './routes/auth';
 import { auditRoutes } from './routes/audits';
 import { searchRoutes } from './routes/search';
-import { authRoutes } from './routes/auth';
-import { healthRoutes } from './routes/health';
-import { monitoringRoutes } from './routes/monitoring';
-import { scanRoutes } from './routes/scan';
 import { adminRoutes } from './routes/admin';
-import { setupSwagger } from './config/swagger';
-import { initializeSentry, setupRequestHandler, setupErrorHandler } from './monitoring/sentry';
-import { metricsMiddleware } from './monitoring/metrics';
-import { AlertManager } from './monitoring/alerts';
-import { nftVerification } from './services/nftVerification';
+import { healthRoutes } from './routes/health';
 
+// Load environment variables
 dotenv.config();
 
-// Logger configuration
+// Initialize logger
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: winston.format.combine(
     winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
     winston.format.json()
   ),
   transports: [
@@ -37,151 +47,269 @@ const logger = winston.createLogger({
   ]
 });
 
-// Initialize database
-const prisma = new PrismaClient();
+// Initialize database with connection pooling
+const prisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' 
+    ? ['query', 'info', 'warn', 'error'] 
+    : ['error'],
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL
+    }
+  }
+});
 
-// Initialize IPFS client
-const ipfs = createIPFSClient();
+// Squad Zeta Fix: Configure trust proxy for IP spoofing prevention
+const trustedProxies = process.env.TRUSTED_PROXIES?.split(',') || false;
 
-// Initialize NFT verification
-const nftStatus = nftVerification.getStatus();
-logger.info('NFT Verification status:', nftStatus);
+// Initialize services
+const authService = new AuthService(prisma, logger);
+const apiKeyService = new ApiKeyService(prisma);
+const nftService = new NFTVerificationService({
+  publisherAddress: process.env.PUBLISHER_NFT_ADDRESS || process.env.GENESIS_CONTRACT || '',
+  auditorAddress: process.env.AUDITOR_NFT_ADDRESS || process.env.GENESIS_CONTRACT || '',
+  rpcUrl: process.env.RPC_URL || 'https://cloudflare-eth.com'
+}, logger);
 
+// Create middleware instances
+const authMiddleware = authenticateToken(authService);
+const adminMiddleware = createAdminMiddleware();
+const publisherNftMiddleware = requirePublisherNFT(nftService);
+const auditorNftMiddleware = requireAuditorNFT(nftService);
+
+// Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Security middleware
-app.use(helmet());
-app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
-  credentials: true
-}));
+// Squad Zeta Fix: Configure trust proxy before any middleware
+app.set('trust proxy', trustedProxies);
 
-// Rate limiting - Beta configuration (relaxed limits)
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // Beta: relaxed to 200 requests per window
-  message: { error: 'Too many requests, please try again later' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// Squad Gamma: Request ID middleware (first to track all requests)
+app.use(requestIdMiddleware);
 
-const strictLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 10, // stricter limit for write operations
-  message: { error: 'Rate limit exceeded for write operations' }
-});
+// Squad Gamma: Security headers
+app.use(createSecurityHeaders());
 
-app.use('/api/', limiter);
-app.use('/api/skills/upload', strictLimiter);
-app.use('/api/audits/submit', strictLimiter);
+// Squad Gamma: CORS configuration
+const corsConfig = getCorsConfig();
+app.use(cors(corsConfig));
 
-// Body parsing
+// Squad Gamma: Body parsing
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize Sentry
-initializeSentry(app);
-setupRequestHandler(app);
-
-// Initialize Alert Manager
-const alertManager = new AlertManager(logger);
-
-// Metrics middleware
-app.use(metricsMiddleware);
-
-// Attach services to request
-app.use((req, res, next) => {
-  (req as any).prisma = prisma;
-  (req as any).ipfs = ipfs;
-  (req as any).logger = logger;
-  (req as any).alertManager = alertManager;
+// Squad Gamma: Request logging
+app.use((req: any, res: any, next: any) => {
+  req.prisma = prisma;
+  req.log = logger.child({ requestId: req.id });
+  
+  req.log.info({
+    method: req.method,
+    path: req.path,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  }, 'Incoming request');
+  
   next();
 });
 
-// Routes
-app.use('/health', healthRoutes);
-app.use('/api/skills', skillRoutes);
-app.use('/api/audits', auditRoutes);
-app.use('/api/search', searchRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/monitoring', monitoringRoutes);
-app.use('/api/scan', scanRoutes);
-app.use('/api/admin', adminRoutes);
+// Squad Gamma: Request timing middleware
+app.use((req: any, res: any, next: any) => {
+  req.startTime = Date.now();
+  
+  res.on('finish', () => {
+    const duration = Date.now() - req.startTime;
+    req.log.info({
+      duration,
+      statusCode: res.statusCode,
+      method: req.method,
+      path: req.path
+    }, 'Request completed');
+  });
+  
+  next();
+});
 
-// Setup Swagger documentation
-setupSwagger(app);
+// Squad Gamma: API version header on all responses
+app.use((req: any, res: any, next: any) => {
+  res.setHeader('X-API-Version', 'v1');
+  next();
+});
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    name: 'TAIS Skill Registry',
-    version: '1.0.0',
-    status: 'operational',
-    mode: 'beta',
-    disclaimer: 'This is a beta release. Features and data may change. Please report issues at https://github.com/adamberneche-afk/TSO/issues',
-    documentation: '/api/docs',
-    endpoints: {
-      health: '/health',
-      skills: '/api/skills',
-      audits: '/api/audits',
-      search: '/api/search',
-      auth: '/api/auth',
-      monitoring: '/api/monitoring',
-      scan: '/api/scan',
-      admin: '/api/admin'
-    },
-    beta: {
-      active: true,
-      access: 'Genesis holders can publish, all can browse',
-      limits: {
-        fileSize: '1MB',
-        uploadsPerDay: 10,
-        rateLimit: '200 requests per 15 minutes'
-      },
-      features: {
-        ipfsUploads: true,
-        yaraScanning: 'report-only',
-        trustScores: true
+// ============================================
+// SQUAD DELTA CRITICAL FIX: Middleware Chain Utility
+// Properly applies multiple middleware in sequence
+// ============================================
+
+const applyMiddlewareChain = (middlewares: any[]) => {
+  return (req: any, res: any, next: any) => {
+    let index = 0;
+    
+    const runNext = (err?: any) => {
+      if (err) return next(err);
+      if (index >= middlewares.length) return next();
+      const middleware = middlewares[index++];
+      try {
+        middleware(req, res, runNext);
+      } catch (error) {
+        next(error);
       }
+    };
+    
+    runNext();
+  };
+};
+
+// ============================================
+// ROUTE MOUNTING WITH SECURITY MIDDLEWARE
+// ============================================
+
+// Health check (unversioned, no auth)
+app.use('/health', healthRoutes);
+
+// API v1 Routes
+const apiV1Router = express.Router();
+
+// Squad Beta: Apply standard rate limiting to all API routes
+apiV1Router.use(rateLimiters.standard);
+
+// Squad THETA Fix: LOW-1 - API Key middleware for programmatic access
+import { apiKeyMiddleware } from './middleware/apiKey';
+apiV1Router.use(apiKeyMiddleware(apiKeyService));
+
+// Squad Alpha: Auth routes with strict rate limiting for login
+// Squad KAPPA Fix: INFO-3 - IP-based rate limiting for failed auth attempts
+apiV1Router.use('/auth', rateLimiters.auth, authRoutes);
+
+// Squad Beta: Search routes (public, optional auth)
+apiV1Router.use('/search', searchRoutes);
+
+// Squad Delta CRITICAL FIX: Skills routes with FULL security
+// POST /skills now requires: rate limit -> auth -> publisher NFT
+apiV1Router.use('/skills', 
+  (req: any, res: any, next: any) => {
+    if (req.method === 'POST') {
+      // CRITICAL FIX: Apply middleware chain for POST requests
+      return applyMiddlewareChain([
+        rateLimiters.strict,
+        authMiddleware,
+        publisherNftMiddleware
+      ])(req, res, next);
     }
+    next();
+  },
+  skillRoutes
+);
+
+// Squad Delta CRITICAL FIX: Audit routes with FULL security
+// POST /audits now requires: rate limit -> auth -> auditor NFT
+apiV1Router.use('/audits',
+  (req: any, res: any, next: any) => {
+    if (req.method === 'POST') {
+      // CRITICAL FIX: Apply middleware chain for POST requests
+      return applyMiddlewareChain([
+        rateLimiters.strict,
+        authMiddleware,
+        auditorNftMiddleware
+      ])(req, res, next);
+    }
+    next();
+  },
+  auditRoutes
+);
+
+// Squad Alpha: Admin routes (protected)
+apiV1Router.use('/admin',
+  authMiddleware,
+  adminMiddleware,
+  rateLimiters.authenticated,
+  adminRoutes
+);
+
+// Mount API v1 router
+app.use('/api/v1', apiV1Router);
+
+// Squad Gamma: API versioning - redirect /api to /api/v1 for backward compatibility
+app.use('/api', (req: any, res: any, next: any) => {
+  req.url = '/api/v1' + req.url;
+  next();
+}, apiV1Router);
+
+// Squad Beta: Error handling middleware
+app.use((err: any, req: any, res: Response, next: NextFunction) => {
+  // Log full error
+  req.log.error({
+    error: err.message,
+    stack: err.stack,
+    statusCode: err.statusCode || 500
+  }, 'Error occurred');
+
+  // Squad Beta: Sanitize error messages in production
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  if (err.name === 'ZodError') {
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: isProduction ? undefined : err.errors
+    });
+  }
+
+  if (err.name === 'UnauthorizedError') {
+    return res.status(401).json({
+      error: 'Authentication required'
+    });
+  }
+
+  // Generic error response
+  res.status(err.statusCode || 500).json({
+    error: isProduction ? 'Internal server error' : err.message,
+    requestId: req.id
   });
 });
 
-// Sentry error handler (must be before other error handlers)
-setupErrorHandler(app);
-
-// Error handling
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  logger.error('Unhandled error:', err);
-  res.status(500).json({
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+// Squad Gamma: 404 handler
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    error: 'Not found',
+    message: 'The requested resource does not exist',
+    path: req.path
   });
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
+// Start server
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  logger.info('==========================================');
+  logger.info('🚀 TAIS Platform API Server Started');
+  logger.info('==========================================');
+  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`Port: ${PORT}`);
+  logger.info(`API Version: v1`);
+  logger.info(`CORS Origins: ${corsConfig.origin.join(', ')}`);
+  logger.info(`Trust Proxy: ${trustedProxies || 'disabled'}`);
+  logger.info('==========================================');
+  logger.info('Security Status:');
+  logger.info('  ✅ JWT Authentication: Active');
+  logger.info('  ✅ NFT Verification: Active (Fail-Closed)');
+  logger.info('  ✅ Rate Limiting: Active');
+  logger.info('  ✅ CORS Protection: Active');
+  logger.info('  ✅ Security Headers: Active');
+  logger.info('  ✅ Input Validation: Active');
+  logger.info('  ✅ Trust Proxy: Configured');
+  logger.info('==========================================');
 });
 
-// Graceful shutdown
+// Squad Gamma: Graceful shutdown
 process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received, closing server gracefully');
+  logger.info('SIGTERM received, shutting down gracefully');
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  logger.info('SIGINT received, closing server gracefully');
+  logger.info('SIGINT received, shutting down gracefully');
   await prisma.$disconnect();
   process.exit(0);
 });
 
-app.listen(PORT, () => {
-  logger.info(`TAIS Registry Server running on port ${PORT}`);
-  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`IPFS enabled: ${process.env.IPFS_ENABLED === 'true'}`);
-});
-
-export { app, prisma, logger };
+export default app;

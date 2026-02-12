@@ -85,9 +85,9 @@ vercel --prod
 **Required - Add these in Vercel Dashboard:**
 
 ```
-NEXT_PUBLIC_REGISTRY_URL=https://tso.onrender.com
-NEXT_PUBLIC_RPC_URL=https://cloudflare-eth.com
-NEXT_PUBLIC_GENESIS_CONTRACT=0x11B3EfbF04F0bA505F380aC20444B6952970AdA6
+VITE_REGISTRY_URL=https://tso.onrender.com
+VITE_RPC_URL=https://cloudflare-eth.com
+VITE_GENESIS_CONTRACT=0x11B3EfbF04F0bA505F380aC20444B6952970AdA6
 ```
 
 **Location:** Vercel Dashboard → Project Settings → Environment Variables

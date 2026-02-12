@@ -6,8 +6,14 @@ import { SkillProvenanceSchema, IsnadLink } from '@think/types';
 import { TokenService } from './TokenService';
 import { StakingService } from './StakingService';
 
-const PUBLISHER_NFT_ADDRESS = '0xe6dc76736289353b80dc5e02982cc5b87305d404';
-const AUDITOR_NFT_ADDRESS = '0xe6dc76736289353b80dc5e02982cc5b87305d404';
+// Default to THINK Genesis Bundle for beta testing
+// Future: Custom contracts deployed via $THINK staking
+const DEFAULT_PUBLISHER_NFT = process.env.PUBLISHER_NFT_ADDRESS || 
+                               process.env.GENESIS_CONTRACT || 
+                               '0x11B3EfbF04F0bA505F380aC20444B6952970AdA6';
+const DEFAULT_AUDITOR_NFT = process.env.AUDITOR_NFT_ADDRESS || 
+                             process.env.GENESIS_CONTRACT || 
+                             '0x11B3EfbF04F0bA505F380aC20444B6952970AdA6';
 const ABI = ['function balanceOf(address owner) view returns (uint256)'];
 
 interface CacheEntry {
@@ -24,21 +30,29 @@ export class IsnadService {
   private signingKey: string | null = null;
   private tokenService: TokenService;
   private stakingService: StakingService;
+  private publisherNftAddress: string;
+  private auditorNftAddress: string;
 
-  constructor(rpcUrl: string, userDataPath: string) {
+  constructor(rpcUrl: string, userDataPath: string, publisherNftAddress?: string, auditorNftAddress?: string) {
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
     this.cachePath = path.join(userDataPath, '.isnad_cache.json');
     this.tokenService = new TokenService(rpcUrl, userDataPath);
     this.stakingService = new StakingService(rpcUrl, userDataPath);
+    
+    // Use provided addresses, env vars, or defaults (Genesis Bundle for beta)
+    this.publisherNftAddress = publisherNftAddress || DEFAULT_PUBLISHER_NFT;
+    this.auditorNftAddress = auditorNftAddress || DEFAULT_AUDITOR_NFT;
+    
     this.ensureSigningKey();
     this.loadCache();
     
     console.log(`🔐 IsnadService initialized:`);
-    console.log(`   Publisher NFT: ${PUBLISHER_NFT_ADDRESS}`);
-    console.log(`   Auditor NFT: ${AUDITOR_NFT_ADDRESS}`);
+    console.log(`   Publisher NFT: ${this.publisherNftAddress}`);
+    console.log(`   Auditor NFT: ${this.auditorNftAddress}`);
     console.log(`   THINK Token: 0xF9ff95468cb9A0cD57b8542bbc4c148e290Ff465`);
     console.log(`   Staking Contract: 0x08071901A5C4D2950888Ce2b299bBd0e3087d101`);
     console.log(`   Cache Path: ${this.cachePath}`);
+    console.log(`   Mode: ${process.env.PUBLISHER_NFT_ADDRESS ? 'Custom Contracts' : 'Genesis Bundle (Beta)'}`);
   }
 
   private async ensureSigningKey() {
@@ -101,7 +115,7 @@ export class IsnadService {
 
   private async verifyPublisherNft(walletAddress: string): Promise<boolean> {
     try {
-      const contract = new ethers.Contract(PUBLISHER_NFT_ADDRESS, ABI, this.provider);
+      const contract = new ethers.Contract(this.publisherNftAddress, ABI, this.provider);
       const balance: bigint = await contract.balanceOf(walletAddress);
       return balance > 0n;
     } catch {
@@ -111,7 +125,7 @@ export class IsnadService {
 
   private async verifyAuditorNft(walletAddress: string): Promise<boolean> {
     try {
-      const contract = new ethers.Contract(AUDITOR_NFT_ADDRESS, ABI, this.provider);
+      const contract = new ethers.Contract(this.auditorNftAddress, ABI, this.provider);
       const balance: bigint = await contract.balanceOf(walletAddress);
       return balance > 0n;
     } catch {

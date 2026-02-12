@@ -1,0 +1,211 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* TAIS Platform - Dark Mode Color Palette */
+  
+  /* Backgrounds */
+  --bg-primary: #000000;
+  --bg-surface: #111111;
+  --bg-elevated: #1a1a1a;
+  --bg-hover: #222222;
+  
+  /* Text */
+  --text-primary: #FFFFFF;
+  --text-secondary: #888888;
+  --text-muted: #555555;
+  --text-disabled: #444444;
+  
+  /* Accent - Electric Blue */
+  --accent-primary: #3B82F6;
+  --accent-hover: #2563EB;
+  --accent-light: #60A5FA;
+  --accent-dark: #1D4ED8;
+  --accent-subtle: rgba(59, 130, 246, 0.1);
+  
+  /* Borders */
+  --border-default: #333333;
+  --border-focus: #3B82F6;
+  --border-error: #EF4444;
+  
+  /* Semantic Colors */
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+  
+  /* Font Families */
+  --font-headline: 'Fira Sans Extra Condensed', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-code: 'JetBrains Mono', monospace;
+  
+  /* Spacing System (base 4px) */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+  
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+  
+  /* Typography Scale */
+  --text-h1: 48px;
+  --text-h2: 36px;
+  --text-h3: 28px;
+  --text-h4: 24px;
+  --text-h5: 20px;
+  --text-body-lg: 18px;
+  --text-body: 16px;
+  --text-body-sm: 14px;
+  --text-caption: 12px;
+  --text-code: 14px;
+  
+  /* Standard theme mappings for components */
+  --background: var(--bg-primary);
+  --foreground: var(--text-primary);
+  --card: var(--bg-elevated);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-elevated);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent-primary);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--bg-surface);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--bg-surface);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--accent-subtle);
+  --accent-foreground: var(--accent-primary);
+  --destructive: var(--color-error);
+  --destructive-foreground: #FFFFFF;
+  --border: var(--border-default);
+  --input: var(--bg-surface);
+  --ring: var(--border-focus);
+  
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --font-weight-bold: 700;
+  
+  --chart-1: var(--accent-primary);
+  --chart-2: var(--color-success);
+  --chart-3: var(--color-warning);
+  --chart-4: var(--accent-light);
+  --chart-5: var(--color-info);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: calc(var(--radius-lg) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  /* TAIS Typography Styles */
+  h1 {
+    font-family: var(--font-headline);
+    font-size: var(--text-h1);
+    font-weight: 500;
+    line-height: 1.1;
+  }
+
+  h2 {
+    font-family: var(--font-headline);
+    font-size: var(--text-h2);
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  h3 {
+    font-family: var(--font-headline);
+    font-size: var(--text-h3);
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  h4 {
+    font-family: var(--font-headline);
+    font-size: var(--text-h4);
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  h5 {
+    font-family: var(--font-body);
+    font-size: var(--text-h5);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  p {
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  label {
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input, textarea, select {
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+
+  code, pre {
+    font-family: var(--font-code);
+    font-size: var(--text-code);
+    font-weight: 400;
+    line-height: 1.5;
+  }
+}

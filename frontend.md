@@ -515,7 +515,7 @@ interface InterviewState {
 ```typescript
 // lib/registry-client.ts
 
-const REGISTRY_API_URL = process.env.NEXT_PUBLIC_REGISTRY_URL || 
+const REGISTRY_API_URL = import.meta.env.VITE_REGISTRY_URL || 
   'https://tso.onrender.com';
 
 interface RegistryClientConfig {
@@ -1032,14 +1032,14 @@ Create `.env.local`:
 
 ```bash
 # Registry API
-NEXT_PUBLIC_REGISTRY_URL=https://tso.onrender.com
+VITE_REGISTRY_URL=https://tso.onrender.com
 
 # Blockchain
-NEXT_PUBLIC_RPC_URL=https://cloudflare-eth.com
-NEXT_PUBLIC_GENESIS_CONTRACT=0x11B3EfbF04F0bA505F380aC20444B6952970AdA6
+VITE_RPC_URL=https://cloudflare-eth.com
+VITE_GENESIS_CONTRACT=0x11B3EfbF04F0bA505F380aC20444B6952970AdA6
 
 # Deployment
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+VITE_APP_URL=http://localhost:5173
 ```
 
 ---

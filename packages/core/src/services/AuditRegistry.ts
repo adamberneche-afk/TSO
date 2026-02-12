@@ -4,7 +4,11 @@ import fs from 'fs/promises';
 import { ethers } from 'ethers';
 import { AuditReport, YARAFinding, AuditReportSchema } from '@think/types';
 
-const AUDITOR_NFT_ADDRESS = '0xe6dc76736289353b80dc5e02982cc5b87305d404';
+// Default to THINK Genesis Bundle for beta testing
+// Future: Custom contracts deployed via $THINK staking
+const DEFAULT_AUDITOR_NFT = process.env.AUDITOR_NFT_ADDRESS || 
+                             process.env.GENESIS_CONTRACT || 
+                             '0x11B3EfbF04F0bA505F380aC20444B6952970AdA6';
 const ABI = ['function balanceOf(address owner) view returns (uint256)'];
 
 interface CacheEntry {
@@ -20,10 +24,15 @@ export class AuditRegistry {
   private cacheMap: Map<string, AuditReport[]> = new Map();
   private maliciousSkills: Set<string> = new Set();
   private signingKey: string | null = null;
+  private auditorNftAddress: string;
 
-  constructor(rpcUrl: string, userDataPath: string) {
+  constructor(rpcUrl: string, userDataPath: string, auditorNftAddress?: string) {
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
     this.cachePath = path.join(userDataPath, '.audit_cache.json');
+    
+    // Use provided address, env var, or default (Genesis Bundle for beta)
+    this.auditorNftAddress = auditorNftAddress || DEFAULT_AUDITOR_NFT;
+    
     this.ensureSigningKey();
     this.loadCache();
   }
@@ -82,7 +91,7 @@ export class AuditRegistry {
 
   private async verifyAuditorNft(walletAddress: string): Promise<boolean> {
     try {
-      const contract = new ethers.Contract(AUDITOR_NFT_ADDRESS, ABI, this.provider);
+      const contract = new ethers.Contract(this.auditorNftAddress, ABI, this.provider);
       const balance: bigint = await contract.balanceOf(walletAddress);
       return balance > 0n;
     } catch {

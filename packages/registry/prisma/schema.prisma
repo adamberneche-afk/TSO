@@ -113,26 +113,43 @@ model SkillTag {
   @@map("skill_tags")
 }
 
+// BLOCKER-1 FIX: Updated ApiKey model to match service implementation
 model ApiKey {
-  id        String   @id @default(uuid())
-  key       String   @unique
-  name      String
-  owner     String   // Wallet address or email
+  id          String    @id @default(uuid())
+  keyHash     String    @unique @map("key_hash")
+  walletAddress String  @map("wallet_address")
+  name        String
+  permissions String[]  // PostgreSQL array type
   
   // Rate limiting
-  tier      ApiTier  @default(FREE)
-  requestsThisMonth Int @default(0) @map("requests_this_month")
+  rateLimit   Int       @default(1000) @map("rate_limit")
+  requestCount Int      @default(0) @map("request_count")
   
   // Status
-  isActive  Boolean  @default(true) @map("is_active")
-  expiresAt DateTime? @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  expiresAt   DateTime? @map("expires_at")
   
-  createdAt DateTime @default(now()) @map("created_at")
-  lastUsedAt DateTime? @map("last_used_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  lastUsedAt  DateTime? @map("last_used_at")
   
-  @@index([key])
-  @@index([owner])
+  @@index([keyHash])
+  @@index([walletAddress])
   @@map("api_keys")
+}
+
+// BLOCKER-1 FIX: New AuthNonce model for replay attack prevention
+// Squad Epsilon MEDIUM-2 Fix: Added unique constraint to prevent duplicates
+model AuthNonce {
+  id            String   @id @default(uuid())
+  walletAddress String   @map("wallet_address")
+  nonce         String
+  expiresAt     DateTime @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  @@unique([walletAddress, nonce])
+  @@index([walletAddress])
+  @@index([nonce])
+  @@map("auth_nonces")
 }
 
 enum SkillStatus {
@@ -148,12 +165,7 @@ enum AuditStatus {
   MALICIOUS
 }
 
-enum ApiTier {
-  FREE
-  BASIC
-  PRO
-  ENTERPRISE
-}
+// BLOCKER-1 FIX: Removed old ApiTier enum (no longer used)
 
 model SecurityScan {
   id          String   @id @default(uuid())
@@ -173,4 +185,17 @@ model SecurityScan {
   @@index([severity])
   @@index([createdAt])
   @@map("security_scans")
+}
+
+// DEPLOYMENT FIX: TokenBlacklist model for JWT logout functionality
+model TokenBlacklist {
+  id            String   @id @default(uuid())
+  tokenHash     String   @unique @map("token_hash")
+  walletAddress String   @map("wallet_address")
+  expiresAt     DateTime @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  @@index([tokenHash])
+  @@index([walletAddress])
+  @@map("token_blacklist")
 }

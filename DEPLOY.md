@@ -34,9 +34,9 @@ This guide covers deploying the TAIS Interview Wizard to production.
 
    | Variable | Value | Environment |
    |----------|-------|-------------|
-   | `NEXT_PUBLIC_REGISTRY_URL` | `https://tso.onrender.com` | All |
-   | `NEXT_PUBLIC_RPC_URL` | `https://cloudflare-eth.com` | All |
-   | `NEXT_PUBLIC_GENESIS_CONTRACT` | `0x11B3EfbF04F0bA505F380aC20444B6952970AdA6` | All |
+   | `VITE_REGISTRY_URL` | `https://tso.onrender.com` | All |
+   | `VITE_RPC_URL` | `https://cloudflare-eth.com` | All |
+   | `VITE_GENESIS_CONTRACT` | `0x11B3EfbF04F0bA505F380aC20444B6952970AdA6` | All |
 
 5. **Redeploy**
    ```bash
@@ -48,16 +48,16 @@ This guide covers deploying the TAIS Interview Wizard to production.
 ### Required
 
 ```bash
-NEXT_PUBLIC_REGISTRY_URL=https://tso.onrender.com
-NEXT_PUBLIC_RPC_URL=https://cloudflare-eth.com
-NEXT_PUBLIC_GENESIS_CONTRACT=0x11B3EfbF04F0bA505F380aC20444B6952970AdA6
+VITE_REGISTRY_URL=https://tso.onrender.com
+VITE_RPC_URL=https://cloudflare-eth.com
+VITE_GENESIS_CONTRACT=0x11B3EfbF04F0bA505F380aC20444B6952970AdA6
 ```
 
 ### What Each Variable Does
 
-- **NEXT_PUBLIC_REGISTRY_URL**: Backend API endpoint for skills registry
-- **NEXT_PUBLIC_RPC_URL**: Ethereum RPC for wallet connections
-- **NEXT_PUBLIC_GENESIS_CONTRACT**: THINK Genesis NFT contract address
+- **VITE_REGISTRY_URL**: Backend API endpoint for skills registry
+- **VITE_RPC_URL**: Ethereum RPC for wallet connections
+- **VITE_GENESIS_CONTRACT**: THINK Genesis NFT contract address
 
 ## Build Configuration
 
@@ -128,7 +128,7 @@ tais-frontend/dist/
 ### Runtime Errors
 
 **Skills not loading**
-- Check `NEXT_PUBLIC_REGISTRY_URL` is correct
+- Check `VITE_REGISTRY_URL` is correct
 - Verify registry is up: `curl https://tso.onrender.com/health`
 
 **MetaMask not connecting**

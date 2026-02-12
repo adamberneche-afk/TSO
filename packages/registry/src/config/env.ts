@@ -46,6 +46,9 @@ const envSchema = z.object({
   
   // Admin
   ADMIN_WALLET_ADDRESSES: z.string().optional(),
+  
+  // Testing
+  TEST_WALLET_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
