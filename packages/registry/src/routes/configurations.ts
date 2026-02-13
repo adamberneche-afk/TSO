@@ -93,16 +93,22 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
  * Save a new configuration
  */
 router.post('/', async (req: AuthenticatedRequest, res: Response) => {
+  console.log('[SAVE CONFIG] POST /api/configurations received');
+  console.log('[SAVE CONFIG] Headers:', JSON.stringify(req.headers, null, 2));
+  
   try {
     const walletAddress = req.user?.walletAddress;
+    console.log('[SAVE CONFIG] Wallet from JWT:', walletAddress);
     
     if (!walletAddress) {
+      console.log('[SAVE CONFIG] ❌ No wallet address in JWT - returning 401');
       return res.status(401).json({
         error: 'Authentication required'
       });
     }
     
     const { name, configData, description } = req.body;
+    console.log('[SAVE CONFIG] Request body:', { name, hasConfigData: !!configData, description });
     
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -130,14 +136,20 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     }
     
     // Check limits
+    console.log('[SAVE CONFIG] Checking configuration limits...');
     const check = await canCreateConfiguration(walletAddress);
+    console.log('[SAVE CONFIG] Limit check result:', JSON.stringify(check, null, 2));
+    
     if (!check.allowed) {
+      console.log('[SAVE CONFIG] ❌ Save blocked:', check.error);
       return res.status(403).json({
         error: check.error || 'Configuration limit reached',
         limit: check.limit,
         used: check.currentCount
       });
     }
+    
+    console.log('[SAVE CONFIG] ✅ Limits check passed');
     
     // Save configuration
     const result = await saveConfiguration(
