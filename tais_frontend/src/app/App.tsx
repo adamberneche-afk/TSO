@@ -7,11 +7,13 @@ import { Dashboard } from './components/Dashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
+import { useInterviewStore } from '../hooks/useInterview';
 
 type View = 'landing' | 'interview' | 'dashboard';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('landing');
+  const resetInterview = useInterviewStore((state) => state.reset);
 
   const handlePublishSkill = () => {
     toast.info('Skill Publishing', {
@@ -27,12 +29,18 @@ export default function App() {
     });
   };
 
+  const startNewInterview = () => {
+    // Reset interview state to start fresh
+    resetInterview();
+    setCurrentView('interview');
+  };
+
   return (
     <ErrorBoundary>
       {currentView === 'landing' && (
         <>
           <LandingPage 
-            onStartInterview={() => setCurrentView('interview')}
+            onStartInterview={startNewInterview}
             onViewDashboard={() => setCurrentView('dashboard')}
             onPublishSkill={handlePublishSkill}
             onAuditSkill={handleAuditSkill}
@@ -50,7 +58,7 @@ export default function App() {
         <>
           <Dashboard
             onBackToLanding={() => setCurrentView('landing')}
-            onStartNewInterview={() => setCurrentView('interview')}
+            onStartNewInterview={startNewInterview}
           />
           <Toaster position="top-right" />
         </>
