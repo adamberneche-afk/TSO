@@ -79,9 +79,9 @@ export class ApiKeyService {
         walletAddress: dbKey.walletAddress,
         permissions: dbKey.permissions,
         rateLimit: dbKey.rateLimit,
-        expiresAt: dbKey.expiresAt,
+        expiresAt: dbKey.expiresAt ?? new Date(),
         createdAt: dbKey.createdAt,
-        lastUsedAt: dbKey.lastUsedAt || undefined
+        lastUsedAt: dbKey.lastUsedAt ?? undefined
       }
     };
   }
@@ -182,7 +182,11 @@ export class ApiKeyService {
       orderBy: { createdAt: 'desc' }
     });
 
-    return keys;
+    return keys.map(key => ({
+      ...key,
+      expiresAt: key.expiresAt ?? new Date(),
+      lastUsedAt: key.lastUsedAt ?? undefined
+    }));
   }
 
   /**

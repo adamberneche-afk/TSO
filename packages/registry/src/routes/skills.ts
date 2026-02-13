@@ -136,7 +136,7 @@ router.post('/', async (req: any, res: Response) => {
         version: skillData.version,
         description: skillData.description,
         author: req.user.walletAddress, // Use authenticated wallet, not request body
-        manifestCid: skillData.manifestCid,
+        manifestCid: skillData.manifestCid ?? '',
         packageCid: skillData.packageCid,
         permissions: skillData.permissions || {},
         status: 'PENDING'

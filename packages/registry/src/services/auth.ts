@@ -124,7 +124,7 @@ export class AuthService {
     };
 
     return jwt.sign(payload, this.config.jwtSecret, {
-      expiresIn: this.config.jwtExpiresIn,
+      expiresIn: this.config.jwtExpiresIn as jwt.SignOptions['expiresIn'],
       issuer: 'tais-platform',
       audience: 'tais-api'
     });

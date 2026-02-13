@@ -44,7 +44,7 @@ export const createSecurityHeaders = () => {
         objectSrc: ["'none'"],  // Disallow Flash, etc.
         mediaSrc: ["'self'"],
         frameSrc: ["'none'"],   // Disallow iframes
-        upgradeInsecureRequests: isProduction ? [] : undefined,
+        upgradeInsecureRequests: isProduction ? ([] as string[]) : null,
       },
     },
 
@@ -64,19 +64,6 @@ export const createSecurityHeaders = () => {
     // Referrer Policy
     referrerPolicy: {
       policy: 'strict-origin-when-cross-origin'
-    },
-
-    // Permissions Policy (formerly Feature Policy)
-    permissionsPolicy: {
-      features: {
-        camera: [],
-        microphone: [],
-        geolocation: [],
-        payment: [],
-        usb: [],
-        magnetometer: [],
-        gyroscope: []
-      }
     },
 
     // Cross-Origin policies

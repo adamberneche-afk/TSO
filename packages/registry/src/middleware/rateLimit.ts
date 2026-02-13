@@ -1,9 +1,16 @@
 import rateLimit from 'express-rate-limit';
+import { Request } from 'express';
 
 /**
  * Rate Limiting Configuration
  * Squad Beta - HIGH-2: Enhanced rate limiting for different endpoint tiers
  */
+
+// Extended request type with custom properties
+interface RateLimitRequest extends Request {
+  user?: { walletAddress: string };
+  apiKey?: string;
+}
 
 export interface RateLimitConfig {
   windowMs: number;
@@ -11,7 +18,7 @@ export interface RateLimitConfig {
   message?: string;
   standardHeaders?: boolean;
   legacyHeaders?: boolean;
-  keyGenerator?: (req: any) => string;
+  keyGenerator?: (req: RateLimitRequest) => string;
 }
 
 /**
@@ -29,8 +36,7 @@ export const standardLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    // Use authenticated user if available, otherwise IP
-    return req.user?.walletAddress || req.ip || 'anonymous';
+    return (req as RateLimitRequest).user?.walletAddress || req.ip || 'anonymous';
   }
 });
 
@@ -49,7 +55,7 @@ export const strictLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    return req.user?.walletAddress || req.ip || 'anonymous';
+    return (req as RateLimitRequest).user?.walletAddress || req.ip || 'anonymous';
   }
 });
 
@@ -68,7 +74,7 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful logins
-  keyGenerator: (req) => {
+  keyGenerator: (req: RateLimitRequest) => {
     // Always use IP for auth to prevent wallet spoofing
     return req.ip || 'anonymous';
   }
@@ -90,10 +96,11 @@ export const authenticatedLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     // Require authentication
-    if (!req.user?.walletAddress) {
+    const r = req as RateLimitRequest;
+    if (!r.user?.walletAddress) {
       return req.ip || 'anonymous';
     }
-    return req.user.walletAddress;
+    return r.user.walletAddress;
   }
 });
 
@@ -112,7 +119,7 @@ export const apiKeyLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    return req.apiKey || req.ip || 'anonymous';
+    return (req as RateLimitRequest).apiKey || req.ip || 'anonymous';
   }
 });
 
