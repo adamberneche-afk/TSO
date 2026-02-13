@@ -37,13 +37,19 @@ interface ConfigCheckResult {
  * Returns all token IDs owned by the wallet
  */
 export async function verifyNFTOwnership(walletAddress: string): Promise<NFTOwnershipResult> {
+  console.log(`[NFT Verify] Checking ownership for ${walletAddress}`);
+  console.log(`[NFT Verify] Using RPC: ${RPC_URL}`);
+  console.log(`[NFT Verify] Contract: ${GENESIS_CONTRACT}`);
+  
   try {
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const contract = new ethers.Contract(GENESIS_CONTRACT, ERC721_ABI, provider);
     
     // Get balance
+    console.log(`[NFT Verify] Calling balanceOf...`);
     const balance = await contract.balanceOf(walletAddress);
     const tokenCount = Number(balance);
+    console.log(`[NFT Verify] Balance: ${tokenCount}`);
     
     if (tokenCount === 0) {
       return {

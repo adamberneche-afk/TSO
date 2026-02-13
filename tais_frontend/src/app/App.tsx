@@ -50,7 +50,10 @@ export default function App() {
       )}
       {currentView === 'interview' && (
         <>
-          <InterviewWizard onExit={() => setCurrentView('landing')} />
+          <InterviewWizard onExit={() => {
+            resetInterview();
+            setCurrentView('landing');
+          }} />
           <Toaster position="top-right" />
         </>
       )}
