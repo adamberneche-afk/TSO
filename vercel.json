@@ -3,6 +3,7 @@
   "version": 2,
   "name": "tais_frontend",
   "framework": "vite",
+  "rootDirectory": "tais_frontend",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
