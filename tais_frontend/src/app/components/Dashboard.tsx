@@ -16,10 +16,12 @@ import {
   Filter,
   Calendar,
   Zap,
+  Loader2,
 } from 'lucide-react';
 import { AgentConfig } from '../../types/agent';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
+import { configApi } from '../../services/configApi';
 
 interface DashboardProps {
   onBackToLanding: () => void;
@@ -30,39 +32,38 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
   const [agents, setAgents] = useState<SavedAgent[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'archived'>('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load saved agents from localStorage
+    // Load saved agents from backend API
     loadSavedAgents();
   }, []);
 
-  const loadSavedAgents = () => {
-    const savedAgents: SavedAgent[] = [];
+  const loadSavedAgents = async () => {
+    setIsLoading(true);
+    setError(null);
     
-    // Look for saved interview sessions
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith('tais-interview-storage')) {
-        try {
-          const data = JSON.parse(localStorage.getItem(key) || '{}');
-          if (data.state?.config) {
-            savedAgents.push({
-              id: key,
-              config: data.state.config,
-              createdAt: data.state.config.agent.createdAt || new Date().toISOString(),
-              lastModified: data.state.config.agent.updatedAt || new Date().toISOString(),
-              status: 'active',
-            });
-          }
-        } catch (error) {
-          console.error('Error loading agent:', error);
-        }
-      }
+    try {
+      const response = await configApi.getConfigurations();
+      
+      // Transform API response to SavedAgent format
+      const savedAgents: SavedAgent[] = response.configurations.map(config => ({
+        id: config.id,
+        config: config.configData as AgentConfig,
+        createdAt: config.createdAt,
+        lastModified: config.updatedAt,
+        status: config.isActive ? 'active' : 'archived',
+      }));
+      
+      setAgents(savedAgents);
+    } catch (err) {
+      console.error('Failed to load agents:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load configurations');
+      toast.error('Failed to load saved configurations');
+    } finally {
+      setIsLoading(false);
     }
-
-    setAgents(savedAgents.sort((a, b) => 
-      new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
-    ));
   };
 
   const downloadAgent = (agent: SavedAgent) => {
@@ -80,11 +81,15 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
     toast.success(`${agent.config.agent.name} configuration downloaded!`);
   };
 
-  const deleteAgent = (agentId: string) => {
+  const deleteAgent = async (agentId: string) => {
     if (confirm('Are you sure you want to delete this agent? This action cannot be undone.')) {
-      localStorage.removeItem(agentId);
-      setAgents(agents.filter((a) => a.id !== agentId));
-      toast.success('Agent deleted successfully!');
+      try {
+        await configApi.deleteConfiguration(agentId);
+        setAgents(agents.filter((a) => a.id !== agentId));
+        toast.success('Agent deleted successfully!');
+      } catch (err) {
+        toast.error('Failed to delete agent');
+      }
     }
   };
 
