@@ -64,10 +64,13 @@ export function useWallet(): UseWalletReturn {
         throw new Error('MetaMask not installed. Please install MetaMask from https://metamask.io');
       }
 
+      console.log('[Wallet] Starting direct auth flow...');
       console.log('[Wallet] MetaMask detected:', window.ethereum.isMetaMask);
-      console.log('[Wallet] Requesting accounts...');
       
-      // Request accounts with timeout
+      // Step 1: Request accounts from MetaMask (only once!)
+      console.log('[Wallet] Step 1: Requesting accounts from MetaMask...');
+      toast.info('Connecting wallet...', { description: 'Please approve the connection in MetaMask' });
+      
       const accounts = await Promise.race([
         window.ethereum.request({ method: 'eth_requestAccounts' }),
         new Promise((_, reject) => 
@@ -84,34 +87,33 @@ export function useWallet(): UseWalletReturn {
       const walletAddress = accounts[0];
       console.log('[Wallet] Using address:', walletAddress);
       
-      // Create provider
+      // Create provider for signing
       const provider = new BrowserProvider(window.ethereum);
       
-      // Step 1: Get nonce from backend
-      console.log('[Wallet] Getting nonce from backend...');
+      // Step 2: Get nonce from backend
+      console.log('[Wallet] Step 2: Getting nonce from backend...');
       toast.info('Authenticating...', { description: 'Getting authentication nonce' });
       const { nonce, message } = await authApi.getNonce(walletAddress);
       console.log('[Wallet] Nonce received:', nonce);
       
-      // Step 2: Sign the message
-      console.log('[Wallet] Requesting signature...');
+      // Step 3: Sign the message
+      console.log('[Wallet] Step 3: Requesting signature...');
       toast.info('Please sign the message', { description: 'This proves you own the wallet (no gas cost)' });
       const signer = await provider.getSigner();
       console.log('[Wallet] Signer obtained');
       const signature = await signer.signMessage(message);
       console.log('[Wallet] Signature received:', signature.substring(0, 20) + '...');
       
-      // Step 3: Login with signature
-      console.log('[Wallet] Sending login request...');
+      // Step 4: Login with signature
+      console.log('[Wallet] Step 4: Sending login request...');
       toast.info('Verifying...', { description: 'Completing authentication' });
       await authApi.login(walletAddress, signature, nonce);
       console.log('[Wallet] Login successful');
       
-      // Update state
+      // Step 5: Update state and check NFT
       setAddress(walletAddress);
       setIsConnected(true);
       
-      // Check for Genesis NFT
       console.log('[Wallet] Checking Genesis NFT...');
       const hasNFT = await checkGenesisNFT(walletAddress);
       console.log('[Wallet] Genesis NFT check:', hasNFT);

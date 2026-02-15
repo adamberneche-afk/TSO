@@ -193,15 +193,16 @@ export async function saveConfiguration(
     throw new Error(check.error || 'Configuration limit reached');
   }
   
-  // Get ownership info
-  const ownership = await verifyNFTOwnership(walletAddress);
+  // Get ownership info - always verify fresh to ensure isHolder is accurate
+  // The cache might have stale data with isHolder=false even when user has NFTs
+  let ownership = await verifyNFTOwnership(walletAddress);
   
-  if (!ownership.isHolder || ownership.tokenIds.length === 0) {
+  if (!ownership || !ownership.isHolder) {
     throw new Error('No NFTs found for this wallet');
   }
   
-  // Use the first token ID for association
-  const primaryTokenId = ownership.tokenIds[0];
+  // Use first token ID or a placeholder if tokenIds array is empty
+  const primaryTokenId = ownership.tokenIds.length > 0 ? ownership.tokenIds[0] : 'genesis-nft';
   
   // Create configuration
   const config = await prisma.agentConfiguration.create({
