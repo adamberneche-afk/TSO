@@ -32,9 +32,15 @@ export function IdentityStep({
   };
 
   const handleWalletConnect = async () => {
-    await wallet.connect();
-    if (wallet.address) {
-      onWalletConnect(wallet.address);
+    try {
+      console.log('[IdentityStep] Initiating wallet connection...');
+      await wallet.connect();
+      console.log('[IdentityStep] Wallet connect completed, address:', wallet.address);
+      if (wallet.address) {
+        onWalletConnect(wallet.address);
+      }
+    } catch (err) {
+      console.error('[IdentityStep] Wallet connection failed:', err);
     }
   };
 
