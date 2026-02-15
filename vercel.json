@@ -9,6 +9,9 @@
   "installCommand": "npm install",
   "devCommand": "npm run dev",
   "regions": ["iad1"],
+  "github": {
+    "silent": true
+  },
   "env": {
     "VITE_REGISTRY_URL": "https://tso.onrender.com",
     "VITE_RPC_URL": "https://cloudflare-eth.com",
