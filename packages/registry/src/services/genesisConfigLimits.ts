@@ -7,7 +7,17 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const GENESIS_CONTRACT = '0x11B3EfbF04F0bA505F380aC20444B6952970AdA6';
-const RPC_URL = process.env.RPC_URL || 'https://cloudflare-eth.com';
+
+// Multiple RPC providers for redundancy
+const RPC_PROVIDERS = [
+  process.env.RPC_URL,
+  'https://cloudflare-eth.com',
+  'https://rpc.ankr.com/eth',
+  'https://ethereum.publicnode.com'
+].filter(Boolean) as string[];
+
+// Cache expiration time (1 hour)
+const CACHE_TTL_MS = 60 * 60 * 1000;
 
 // ERC721 ABI for balanceOf and tokenOfOwnerByIndex
 const ERC721_ABI = [
@@ -15,6 +25,9 @@ const ERC721_ABI = [
   'function ownerOf(uint256 tokenId) view returns (address)',
   'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
 ];
+
+// Simple in-memory cache
+const nftCache = new Map<string, { result: NFTOwnershipResult; timestamp: number }>();
 
 interface NFTOwnershipResult {
   isHolder: boolean;
@@ -35,57 +48,30 @@ interface ConfigCheckResult {
 /**
  * Verify NFT ownership for a wallet address
  * Returns all token IDs owned by the wallet
+ * Uses multiple RPC providers with fallback
  */
 export async function verifyNFTOwnership(walletAddress: string): Promise<NFTOwnershipResult> {
   console.log(`[NFT Verify] Checking ownership for ${walletAddress}`);
-  console.log(`[NFT Verify] Using RPC: ${RPC_URL}`);
   console.log(`[NFT Verify] Contract: ${GENESIS_CONTRACT}`);
   
+  // Check cache first
+  const cached = await getCachedNFTStatus(walletAddress);
+  if (cached) {
+    console.log(`[NFT Verify] Using cached result: ${cached.tokenCount} NFTs`);
+    return cached;
+  }
+  
+  // Try multiple RPC providers
   try {
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const contract = new ethers.Contract(GENESIS_CONTRACT, ERC721_ABI, provider);
-    
-    // Get balance
-    console.log(`[NFT Verify] Calling balanceOf...`);
-    const balance = await contract.balanceOf(walletAddress);
-    const tokenCount = Number(balance);
-    console.log(`[NFT Verify] Balance: ${tokenCount}`);
-    
-    if (tokenCount === 0) {
-      return {
-        isHolder: false,
-        tokenCount: 0,
-        tokenIds: []
-      };
-    }
-    
-    // Get all token IDs
-    const tokenIds: string[] = [];
-    for (let i = 0; i < tokenCount; i++) {
-      try {
-        const tokenId = await contract.tokenOfOwnerByIndex(walletAddress, i);
-        tokenIds.push(tokenId.toString());
-      } catch (err) {
-        console.warn(`Failed to get token at index ${i}:`, err);
-      }
-    }
-    
-    return {
-      isHolder: true,
-      tokenCount,
-      tokenIds
-    };
-    
+    return await verifyWithFallbackRPC(walletAddress);
   } catch (error) {
-    console.error('NFT verification error:', error);
-    // CRITICAL FIX: When RPC fails, allow saves but limit to 1 config
-    // This prevents blocking legitimate users during network issues
-    console.log('[NFT Verify] RPC failed, allowing limited access (1 config)');
+    console.error('[NFT Verify] All RPC providers failed:', error);
+    
     return {
-      isHolder: true,  // Allow saves
-      tokenCount: 1,   // Grant 1 config slot (2 saves)
-      tokenIds: ['rpc-fallback'],
-      error: error instanceof Error ? error.message : 'Unknown error'
+      isHolder: false,
+      tokenCount: 0,
+      tokenIds: [],
+      error: 'Unable to verify NFT ownership. Please try again later.'
     };
   }
 }
@@ -98,12 +84,20 @@ export async function verifyTokenOwnership(
   tokenId: string
 ): Promise<boolean> {
   try {
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const contract = new ethers.Contract(GENESIS_CONTRACT, ERC721_ABI, provider);
-    
-    const owner = await contract.ownerOf(tokenId);
-    return owner.toLowerCase() === walletAddress.toLowerCase();
-    
+    // Try each RPC provider
+    for (const rpcUrl of RPC_PROVIDERS) {
+      try {
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const contract = new ethers.Contract(GENESIS_CONTRACT, ERC721_ABI, provider);
+        
+        const owner = await contract.ownerOf(tokenId);
+        return owner.toLowerCase() === walletAddress.toLowerCase();
+      } catch (err) {
+        console.warn(`[NFT Verify] RPC ${rpcUrl} failed for token check, trying next...`);
+        continue;
+      }
+    }
+    return false;
   } catch (error) {
     console.error('Token ownership verification error:', error);
     return false;
@@ -302,3 +296,96 @@ export async function deleteConfiguration(
 
 export { GENESIS_CONTRACT };
 export type { NFTOwnershipResult, ConfigCheckResult };
+
+/**
+ * Cache NFT verification result
+ */
+async function cacheNFTResult(walletAddress: string, result: NFTOwnershipResult): Promise<void> {
+  const cacheKey = walletAddress.toLowerCase();
+  nftCache.set(cacheKey, {
+    result,
+    timestamp: Date.now()
+  });
+  console.log(`[NFT Cache] Cached result for ${walletAddress}`);
+}
+
+/**
+ * Get cached NFT status if not expired
+ */
+async function getCachedNFTStatus(walletAddress: string): Promise<NFTOwnershipResult | null> {
+  const cacheKey = walletAddress.toLowerCase();
+  const cached = nftCache.get(cacheKey);
+  
+  if (!cached) return null;
+  
+  // Check if cache is expired
+  if (Date.now() - cached.timestamp > CACHE_TTL_MS) {
+    console.log(`[NFT Cache] Cache expired for ${walletAddress}`);
+    nftCache.delete(cacheKey);
+    return null;
+  }
+  
+  console.log(`[NFT Cache] Using cached result for ${walletAddress}`);
+  return cached.result;
+}
+
+/**
+ * Clear NFT cache for a wallet
+ */
+export function clearNFTCache(walletAddress: string): void {
+  const cacheKey = walletAddress.toLowerCase();
+  nftCache.delete(cacheKey);
+  console.log(`[NFT Cache] Cleared cache for ${walletAddress}`);
+}
+
+/**
+ * Verify NFT ownership with multiple RPC fallback
+ */
+async function verifyWithFallbackRPC(walletAddress: string): Promise<NFTOwnershipResult> {
+  let lastError: Error | null = null;
+  
+  for (const rpcUrl of RPC_PROVIDERS) {
+    try {
+      console.log(`[NFT Verify] Trying RPC: ${rpcUrl}`);
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      
+      // Test connection with a simple call
+      await provider.getBlockNumber();
+      
+      const contract = new ethers.Contract(GENESIS_CONTRACT, ERC721_ABI, provider);
+      const balance = await contract.balanceOf(walletAddress);
+      const tokenCount = Number(balance);
+      
+      console.log(`[NFT Verify] Success with ${rpcUrl}, balance: ${tokenCount}`);
+      
+      if (tokenCount === 0) {
+        const result = { isHolder: false, tokenCount: 0, tokenIds: [] };
+        await cacheNFTResult(walletAddress, result);
+        return result;
+      }
+      
+      // Get token IDs
+      const tokenIds: string[] = [];
+      for (let i = 0; i < tokenCount; i++) {
+        try {
+          const tokenId = await contract.tokenOfOwnerByIndex(walletAddress, i);
+          tokenIds.push(tokenId.toString());
+        } catch (err) {
+          console.warn(`[NFT Verify] Failed to get token at index ${i}:`, err);
+        }
+      }
+      
+      const result = { isHolder: true, tokenCount, tokenIds };
+      await cacheNFTResult(walletAddress, result);
+      return result;
+      
+    } catch (error) {
+      console.error(`[NFT Verify] RPC ${rpcUrl} failed:`, error);
+      lastError = error as Error;
+      // Continue to next provider
+    }
+  }
+  
+  // All RPCs failed
+  throw lastError || new Error('All RPC providers failed');
+}
