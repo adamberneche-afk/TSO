@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { BrowserProvider, Contract } from 'ethers';
 import registryClient from '../lib/registry-client';
+import { authApi } from '../services/authApi';
+import { toast } from 'sonner';
 
 interface UseWalletReturn {
   address: string | null;
@@ -66,6 +68,21 @@ export function useWallet(): UseWalletReturn {
       
       if (accounts.length > 0) {
         const walletAddress = accounts[0];
+        
+        // Step 1: Get nonce from backend
+        toast.info('Authenticating...', { description: 'Getting authentication nonce' });
+        const { nonce, message } = await authApi.getNonce(walletAddress);
+        
+        // Step 2: Sign the message
+        toast.info('Please sign the message', { description: 'This proves you own the wallet' });
+        const signer = await provider.getSigner();
+        const signature = await signer.signMessage(message);
+        
+        // Step 3: Login with signature
+        toast.info('Verifying...', { description: 'Completing authentication' });
+        await authApi.login(walletAddress, signature, nonce);
+        
+        // Update state
         setAddress(walletAddress);
         setIsConnected(true);
         
@@ -74,11 +91,16 @@ export function useWallet(): UseWalletReturn {
         
         // Set wallet for registry API
         registryClient.setWalletAddress(walletAddress);
+        
+        toast.success('Wallet connected!', { 
+          description: hasGenesisNFT ? 'Genesis NFT holder verified' : 'Standard wallet connected' 
+        });
       }
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to connect wallet';
       setError(errorMessage);
       console.error('Wallet connection error:', err);
+      toast.error('Connection failed', { description: errorMessage });
     } finally {
       setIsConnecting(false);
     }
@@ -90,6 +112,8 @@ export function useWallet(): UseWalletReturn {
     setHasGenesisNFT(false);
     setError(null);
     registryClient.setWalletAddress('');
+    authApi.logout();
+    toast.info('Wallet disconnected');
   };
 
   // Listen for account changes

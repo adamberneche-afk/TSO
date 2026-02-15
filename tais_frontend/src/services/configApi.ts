@@ -1,6 +1,8 @@
 // tais_frontend/src/services/configApi.ts
 // API client for agent configuration persistence
 
+import { authApi } from './authApi';
+
 const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'http://localhost:3000';
 
 interface ConfigStatus {
@@ -44,16 +46,9 @@ interface NFTVerificationResult {
 
 class ConfigAPI {
   private baseUrl: string;
-  private token: string | null = null;
 
   constructor() {
     this.baseUrl = `${API_BASE_URL}/api/v1/configurations`;
-    this.token = localStorage.getItem('auth_token');
-  }
-
-  setToken(token: string) {
-    this.token = token;
-    localStorage.setItem('auth_token', token);
   }
 
   private getHeaders(): HeadersInit {
@@ -61,8 +56,9 @@ class ConfigAPI {
       'Content-Type': 'application/json',
     };
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    const token = authApi.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     return headers;
@@ -79,8 +75,7 @@ class ConfigAPI {
 
     if (response.status === 401) {
       // Token expired or invalid
-      localStorage.removeItem('auth_token');
-      this.token = null;
+      authApi.logout();
       throw new Error('Authentication required. Please connect your wallet.');
     }
 
