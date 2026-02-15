@@ -88,8 +88,8 @@ export class AuthService {
       // Normalize address
       const normalizedAddress = walletAddress.toLowerCase();
 
-      // Create message to verify (includes nonce for replay protection)
-      const message = `${this.config.signatureMessage}\n\nNonce: ${nonce}\nTimestamp: ${Date.now()}`;
+      // Create message to verify (must match format in nonce endpoint)
+      const message = `${this.config.signatureMessage}\n\nNonce: ${nonce}`;
 
       // Recover address from signature
       const recoveredAddress = ethers.verifyMessage(message, signature);

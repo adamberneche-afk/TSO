@@ -34,8 +34,8 @@ router.post('/nonce', async (req: Request, res: Response) => {
     const nonce = authService.generateNonce();
     await authService.storeNonce(walletAddress, nonce);
     
-    // Return message to sign
-    const message = `${process.env.AUTH_SIGNATURE_MESSAGE || 'TAIS Platform Authentication'}\n\nNonce: ${nonce}\nTimestamp: ${Date.now()}`;
+    // Return message to sign (must match format in verifySignature)
+    const message = `${process.env.AUTH_SIGNATURE_MESSAGE || 'TAIS Platform Authentication'}\n\nNonce: ${nonce}`;
     
     res.json({
       nonce,
