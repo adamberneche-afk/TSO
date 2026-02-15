@@ -59,21 +59,33 @@ export function useWallet(): UseWalletReturn {
     setError(null);
 
     try {
-      if (!window.ethereum) {
-        throw new Error('MetaMask not installed. Please install MetaMask to connect your wallet.');
+      // Check for MetaMask
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error('MetaMask not installed. Please install MetaMask from https://metamask.io');
       }
 
-      console.log('[Wallet] Requesting accounts from MetaMask...');
-      const provider = new BrowserProvider(window.ethereum);
-      const accounts = await provider.send('eth_requestAccounts', []);
+      console.log('[Wallet] MetaMask detected:', window.ethereum.isMetaMask);
+      console.log('[Wallet] Requesting accounts...');
+      
+      // Request accounts with timeout
+      const accounts = await Promise.race([
+        window.ethereum.request({ method: 'eth_requestAccounts' }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout - MetaMask did not respond')), 30000)
+        )
+      ]) as string[];
+      
       console.log('[Wallet] Accounts received:', accounts);
       
-      if (accounts.length === 0) {
+      if (!accounts || accounts.length === 0) {
         throw new Error('No accounts selected. Please select an account in MetaMask.');
       }
 
       const walletAddress = accounts[0];
-      console.log('[Wallet] Selected address:', walletAddress);
+      console.log('[Wallet] Using address:', walletAddress);
+      
+      // Create provider
+      const provider = new BrowserProvider(window.ethereum);
       
       // Step 1: Get nonce from backend
       console.log('[Wallet] Getting nonce from backend...');
