@@ -78,10 +78,13 @@ export async function verifyNFTOwnership(walletAddress: string): Promise<NFTOwne
     
   } catch (error) {
     console.error('NFT verification error:', error);
+    // CRITICAL FIX: When RPC fails, allow saves but limit to 1 config
+    // This prevents blocking legitimate users during network issues
+    console.log('[NFT Verify] RPC failed, allowing limited access (1 config)');
     return {
-      isHolder: false,
-      tokenCount: 0,
-      tokenIds: [],
+      isHolder: true,  // Allow saves
+      tokenCount: 1,   // Grant 1 config slot (2 saves)
+      tokenIds: ['rpc-fallback'],
       error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
