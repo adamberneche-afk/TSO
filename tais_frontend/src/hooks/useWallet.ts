@@ -63,44 +63,63 @@ export function useWallet(): UseWalletReturn {
         throw new Error('MetaMask not installed. Please install MetaMask to connect your wallet.');
       }
 
+      console.log('[Wallet] Requesting accounts from MetaMask...');
       const provider = new BrowserProvider(window.ethereum);
       const accounts = await provider.send('eth_requestAccounts', []);
+      console.log('[Wallet] Accounts received:', accounts);
       
-      if (accounts.length > 0) {
-        const walletAddress = accounts[0];
-        
-        // Step 1: Get nonce from backend
-        toast.info('Authenticating...', { description: 'Getting authentication nonce' });
-        const { nonce, message } = await authApi.getNonce(walletAddress);
-        
-        // Step 2: Sign the message
-        toast.info('Please sign the message', { description: 'This proves you own the wallet' });
-        const signer = await provider.getSigner();
-        const signature = await signer.signMessage(message);
-        
-        // Step 3: Login with signature
-        toast.info('Verifying...', { description: 'Completing authentication' });
-        await authApi.login(walletAddress, signature, nonce);
-        
-        // Update state
-        setAddress(walletAddress);
-        setIsConnected(true);
-        
-        // Check for Genesis NFT
-        await checkGenesisNFT(walletAddress);
-        
-        // Set wallet for registry API
-        registryClient.setWalletAddress(walletAddress);
-        
-        toast.success('Wallet connected!', { 
-          description: hasGenesisNFT ? 'Genesis NFT holder verified' : 'Standard wallet connected' 
-        });
+      if (accounts.length === 0) {
+        throw new Error('No accounts selected. Please select an account in MetaMask.');
       }
+
+      const walletAddress = accounts[0];
+      console.log('[Wallet] Selected address:', walletAddress);
+      
+      // Step 1: Get nonce from backend
+      console.log('[Wallet] Getting nonce from backend...');
+      toast.info('Authenticating...', { description: 'Getting authentication nonce' });
+      const { nonce, message } = await authApi.getNonce(walletAddress);
+      console.log('[Wallet] Nonce received:', nonce);
+      
+      // Step 2: Sign the message
+      console.log('[Wallet] Requesting signature...');
+      toast.info('Please sign the message', { description: 'This proves you own the wallet (no gas cost)' });
+      const signer = await provider.getSigner();
+      console.log('[Wallet] Signer obtained');
+      const signature = await signer.signMessage(message);
+      console.log('[Wallet] Signature received:', signature.substring(0, 20) + '...');
+      
+      // Step 3: Login with signature
+      console.log('[Wallet] Sending login request...');
+      toast.info('Verifying...', { description: 'Completing authentication' });
+      await authApi.login(walletAddress, signature, nonce);
+      console.log('[Wallet] Login successful');
+      
+      // Update state
+      setAddress(walletAddress);
+      setIsConnected(true);
+      
+      // Check for Genesis NFT
+      console.log('[Wallet] Checking Genesis NFT...');
+      const hasNFT = await checkGenesisNFT(walletAddress);
+      console.log('[Wallet] Genesis NFT check:', hasNFT);
+      
+      // Set wallet for registry API
+      registryClient.setWalletAddress(walletAddress);
+      
+      toast.success('Wallet connected!', { 
+        description: hasNFT ? 'Genesis NFT holder verified' : 'Standard wallet connected' 
+      });
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to connect wallet';
       setError(errorMessage);
-      console.error('Wallet connection error:', err);
+      console.error('[Wallet] Connection error:', err);
       toast.error('Connection failed', { description: errorMessage });
+      
+      // Reset state on error
+      setAddress(null);
+      setIsConnected(false);
+      authApi.logout();
     } finally {
       setIsConnecting(false);
     }
@@ -123,11 +142,10 @@ export function useWallet(): UseWalletReturn {
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length === 0) {
         disconnect();
-      } else {
-        const newAddress = accounts[0];
-        setAddress(newAddress);
-        checkGenesisNFT(newAddress);
-        registryClient.setWalletAddress(newAddress);
+      } else if (accounts[0] !== address) {
+        // Account changed, require re-authentication
+        disconnect();
+        toast.info('Account changed', { description: 'Please reconnect with your new account' });
       }
     };
 
@@ -139,23 +157,13 @@ export function useWallet(): UseWalletReturn {
     window.ethereum.on('accountsChanged', handleAccountsChanged);
     window.ethereum.on('chainChanged', handleChainChanged);
 
-    // Check if already connected
-    window.ethereum.request({ method: 'eth_accounts' }).then((accounts: string[]) => {
-      if (accounts.length > 0) {
-        setAddress(accounts[0]);
-        setIsConnected(true);
-        checkGenesisNFT(accounts[0]);
-        registryClient.setWalletAddress(accounts[0]);
-      }
-    });
-
     return () => {
       if (window.ethereum) {
         window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
         window.ethereum.removeListener('chainChanged', handleChainChanged);
       }
     };
-  }, []);
+  }, [address]);
 
   return {
     address,
