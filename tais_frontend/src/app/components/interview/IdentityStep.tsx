@@ -8,6 +8,7 @@ import { Card } from '../ui/card';
 import { Wallet, Check, AlertCircle } from 'lucide-react';
 import { useWallet } from '../../../hooks/useWallet';
 import { validateAgentName } from '../../../lib/interview-config';
+import { connectMetaMask } from '../../../lib/wallet-simple';
 
 interface IdentityStepProps {
   name: string;
@@ -33,14 +34,23 @@ export function IdentityStep({
 
   const handleWalletConnect = async () => {
     try {
-      console.log('[IdentityStep] Initiating wallet connection...');
+      console.log('[IdentityStep] Testing simple MetaMask connection...');
+      
+      // First, try simple connection to diagnose
+      const { address } = await connectMetaMask();
+      console.log('[IdentityStep] Simple connection succeeded:', address);
+      
+      // Then use the full auth flow
+      console.log('[IdentityStep] Now running full auth flow...');
       await wallet.connect();
-      console.log('[IdentityStep] Wallet connect completed, address:', wallet.address);
+      
       if (wallet.address) {
         onWalletConnect(wallet.address);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[IdentityStep] Wallet connection failed:', err);
+      // Show error to user
+      alert('Connection failed: ' + err.message);
     }
   };
 
