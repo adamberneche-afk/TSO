@@ -10,34 +10,31 @@ export async function connectMetaMask(): Promise<{ address: string; provider: an
     throw new Error('Must be in browser to connect wallet');
   }
 
-  console.log('[Wallet-Simple] Window exists');
-  console.log('[Wallet-Simple] window.ethereum:', (window as any).ethereum);
-
-  // Try to find MetaMask specifically
-  const ethereum = (window as any).ethereum;
+  // Check for multiple wallet providers (EIP-6963)
+  const providers = (window as any).ethereum?.providers;
   
-  if (!ethereum) {
-    console.error('[Wallet-Simple] No ethereum object found');
-    throw new Error('No wallet detected. Please install MetaMask from https://metamask.io');
+  let metaMaskProvider = null;
+  
+  if (providers && Array.isArray(providers)) {
+    // Multiple wallets installed, find MetaMask specifically
+    console.log('[Wallet-Simple] Multiple providers detected:', providers.length);
+    metaMaskProvider = providers.find((p: any) => p.isMetaMask && !p.isMagicEden && !p.isEternl);
+  } else if ((window as any).ethereum?.isMetaMask) {
+    // Single provider that is MetaMask
+    metaMaskProvider = (window as any).ethereum;
+  }
+  
+  if (!metaMaskProvider) {
+    console.error('[Wallet-Simple] MetaMask not found among providers');
+    throw new Error('MetaMask not detected. Please install MetaMask or temporarily disable other wallet extensions (Magic Eden, Eternl, etc.)');
   }
 
-  console.log('[Wallet-Simple] Ethereum object found:', ethereum);
-  console.log('[Wallet-Simple] isMetaMask:', ethereum.isMetaMask);
-  console.log('[Wallet-Simple] isEternl:', ethereum.isEternl);
-
-  // Check if it's actually MetaMask
-  const isMetaMask = ethereum.isMetaMask === true;
-  
-  if (!isMetaMask) {
-    console.error('[Wallet-Simple] Not MetaMask:', ethereum);
-    throw new Error('MetaMask not detected. Please make sure MetaMask is installed and unlocked.');
-  }
-
-  console.log('[Wallet-Simple] MetaMask confirmed, requesting accounts...');
+  console.log('[Wallet-Simple] MetaMask provider found');
 
   try {
-    // Request accounts
-    const accounts = await ethereum.request({ 
+    // Request accounts specifically from MetaMask
+    console.log('[Wallet-Simple] Requesting accounts from MetaMask...');
+    const accounts = await metaMaskProvider.request({ 
       method: 'eth_requestAccounts'
     });
 
@@ -51,12 +48,12 @@ export async function connectMetaMask(): Promise<{ address: string; provider: an
 
     return {
       address: accounts[0],
-      provider: ethereum
+      provider: metaMaskProvider
     };
   } catch (error: any) {
     console.error('[Wallet-Simple] Connection error:', error);
     if (error.code === 4001) {
-      throw new Error('You rejected the connection request in MetaMask');
+      throw new Error('You rejected the connection request. Please approve the connection in MetaMask (not other wallets).');
     }
     throw new Error(error.message || 'Failed to connect to MetaMask');
   }
