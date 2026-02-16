@@ -45,27 +45,51 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
   const [error, setError] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<SavedAgent | null>(null);
   const [walletMismatch, setWalletMismatch] = useState<boolean>(false);
-  const { address: currentWallet, isConnected } = useWallet();
+  const [needsReAuth, setNeedsReAuth] = useState<boolean>(false);
+  const { address: currentWallet, isConnected, connect } = useWallet();
 
   useEffect(() => {
     // Load saved agents from backend API
     loadSavedAgents();
   }, [currentWallet]); // Reload when wallet changes
 
-  const handleReconnect = () => {
+  const handleReconnect = async () => {
     authApi.logout();
-    window.location.reload();
+    setNeedsReAuth(true);
+    
+    try {
+      // Trigger wallet connection flow which will ask for signature
+      await connect();
+      // After successful connection, reload agents
+      loadSavedAgents();
+    } catch (error) {
+      console.error('Reconnection failed:', error);
+      toast.error('Authentication failed', {
+        description: 'Please try connecting your wallet again'
+      });
+    }
   };
 
   const loadSavedAgents = async () => {
     setIsLoading(true);
     setError(null);
     setWalletMismatch(false);
+    setNeedsReAuth(false);
+    
+    // Check if we have a token at all
+    const token = authApi.getToken();
+    if (!token) {
+      console.warn('[Dashboard] No auth token');
+      setNeedsReAuth(true);
+      setIsLoading(false);
+      return;
+    }
     
     // Verify wallet matches JWT before loading
     if (currentWallet && !authApi.isWalletMatch(currentWallet)) {
       console.warn('[Dashboard] Wallet mismatch detected');
       setWalletMismatch(true);
+      setNeedsReAuth(true);
       setIsLoading(false);
       return;
     }
@@ -83,10 +107,17 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
       }));
       
       setAgents(savedAgents);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load agents:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load configurations');
-      toast.error('Failed to load saved configurations');
+      
+      // Check if it's an auth error
+      if (err.message?.includes('Authentication required') || err.message?.includes('401')) {
+        setNeedsReAuth(true);
+        setWalletMismatch(true);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to load configurations');
+        toast.error('Failed to load saved configurations');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -161,37 +192,42 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-12">
-        {/* Wallet Mismatch Warning */}
-        {walletMismatch && (
+        {/* Wallet Mismatch / Re-Authentication Warning */}
+        {(walletMismatch || needsReAuth) && (
           <div className="mb-6 bg-[#F59E0B]/10 border border-[#F59E0B] rounded-lg p-4">
             <div className="flex items-start gap-3">
               <div className="p-2 bg-[#F59E0B]/20 rounded-lg">
                 <AlertTriangle className="w-5 h-5 text-[#F59E0B]" />
               </div>
               <div className="flex-1">
-                <h4 className="text-sm font-medium text-white mb-1">Wallet Mismatch Detected</h4>
+                <h4 className="text-sm font-medium text-white mb-1">
+                  {walletMismatch ? 'Wallet Changed - Re-Authentication Required' : 'Authentication Required'}
+                </h4>
                 <p className="text-sm text-[#888888] mb-3">
-                  Your connected wallet doesn't match the authenticated wallet. 
-                  This can happen when you switch accounts in MetaMask.
+                  {walletMismatch 
+                    ? 'You\'ve switched to a different wallet. Please sign a message to authenticate this wallet and view your saved agents.'
+                    : 'Please connect and authenticate your wallet to view saved agents.'}
                 </p>
-                <div className="flex items-center gap-4 text-xs mb-3">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="w-3 h-3 text-[#F59E0B]" />
-                    <span className="text-[#888888]">Connected:</span>
-                    <span className="text-white font-mono">{currentWallet?.slice(0, 6)}...{currentWallet?.slice(-4)}</span>
+                {walletMismatch && (
+                  <div className="flex items-center gap-4 text-xs mb-3 bg-[#1a1a1a] p-2 rounded">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="w-3 h-3 text-[#F59E0B]" />
+                      <span className="text-[#888888]">Connected:</span>
+                      <span className="text-white font-mono">{currentWallet?.slice(0, 6)}...{currentWallet?.slice(-4)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[#888888]">Previously:</span>
+                      <span className="text-[#666666] font-mono">{authApi.getWalletFromToken()?.slice(0, 6)}...{authApi.getWalletFromToken()?.slice(-4)}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[#888888]">Authenticated:</span>
-                    <span className="text-white font-mono">{authApi.getWalletFromToken()?.slice(0, 6)}...{authApi.getWalletFromToken()?.slice(-4)}</span>
-                  </div>
-                </div>
+                )}
                 <Button
                   onClick={handleReconnect}
                   className="bg-[#F59E0B] hover:bg-[#D97706] text-white"
                   size="sm"
                 >
                   <Wallet className="w-4 h-4 mr-2" />
-                  Reconnect with Current Wallet
+                  {isConnected ? 'Sign to Authenticate' : 'Connect & Authenticate Wallet'}
                 </Button>
               </div>
             </div>
