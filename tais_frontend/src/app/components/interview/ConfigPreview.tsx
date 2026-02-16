@@ -21,7 +21,6 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [canSave, setCanSave] = useState(false);
-  const [showSummary, setShowSummary] = useState(true);
   const [saveStatus, setSaveStatus] = useState<{
     allowed: boolean;
     currentCount: number;
@@ -183,77 +182,98 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
         </div>
       </div>
 
-      <div className="border border-[#333333] rounded-lg overflow-hidden">
-        <Editor
-          height="500px"
-          defaultLanguage="json"
-          value={configJSON}
-          onChange={handleEditorChange}
-          theme="vs-dark"
-          options={{
-            readOnly: !isEditing,
-            minimap: { enabled: false },
-            fontSize: 14,
-            fontFamily: 'JetBrains Mono, monospace',
-            lineNumbers: 'on',
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            tabSize: 2,
-            wordWrap: 'on',
-          }}
-        />
-      </div>
-
-      {/* Natural Language Summary */}
-      <div className="bg-[#1a1a1a] border border-[#333333] rounded-lg overflow-hidden">
-        <div 
-          className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#252525] transition-colors"
-          onClick={() => setShowSummary(!showSummary)}
-        >
-          <div className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-[#3B82F6]" />
-            <h4 className="text-sm font-medium text-white">Configuration Summary</h4>
+      {/* Side-by-Side Layout: JSON + Natural Language */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Left: JSON Editor */}
+        <div className="border border-[#333333] rounded-lg overflow-hidden flex flex-col">
+          <div className="bg-[#252525] px-4 py-2 border-b border-[#333333] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#10B981]"></div>
+              <span className="text-xs text-[#888888] uppercase tracking-wider">JSON Configuration</span>
+            </div>
+            <span className="text-xs text-[#666666]">Technical View</span>
           </div>
-          <span className="text-xs text-[#888888]">
-            {showSummary ? 'Click to collapse' : 'Click to expand'}
-          </span>
+          <div className="flex-1">
+            <Editor
+              height="500px"
+              defaultLanguage="json"
+              value={configJSON}
+              onChange={handleEditorChange}
+              theme="vs-dark"
+              options={{
+                readOnly: !isEditing,
+                minimap: { enabled: false },
+                fontSize: 13,
+                fontFamily: 'JetBrains Mono, monospace',
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                tabSize: 2,
+                wordWrap: 'on',
+              }}
+            />
+          </div>
+          <div className="bg-[#1a1a1a] px-4 py-2 border-t border-[#333333]">
+            <p className="text-xs text-[#666666]">
+              💡 Tip: Compare this JSON with the natural language description on the right to learn the structure.
+            </p>
+          </div>
         </div>
-        
-        {showSummary && (
-          <div className="p-4 pt-0 border-t border-[#333333]">
+
+        {/* Right: Natural Language Summary */}
+        <div className="border border-[#333333] rounded-lg overflow-hidden flex flex-col bg-[#1a1a1a]">
+          <div className="bg-[#252525] px-4 py-2 border-b border-[#333333] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-[#3B82F6]" />
+              <span className="text-xs text-[#888888] uppercase tracking-wider">Natural Language</span>
+            </div>
+            <span className="text-xs text-[#666666]">Human-Readable View</span>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {/* Natural Language Description */}
-            <div className="mb-4 p-3 bg-[#252525] rounded-lg">
+            <div className="p-4 bg-[#252525] rounded-lg border-l-4 border-[#3B82F6]">
+              <h5 className="text-xs text-[#3B82F6] uppercase tracking-wider mb-2">Overview</h5>
               <p className="text-sm text-[#e0e0e0] leading-relaxed whitespace-pre-line">
                 {naturalSummary}
               </p>
             </div>
             
             {/* Quick Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {bulletSummary.slice(0, 4).map((item, index) => (
-                <div key={index} className="bg-[#252525] rounded p-2">
-                  <dt className="text-xs text-[#888888] mb-1">{item.label}</dt>
-                  <dd className="text-sm text-white font-medium truncate">{item.value}</dd>
-                </div>
-              ))}
+            <div>
+              <h5 className="text-xs text-[#888888] uppercase tracking-wider mb-2">Quick Stats</h5>
+              <div className="grid grid-cols-2 gap-2">
+                {bulletSummary.slice(0, 4).map((item, index) => (
+                  <div key={index} className="bg-[#252525] rounded p-3 border border-[#333333]">
+                    <dt className="text-xs text-[#888888] mb-1">{item.label}</dt>
+                    <dd className="text-sm text-white font-medium truncate">{item.value}</dd>
+                  </div>
+                ))}
+              </div>
             </div>
             
             {/* Detailed Breakdown */}
-            <details className="mt-4">
-              <summary className="text-sm text-[#888888] cursor-pointer hover:text-white transition-colors">
-                View detailed breakdown
-              </summary>
-              <dl className="mt-3 space-y-2 text-sm">
+            <div className="bg-[#252525] rounded-lg border border-[#333333]">
+              <h5 className="text-xs text-[#888888] uppercase tracking-wider px-3 py-2 border-b border-[#333333]">
+                Detailed Breakdown
+              </h5>
+              <dl className="divide-y divide-[#333333]">
                 {bulletSummary.map((item, index) => (
-                  <div key={index} className="flex justify-between py-1 border-b border-[#333333] last:border-0">
+                  <div key={index} className="flex justify-between px-3 py-2 text-sm">
                     <dt className="text-[#888888]">{item.label}</dt>
-                    <dd className="text-white font-medium">{item.value}</dd>
+                    <dd className="text-white font-medium text-right">{item.value}</dd>
                   </div>
                 ))}
               </dl>
-            </details>
+            </div>
           </div>
-        )}
+          
+          <div className="bg-[#1a1a1a] px-4 py-2 border-t border-[#333333]">
+            <p className="text-xs text-[#666666]">
+              📝 This description is generated from the JSON configuration on the left.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Genesis Holder Info */}
