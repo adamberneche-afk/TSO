@@ -21,11 +21,15 @@ import {
   X,
   FileText,
   Eye,
+  AlertTriangle,
+  Wallet,
 } from 'lucide-react';
 import { AgentConfig } from '../../types/agent';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { configApi } from '../../services/configApi';
+import { authApi } from '../../services/authApi';
+import { useWallet } from '../../hooks/useWallet';
 import { generateConfigSummary, generateBulletSummary } from '../../lib/config-summary';
 
 interface DashboardProps {
@@ -40,15 +44,31 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<SavedAgent | null>(null);
+  const [walletMismatch, setWalletMismatch] = useState<boolean>(false);
+  const { address: currentWallet, isConnected } = useWallet();
 
   useEffect(() => {
     // Load saved agents from backend API
     loadSavedAgents();
-  }, []);
+  }, [currentWallet]); // Reload when wallet changes
+
+  const handleReconnect = () => {
+    authApi.logout();
+    window.location.reload();
+  };
 
   const loadSavedAgents = async () => {
     setIsLoading(true);
     setError(null);
+    setWalletMismatch(false);
+    
+    // Verify wallet matches JWT before loading
+    if (currentWallet && !authApi.isWalletMatch(currentWallet)) {
+      console.warn('[Dashboard] Wallet mismatch detected');
+      setWalletMismatch(true);
+      setIsLoading(false);
+      return;
+    }
     
     try {
       const response = await configApi.getConfigurations();
@@ -141,6 +161,42 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-12">
+        {/* Wallet Mismatch Warning */}
+        {walletMismatch && (
+          <div className="mb-6 bg-[#F59E0B]/10 border border-[#F59E0B] rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-[#F59E0B]/20 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-[#F59E0B]" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-medium text-white mb-1">Wallet Mismatch Detected</h4>
+                <p className="text-sm text-[#888888] mb-3">
+                  Your connected wallet doesn't match the authenticated wallet. 
+                  This can happen when you switch accounts in MetaMask.
+                </p>
+                <div className="flex items-center gap-4 text-xs mb-3">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-3 h-3 text-[#F59E0B]" />
+                    <span className="text-[#888888]">Connected:</span>
+                    <span className="text-white font-mono">{currentWallet?.slice(0, 6)}...{currentWallet?.slice(-4)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#888888]">Authenticated:</span>
+                    <span className="text-white font-mono">{authApi.getWalletFromToken()?.slice(0, 6)}...{authApi.getWalletFromToken()?.slice(-4)}</span>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleReconnect}
+                  className="bg-[#F59E0B] hover:bg-[#D97706] text-white"
+                  size="sm"
+                >
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Reconnect with Current Wallet
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatCard

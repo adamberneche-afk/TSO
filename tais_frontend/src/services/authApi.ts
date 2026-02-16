@@ -80,6 +80,36 @@ class AuthAPI {
   logout(): void {
     localStorage.removeItem('auth_token');
   }
+
+  /**
+   * Verify token and get wallet address
+   * Returns null if token is invalid
+   */
+  getWalletFromToken(): string | null {
+    const token = this.getToken();
+    if (!token) return null;
+    
+    try {
+      // JWT structure: header.payload.signature
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+      
+      // Decode payload (base64)
+      const payload = JSON.parse(atob(parts[1]));
+      return payload.walletAddress || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Check if current wallet matches JWT
+   */
+  isWalletMatch(currentWallet: string): boolean {
+    const tokenWallet = this.getWalletFromToken();
+    if (!tokenWallet) return false;
+    return tokenWallet.toLowerCase() === currentWallet.toLowerCase();
+  }
 }
 
 export const authApi = new AuthAPI();
