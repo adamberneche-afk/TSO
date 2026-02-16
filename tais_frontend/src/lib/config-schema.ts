@@ -40,7 +40,7 @@ export const OwnerSchema = z.object({
   email: z.string().email().optional(),
 });
 
-// Complete agent configuration
+// Complete agent configuration (anonymous - no wallet info)
 export const AgentConfigSchema = z.object({
   agent: z.object({
     name: z.string().min(1).max(50).regex(/^[a-zA-Z0-9-_]+$/),
@@ -51,10 +51,19 @@ export const AgentConfigSchema = z.object({
     personality: PersonalitySchema,
     autonomy: AutonomySchema,
     constraints: ConstraintsSchema,
-    owner: OwnerSchema.optional(),
     createdAt: z.string().datetime().optional(),
     updatedAt: z.string().datetime().optional(),
   }),
+});
+
+// Ownership metadata (stored separately for privacy)
+export const ConfigOwnershipSchema = z.object({
+  agentId: z.string().uuid(),
+  walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  signature: z.string(),
+  tier: z.enum(['free', 'bronze', 'silver', 'gold']),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
 });
 
 export type AgentConfigType = z.infer<typeof AgentConfigSchema>;

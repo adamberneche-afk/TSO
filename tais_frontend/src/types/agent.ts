@@ -43,10 +43,25 @@ export interface AgentConfig {
     personality: Personality;
     autonomy: Autonomy;
     constraints: Constraints;
-    owner?: Owner;
     createdAt?: string;
     updatedAt?: string;
   };
+}
+
+// Ownership metadata stored separately for privacy
+export interface ConfigOwnership {
+  agentId: string;  // Unique identifier for the agent config
+  walletAddress: string;
+  signature: string;
+  tier: 'free' | 'bronze' | 'silver' | 'gold';
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Combined structure for internal use
+export interface StoredAgentConfig {
+  config: AgentConfig;
+  ownership: ConfigOwnership;
 }
 
 export interface InterviewAnswers {

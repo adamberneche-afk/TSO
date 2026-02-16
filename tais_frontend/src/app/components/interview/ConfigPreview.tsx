@@ -4,9 +4,10 @@ import React, { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import { AgentConfig } from '../../../types/agent';
 import { Button } from '../ui/button';
-import { Download, Copy, Check, Save, Loader2 } from 'lucide-react';
+import { Download, Copy, Check, Save, Loader2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { configApi } from '../../../services/configApi';
+import { generateConfigSummary, generateBulletSummary } from '../../../lib/config-summary';
 
 interface ConfigPreviewProps {
   config: AgentConfig;
@@ -20,6 +21,7 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [canSave, setCanSave] = useState(false);
+  const [showSummary, setShowSummary] = useState(true);
   const [saveStatus, setSaveStatus] = useState<{
     allowed: boolean;
     currentCount: number;
@@ -28,6 +30,8 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
     isHolder: boolean;
   } | null>(null);
   const configJSON = JSON.stringify(config, null, 2);
+  const naturalSummary = generateConfigSummary(config);
+  const bulletSummary = generateBulletSummary(config);
 
   useEffect(() => {
     checkSaveEligibility();
@@ -200,34 +204,56 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
         />
       </div>
 
-      <div className="bg-[#1a1a1a] border border-[#333333] rounded-lg p-4">
-        <h4 className="text-sm font-medium text-white mb-2">Configuration Summary</h4>
-        <dl className="grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <dt className="text-[#888888]">Agent Name</dt>
-            <dd className="text-white font-medium">{config.agent.name}</dd>
+      {/* Natural Language Summary */}
+      <div className="bg-[#1a1a1a] border border-[#333333] rounded-lg overflow-hidden">
+        <div 
+          className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#252525] transition-colors"
+          onClick={() => setShowSummary(!showSummary)}
+        >
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-[#3B82F6]" />
+            <h4 className="text-sm font-medium text-white">Configuration Summary</h4>
           </div>
-          <div>
-            <dt className="text-[#888888]">Version</dt>
-            <dd className="text-white font-medium">{config.agent.version}</dd>
+          <span className="text-xs text-[#888888]">
+            {showSummary ? 'Click to collapse' : 'Click to expand'}
+          </span>
+        </div>
+        
+        {showSummary && (
+          <div className="p-4 pt-0 border-t border-[#333333]">
+            {/* Natural Language Description */}
+            <div className="mb-4 p-3 bg-[#252525] rounded-lg">
+              <p className="text-sm text-[#e0e0e0] leading-relaxed whitespace-pre-line">
+                {naturalSummary}
+              </p>
+            </div>
+            
+            {/* Quick Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {bulletSummary.slice(0, 4).map((item, index) => (
+                <div key={index} className="bg-[#252525] rounded p-2">
+                  <dt className="text-xs text-[#888888] mb-1">{item.label}</dt>
+                  <dd className="text-sm text-white font-medium truncate">{item.value}</dd>
+                </div>
+              ))}
+            </div>
+            
+            {/* Detailed Breakdown */}
+            <details className="mt-4">
+              <summary className="text-sm text-[#888888] cursor-pointer hover:text-white transition-colors">
+                View detailed breakdown
+              </summary>
+              <dl className="mt-3 space-y-2 text-sm">
+                {bulletSummary.map((item, index) => (
+                  <div key={index} className="flex justify-between py-1 border-b border-[#333333] last:border-0">
+                    <dt className="text-[#888888]">{item.label}</dt>
+                    <dd className="text-white font-medium">{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
           </div>
-          <div>
-            <dt className="text-[#888888]">Goals</dt>
-            <dd className="text-white font-medium">{config.agent.goals.length} selected</dd>
-          </div>
-          <div>
-            <dt className="text-[#888888]">Skills</dt>
-            <dd className="text-white font-medium">{config.agent.skills.length} installed</dd>
-          </div>
-          <div>
-            <dt className="text-[#888888]">Autonomy</dt>
-            <dd className="text-white font-medium capitalize">{config.agent.autonomy.level}</dd>
-          </div>
-          <div>
-            <dt className="text-[#888888]">Privacy</dt>
-            <dd className="text-white font-medium capitalize">{config.agent.constraints.privacy}</dd>
-          </div>
-        </dl>
+        )}
       </div>
 
       {/* Genesis Holder Info */}
