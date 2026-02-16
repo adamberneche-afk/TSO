@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
+import Editor from '@monaco-editor/react';
 import {
   ArrowLeft,
   Plus,
@@ -17,11 +18,15 @@ import {
   Calendar,
   Zap,
   Loader2,
+  X,
+  FileText,
+  Eye,
 } from 'lucide-react';
 import { AgentConfig } from '../../types/agent';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { configApi } from '../../services/configApi';
+import { generateConfigSummary, generateBulletSummary } from '../../lib/config-summary';
 
 interface DashboardProps {
   onBackToLanding: () => void;
@@ -34,6 +39,7 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'archived'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<SavedAgent | null>(null);
 
   useEffect(() => {
     // Load saved agents from backend API
@@ -206,6 +212,7 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
               >
                 <AgentCard
                   agent={agent}
+                  onView={() => setSelectedAgent(agent)}
                   onDownload={() => downloadAgent(agent)}
                   onCopy={() => copyAgentConfig(agent.config)}
                   onDelete={() => deleteAgent(agent.id)}
@@ -215,6 +222,22 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
           </div>
         )}
       </main>
+
+      {/* Agent Detail Modal */}
+      <AnimatePresence>
+        {selectedAgent && (
+          <AgentDetailModal
+            agent={selectedAgent}
+            onClose={() => setSelectedAgent(null)}
+            onDownload={() => downloadAgent(selectedAgent)}
+            onCopy={() => copyAgentConfig(selectedAgent.config)}
+            onDelete={() => {
+              deleteAgent(selectedAgent.id);
+              setSelectedAgent(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -251,12 +274,13 @@ function StatCard({ icon, label, value }: StatCardProps) {
 
 interface AgentCardProps {
   agent: SavedAgent;
+  onView: () => void;
   onDownload: () => void;
   onCopy: () => void;
   onDelete: () => void;
 }
 
-function AgentCard({ agent, onDownload, onCopy, onDelete }: AgentCardProps) {
+function AgentCard({ agent, onView, onDownload, onCopy, onDelete }: AgentCardProps) {
   const { config } = agent;
   const formattedDate = new Date(agent.lastModified).toLocaleDateString('en-US', {
     month: 'short',
@@ -265,7 +289,10 @@ function AgentCard({ agent, onDownload, onCopy, onDelete }: AgentCardProps) {
   });
 
   return (
-    <Card className="bg-[#1a1a1a] border-[#333333] hover:border-[#3B82F6] transition-all group">
+    <Card 
+      className="bg-[#1a1a1a] border-[#333333] hover:border-[#3B82F6] transition-all group cursor-pointer"
+      onClick={onView}
+    >
       <div className="p-6 space-y-4">
         {/* Header */}
         <div>
@@ -309,24 +336,31 @@ function AgentCard({ agent, onDownload, onCopy, onDelete }: AgentCardProps) {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 pt-2 border-t border-[#333333]">
+        <div className="flex items-center gap-2 pt-2 border-t border-[#333333]" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onView}
+            className="flex-1 text-[#3B82F6] hover:text-white hover:bg-[#3B82F6]"
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            View
+          </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={onDownload}
-            className="flex-1 text-[#888888] hover:text-white hover:bg-[#222222]"
+            className="text-[#888888] hover:text-white hover:bg-[#222222]"
           >
-            <Download className="w-4 h-4 mr-1" />
-            Export
+            <Download className="w-4 h-4" />
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={onCopy}
-            className="flex-1 text-[#888888] hover:text-white hover:bg-[#222222]"
+            className="text-[#888888] hover:text-white hover:bg-[#222222]"
           >
-            <Copy className="w-4 h-4 mr-1" />
-            Copy
+            <Copy className="w-4 h-4" />
           </Button>
           <Button
             variant="ghost"
@@ -339,6 +373,186 @@ function AgentCard({ agent, onDownload, onCopy, onDelete }: AgentCardProps) {
         </div>
       </div>
     </Card>
+  );
+}
+
+interface AgentDetailModalProps {
+  agent: SavedAgent;
+  onClose: () => void;
+  onDownload: () => void;
+  onCopy: () => void;
+  onDelete: () => void;
+}
+
+function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete }: AgentDetailModalProps) {
+  const { config } = agent;
+  const configJSON = JSON.stringify(config, null, 2);
+  const naturalSummary = generateConfigSummary(config);
+  const bulletSummary = generateBulletSummary(config);
+  const formattedDate = new Date(agent.lastModified).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-[#111111] border border-[#333333] rounded-xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#333333] bg-[#1a1a1a]">
+          <div>
+            <h2 className="text-xl font-bold text-white">{config.agent.name}</h2>
+            <p className="text-sm text-[#888888]">
+              Last modified: {formattedDate} • {config.agent.skills.length} skills
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onDownload}
+              className="border-[#333333] text-[#888888] hover:text-white"
+            >
+              <Download className="w-4 h-4 mr-1" />
+              Export
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCopy}
+              className="border-[#333333] text-[#888888] hover:text-white"
+            >
+              <Copy className="w-4 h-4 mr-1" />
+              Copy
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onDelete}
+              className="border-[#EF4444] text-[#EF4444] hover:bg-[rgba(239,68,68,0.1)]"
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              Delete
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="text-[#888888] hover:text-white ml-2"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Side-by-Side Content */}
+        <div className="flex-1 overflow-hidden p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+            {/* Left: JSON Editor */}
+            <div className="border border-[#333333] rounded-lg overflow-hidden flex flex-col bg-[#111111]">
+              <div className="bg-[#252525] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#10B981]"></div>
+                  <span className="text-xs text-[#888888] uppercase tracking-wider font-medium">JSON Configuration</span>
+                </div>
+                <span className="text-xs text-[#666666]">Technical View</span>
+              </div>
+              <div className="flex-1 min-h-[400px]">
+                <Editor
+                  height="100%"
+                  defaultLanguage="json"
+                  value={configJSON}
+                  theme="vs-dark"
+                  options={{
+                    readOnly: true,
+                    minimap: { enabled: false },
+                    fontSize: 12,
+                    fontFamily: 'JetBrains Mono, monospace',
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 2,
+                    wordWrap: 'on',
+                  }}
+                />
+              </div>
+              <div className="bg-[#1a1a1a] px-4 py-2 border-t border-[#333333]">
+                <p className="text-xs text-[#666666]">
+                  💡 Tip: Compare this JSON with the natural language description on the right to learn the structure.
+                </p>
+              </div>
+            </div>
+
+            {/* Right: Natural Language Summary */}
+            <div className="border border-[#333333] rounded-lg overflow-hidden flex flex-col bg-[#1a1a1a]">
+              <div className="bg-[#252525] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-[#3B82F6]" />
+                  <span className="text-xs text-[#888888] uppercase tracking-wider font-medium">Natural Language</span>
+                </div>
+                <span className="text-xs text-[#666666]">Human-Readable View</span>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                {/* Natural Language Description */}
+                <div className="p-4 bg-[#252525] rounded-lg border-l-4 border-[#3B82F6]">
+                  <h5 className="text-xs text-[#3B82F6] uppercase tracking-wider mb-2 font-semibold">Overview</h5>
+                  <p className="text-sm text-[#e0e0e0] leading-relaxed whitespace-pre-line">
+                    {naturalSummary}
+                  </p>
+                </div>
+                
+                {/* Quick Stats Grid */}
+                <div>
+                  <h5 className="text-xs text-[#888888] uppercase tracking-wider mb-3 font-semibold">Quick Stats</h5>
+                  <div className="grid grid-cols-2 gap-3">
+                    {bulletSummary.slice(0, 4).map((item, index) => (
+                      <div key={index} className="bg-[#252525] rounded p-3 border border-[#333333]">
+                        <dt className="text-xs text-[#888888] mb-1">{item.label}</dt>
+                        <dd className="text-sm text-white font-medium truncate">{item.value}</dd>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Detailed Breakdown */}
+                <div className="bg-[#252525] rounded-lg border border-[#333333]">
+                  <h5 className="text-xs text-[#888888] uppercase tracking-wider px-4 py-3 border-b border-[#333333] font-semibold">
+                    Detailed Breakdown
+                  </h5>
+                  <dl className="divide-y divide-[#333333]">
+                    {bulletSummary.map((item, index) => (
+                      <div key={index} className="flex justify-between px-4 py-3 text-sm">
+                        <dt className="text-[#888888]">{item.label}</dt>
+                        <dd className="text-white font-medium text-right">{item.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              </div>
+              
+              <div className="bg-[#1a1a1a] px-4 py-2 border-t border-[#333333]">
+                <p className="text-xs text-[#666666]">
+                  📝 This description is generated from the JSON configuration on the left.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
