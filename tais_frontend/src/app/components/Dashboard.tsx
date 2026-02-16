@@ -407,7 +407,7 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete }: Agen
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-[#111111] border border-[#333333] rounded-xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-[#111111] border border-[#333333] rounded-xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col scrollbar-thin scrollbar-thumb-[#333333] scrollbar-track-transparent"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -458,18 +458,18 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete }: Agen
         </div>
 
         {/* Side-by-Side Content */}
-        <div className="flex-1 overflow-hidden p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-full">
             {/* Left: JSON Editor */}
-            <div className="border border-[#333333] rounded-lg overflow-hidden flex flex-col bg-[#111111]">
-              <div className="bg-[#252525] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
+            <div className="border border-[#333333] rounded-lg overflow-hidden flex flex-col bg-[#111111] h-[600px] lg:h-auto">
+              <div className="bg-[#252525] px-4 py-3 border-b border-[#333333] flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-[#10B981]"></div>
                   <span className="text-xs text-[#888888] uppercase tracking-wider font-medium">JSON Configuration</span>
                 </div>
                 <span className="text-xs text-[#666666]">Technical View</span>
               </div>
-              <div className="flex-1 min-h-[400px]">
+              <div className="flex-1 min-h-0">
                 <Editor
                   height="100%"
                   defaultLanguage="json"
@@ -496,8 +496,8 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete }: Agen
             </div>
 
             {/* Right: Natural Language Summary */}
-            <div className="border border-[#333333] rounded-lg overflow-hidden flex flex-col bg-[#1a1a1a]">
-              <div className="bg-[#252525] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
+            <div className="border border-[#333333] rounded-lg overflow-hidden flex flex-col bg-[#1a1a1a] h-[600px] lg:h-auto">
+              <div className="bg-[#252525] px-4 py-3 border-b border-[#333333] flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-[#3B82F6]" />
                   <span className="text-xs text-[#888888] uppercase tracking-wider font-medium">Natural Language</span>
