@@ -1,12 +1,19 @@
 #!/bin/bash
 # Start script for dual-database architecture
-# Handles build, migrations, and server startup
+# Handles dependencies, build, migrations, and server startup
 
 set -e
 
 echo "=========================================="
 echo "TAIS Platform - Startup Script"
 echo "=========================================="
+
+# Install dependencies if node_modules doesn't exist
+if [ ! -d "node_modules" ]; then
+    echo ""
+    echo "Installing dependencies..."
+    npm install
+fi
 
 # Build if dist/ doesn't exist
 if [ ! -d "dist" ]; then
