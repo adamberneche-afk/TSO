@@ -182,7 +182,7 @@ export class ApiKeyService {
       orderBy: { createdAt: 'desc' }
     });
 
-    return keys.map(key => ({
+    return keys.map((key: any) => ({
       ...key,
       expiresAt: key.expiresAt ?? new Date(),
       lastUsedAt: key.lastUsedAt ?? undefined
