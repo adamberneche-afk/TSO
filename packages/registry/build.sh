@@ -33,14 +33,22 @@ npx prisma generate
 
 # Run database migrations
 # Support dual-database architecture: RAG_DATABASE_URL and SKILLS_DATABASE_URL
+
+# Debug: Show what environment variables are set (without showing full URLs)
+echo "Database environment variables:"
+echo "  RAG_DATABASE_URL set: $([ -n "$RAG_DATABASE_URL" ] && echo "YES" || echo "NO")"
+echo "  SKILLS_DATABASE_URL set: $([ -n "$SKILLS_DATABASE_URL" ] && echo "YES" || echo "NO")"
+
 if [ -n "$RAG_DATABASE_URL" ]; then
     echo "Running migrations on RAG database (tais-rag)..."
+    echo "  URL starts with: ${RAG_DATABASE_URL:0:20}..."
     export DATABASE_URL="$RAG_DATABASE_URL"
     npx prisma migrate deploy || echo "Migration may have already been applied"
 fi
 
 if [ -n "$SKILLS_DATABASE_URL" ]; then
     echo "Running migrations on Skills database (tais_registry)..."
+    echo "  URL starts with: ${SKILLS_DATABASE_URL:0:20}..."
     export DATABASE_URL="$SKILLS_DATABASE_URL"
     npx prisma migrate deploy || echo "Migration may have already been applied"
 fi
