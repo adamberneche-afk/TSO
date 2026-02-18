@@ -4,7 +4,6 @@
   "description": "TAIS Skill Registry Server - Hybrid on-chain/off-chain skill registry",
   "main": "dist/index.js",
   "scripts": {
-    "postinstall": "npx prisma generate",
     "build": "tsc",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "start": "node dist/index.js",
