@@ -111,7 +111,8 @@ TSO/
 │   ├── app/               # Next.js App Router
 │   ├── components/        # React components
 │   │   ├── ui/            # Base UI components
-│   │   └── interview/     # Interview wizard
+│   │   ├── interview/     # Interview wizard
+│   │   └── conversation/  # AI conversation UI (v2.1.0)
 │   ├── lib/               # Utilities & configs
 │   └── types/             # TypeScript types
 ├── demo-skills/           # Example skills
@@ -138,6 +139,8 @@ TSO/
 | **Frontend** | Next.js 14 + Tailwind | Interview wizard & agent builder |
 | **State Management** | Zustand | Interview progress & config |
 | **Animations** | Framer Motion | UI transitions |
+| **AI/NLP** | TensorFlow.js + USE | Semantic analysis & entity extraction |
+| **Conversation** | React + localStorage | Chat interface with persistence |
 
 ---
 
@@ -181,6 +184,105 @@ TAIS includes a **configuration-first interview system** that guides users throu
 **Status:** ✅ **Complete** - Ready for deployment
 
 **Location:** `tais-frontend/` directory
+
+### 🤖 Conversational Interview (v2.1.0)
+
+AI-powered conversation interface with TensorFlow.js for natural language understanding:
+
+**How It Works:**
+1. **Natural Conversation** - Chat-based interview with 3 guided questions
+2. **AI Processing** - TensorFlow.js Universal Sentence Encoder for semantic analysis
+3. **Entity Extraction** - Automatic identification of skills, technologies, experience
+4. **Intent Classification** - Categorizes responses (experience, skills, goals)
+5. **Session Persistence** - Conversations saved to localStorage with export option
+
+**Features:**
+- 🧠 **TensorFlow.js Integration** - USE model for embeddings and similarity
+- 💬 **3 Fixed Questions** - Professional background, skills, career goals
+- 🔍 **Entity Extraction** - Skills, technologies, roles, companies, durations
+- 📊 **Semantic Analysis** - Sentiment scoring, intent detection, topic extraction
+- 💾 **LocalStorage Persistence** - Automatic save/resume/delete sessions
+- 📤 **Export Functionality** - JSON export for backup and sharing
+- 🎨 **Modern UI** - Message bubbles with entity badges, progress tracking
+
+**Components:**
+- `ConversationUI` - Entry point with session management
+- `ConversationContainer` - Main chat interface with sidebar
+- `MessageBubble` - Messages with entity badges and sentiment
+- `InputArea` - Auto-resizing input with send functionality
+- `FixedQuestions` - Progress tracker for interview questions
+
+**Usage:**
+```tsx
+import { ConversationUI } from './app/components/ConversationUI';
+
+function App() {
+  return <ConversationUI />;
+}
+```
+
+**Technical Stack:**
+- **ML Framework:** TensorFlow.js + Universal Sentence Encoder
+- **State Management:** Zustand with persistence middleware
+- **Storage:** localStorage (encrypted)
+- **NLP:** Pattern-based entity extraction + TF.js embeddings
+
+**Status:** ✅ **Complete** - Ready for production
+
+**Location:** `tais_frontend/src/app/components/conversation/`
+
+### 🧠 LLM Provider Integration (v2.2.0)
+
+Multi-provider AI support with secure API key management and cost tracking:
+
+**Supported Providers:**
+- **OpenAI** - GPT-4, GPT-4-turbo, GPT-3.5-turbo
+- **Anthropic** - Claude 3 Opus, Sonnet, Haiku
+- **Local** - Ollama (Llama2, Mistral, CodeLlama) - FREE
+- **Custom** - Any OpenAI-compatible API
+
+**Key Features:**
+- 🔐 **Secure Storage** - API keys encrypted with wallet signature, stored locally only
+- 💰 **Cost Tracking** - Real-time budget monitoring ($0.10-$5.00 configurable)
+- 🤖 **Dynamic Questions** - AI-generated contextual follow-ups based on responses
+- 📊 **Usage Analytics** - Track spending per interview session
+- 🎛️ **Budget Controls** - Auto-stop at budget limit with warning at 80%
+
+**How It Works:**
+1. User selects AI provider and enters API key
+2. API key encrypted using wallet signature (AES-256-GCM)
+3. Encrypted key stored in browser localStorage only
+4. Dynamic questions generated based on conversation context
+5. Each API call cost tracked against user-defined budget
+6. Interview auto-stops when budget exceeded
+
+**Security:**
+- Encryption key derived from user's wallet signature
+- Without wallet access, API keys are unreadable
+- Keys never leave the browser
+- Zero server-side storage
+
+**Components:**
+- `ProviderSelector` - Provider dropdown with pricing info
+- `ApiKeyInput` - Secure encrypted input
+- `CostSettingsPanel` - Budget configuration
+- `CostDisplay` - Real-time cost tracking
+- `LLMSettingsPanel` - Complete settings UI
+- `DynamicConversationContainer` - Enhanced chat with LLM
+
+**Usage:**
+```tsx
+import { DynamicConversationContainer } from './app/components/conversation';
+import { LLMSettingsPanel } from './app/components/llm';
+
+// Settings UI
+<LLMSettingsPanel />
+
+// Conversation with LLM
+<DynamicConversationContainer />
+```
+
+**Location:** `tais_frontend/src/app/components/llm/`
 
 ## 🚀 Deployment
 

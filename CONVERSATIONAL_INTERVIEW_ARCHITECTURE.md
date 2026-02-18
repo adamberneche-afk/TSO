@@ -1,6 +1,7 @@
 # Conversational Interview v2.5 - Architecture Specification
-**Status:** Design Approved  
-**Date:** February 15, 2026  
+**Status:** ✅ IMPLEMENTED  
+**Date:** February 17, 2026  
+**Version:** 2.1.0  
 **Principle:** User Ownership = User Pays
 
 ---
@@ -118,34 +119,61 @@ Only AgentConfig persisted to database
 
 ## 🔧 Implementation Modes
 
-### Mode 1: Static (Free, Always Available)
+### Mode 1: Static (Free, Always Available) ✅ IMPLEMENTED
 ```typescript
-const STATIC_QUESTIONS = [
+// src/types/conversation.ts
+export const FIXED_QUESTIONS: FixedQuestion[] = [
   {
-    id: 'ideal_day',
-    question: "Describe your ideal day...",
-    extraction: 'rule_based', // Keyword matching
-    required: true,
-    skippable: false
+    id: 'q1',
+    question: 'Tell me about your professional background and what you\'re currently working on.',
+    category: 'background',
+    expectedEntities: ['role', 'company', 'experience', 'technology']
   },
   {
-    id: 'communication_style',
-    question: "When this assistant gives you suggestions...",
-    type: 'choice',
-    options: ['direct', 'balanced', 'conversational'],
-    required: true,
-    skippable: true
+    id: 'q2',
+    question: 'What are your core technical skills and which technologies are you most proficient with?',
+    category: 'skills',
+    expectedEntities: ['skill', 'technology', 'proficiency', 'duration']
   },
   {
-    id: 'boundaries',
-    question: "Is there anything specific you want this assistant to NEVER do?",
-    required: false,
-    skippable: true
+    id: 'q3',
+    question: 'What are your career goals and what type of projects are you looking to work on?',
+    category: 'goals',
+    expectedEntities: ['role', 'technology', 'experience']
   }
 ];
 ```
 
-**Extraction:** Rule-based keyword matching (zero API calls)
+**Extraction Methods:**
+1. **Pattern Matching** - Regex-based entity extraction (`entityExtraction.ts`)
+2. **TensorFlow.js** - USE embeddings for intent classification and similarity
+3. **Semantic Analysis** - Sentiment, topics, complexity scoring
+
+**Entity Types Extracted:**
+- `skill` - General technical skills (frontend, backend, database)
+- `technology` - Specific tools (React, Python, AWS, Docker)
+- `experience` - Projects and achievements
+- `duration` - Time periods (5 years, 3 months)
+- `proficiency` - Skill levels (expert, intermediate, beginner)
+- `role` - Job titles (Software Engineer, Manager)
+- `company` - Organization names
+- `date` - Time references
+
+**Storage Schema:**
+```typescript
+interface ConversationSession {
+  id: string;
+  messages: Message[];
+  createdAt: number;
+  updatedAt: number;
+  extractedData: {
+    skills: string[];
+    experience: string[];
+    technologies: string[];
+    proficiencies: Record<string, number>;
+  };
+}
+```
 
 ### Mode 2: Dynamic (User-Provided LLM)
 - Same 3 questions but contextually adapted
@@ -157,12 +185,47 @@ const STATIC_QUESTIONS = [
 
 ## 🚀 Implementation Plan
 
-### Phase 1: Static MVP (Week 1)
-- [ ] Build conversation UI components
-- [ ] Implement 3 fixed questions
-- [ ] Create static entity extraction
-- [ ] Add localStorage persistence
-- [ ] Build live preview panel
+### Phase 1: Static MVP (Week 1) ✅ COMPLETE
+- [x] Build conversation UI components
+- [x] Implement 3 fixed questions
+- [x] Create static entity extraction
+- [x] Add localStorage persistence
+- [x] Build live preview panel
+
+**Implementation Details:**
+```typescript
+// Located in: tais_frontend/src/
+
+// Components
+├── app/components/
+│   ├── ConversationUI.tsx              # Landing page & session manager
+│   └── conversation/
+│       ├── ConversationContainer.tsx   # Main chat interface
+│       ├── MessageBubble.tsx           # Message display with entities
+│       ├── InputArea.tsx               # Auto-resizing input
+│       ├── FixedQuestions.tsx          # Progress sidebar
+│       └── index.ts                    # Component exports
+
+// State Management
+├── hooks/
+│   ├── useConversation.ts              # Zustand store with persistence
+│   └── useTensorFlow.ts                # Model initialization hook
+
+// Services
+├── services/
+│   ├── tensorflow.ts                   # USE model & embeddings
+│   ├── entityExtraction.ts             # NLP pipeline
+│   └── storage.ts                      # localStorage wrapper
+
+// Types
+└── types/
+    └── conversation.ts                 # Message, Session, Entity types
+```
+
+**The 3 Questions (Implemented):**
+1. "Tell me about your professional background and what you're currently working on."
+2. "What are your core technical skills and which technologies are you most proficient with?"
+3. "What are your career goals and what type of projects are you looking to work on?"
 
 ### Phase 2: Dynamic Mode (Week 2)
 - [ ] Add LLM provider selection UI
@@ -329,7 +392,7 @@ class CostTracker {
 
 ---
 
-## 🤖 TensorFlow.js Entity Extraction
+## 🤖 TensorFlow.js Entity Extraction ✅ IMPLEMENTED
 
 ### Model Choice: Universal Sentence Encoder (USE)
 - **Size:** ~25MB (acceptable for web)
@@ -337,53 +400,121 @@ class CostTracker {
 - **Speed:** ~100ms inference on modern devices
 - **Offline:** Works without internet after initial load
 
-### Implementation
+### Implementation (`src/services/tensorflow.ts`)
 ```typescript
 import * as tf from '@tensorflow/tfjs';
-import { load } from '@tensorflow-models/universal-sentence-encoder';
+import * as use from '@tensorflow-models/universal-sentence-encoder';
 
-class EntityExtractor {
-  private model: any;
+let model: use.UniversalSentenceEncoder | null = null;
+
+export async function loadUSEModel(): Promise<use.UniversalSentenceEncoder> {
+  if (model) return model;
+  model = await use.load();
+  console.log('Universal Sentence Encoder loaded successfully');
+  return model;
+}
+
+export async function getEmbeddings(texts: string[]): Promise<EmbeddingResult[]> {
+  const loadedModel = await loadUSEModel();
+  const embeddings = await loadedModel.embed(texts);
+  const embeddingArrays = await embeddings.array();
   
-  async loadModel() {
-    this.model = await load();
-  }
+  return texts.map((text, index) => ({
+    text,
+    embedding: embeddingArrays[index]
+  }));
+}
+
+export async function calculateSimilarity(text1: string, text2: string): Promise<number> {
+  const embeddings = await getEmbeddings([text1, text2]);
+  return cosineSimilarity(embeddings[0].embedding, embeddings[1].embedding);
+}
+
+export async function classifyIntent(
+  text: string,
+  intentDefinitions: Record<string, string[]>
+): Promise<{ intent: string; confidence: number } | null> {
+  // Uses USE embeddings to classify user intent
+  // Returns intent with confidence score
+}
+```
+
+### Intent Classification
+```typescript
+const intentDefinitions = {
+  'describing_experience': [
+    'I worked on', 'I have experience', 'I built', 'I developed',
+    'I was responsible for', 'my role was', 'I led', 'I managed'
+  ],
+  'listing_skills': [
+    'I know', 'I am proficient in', 'my skills include', 'I am good at',
+    'I have expertise in', 'I specialize in', 'I am experienced with'
+  ],
+  'expressing_goals': [
+    'I want to', 'I am looking for', 'my goal is', 'I hope to',
+    'I aim to', 'I aspire', 'in the future', 'next step'
+  ]
+};
+```
+
+### Usage in Components
+```typescript
+// In ConversationContainer.tsx
+const handleSendMessage = useCallback(async (content: string) => {
+  // Extract entities using pattern matching
+  const entities = extractEntities(content);
+  const semantics = analyzeSemantics(content);
   
-  async extractFromText(text: string): Promise<ExtractedEntities> {
-    // Embed the text
-    const embeddings = await this.model.embed([text]);
-    
-    // Domain classification (coding, writing, research, etc.)
-    const domain = await this.classifyDomain(embeddings);
-    
-    // Intent extraction
-    const intents = await this.extractIntents(text);
-    
-    // Tone analysis
-    const tone = await this.analyzeTone(text);
-    
-    return {
-      domain,
-      intents,
-      tone,
-      confidence: 0.85
-    };
-  }
+  // Classify intent using TensorFlow
+  const intentResult = await classifyIntent(content, intentDefinitions);
   
-  private async classifyDomain(embeddings: tf.Tensor): Promise<string> {
-    // Compare against domain embeddings
-    // Return closest match
+  // Add message with extracted data
+  addMessage(content, 'user', entities);
+}, []);
+```
+
+---
+
+## 🗄️ Storage Implementation ✅ COMPLETE
+
+### localStorage Schema
+```typescript
+// Key: conversation-storage
+{
+  "sessions": {
+    "session-id-uuid": {
+      "id": "session-id-uuid",
+      "messages": [...],
+      "createdAt": 1708195200000,
+      "updatedAt": 1708195800000,
+      "extractedData": {
+        "skills": ["React", "Node.js"],
+        "technologies": ["TypeScript", "PostgreSQL"],
+        "experience": ["Built microservices architecture"],
+        "proficiencies": {"React": 0.9, "Node.js": 0.85}
+      }
+    }
   }
 }
 ```
 
-**Training Data:**
-- Curated examples of "ideal day" descriptions
-- Labeled with correct domain, goals, personality
-- ~1000 examples for initial training
+### Storage Service API
+```typescript
+// src/services/storage.ts
+export const storageService = {
+  saveSessions: (sessions) => void;
+  loadSessions: () => Record<string, ConversationSession>;
+  saveSession: (session) => void;
+  deleteSession: (sessionId) => void;
+  exportSessions: () => string;  // JSON
+  importSessions: (json) => boolean;
+  getStorageInfo: () => { used: number; total: number; sessions: number };
+};
+```
 
 ---
 
-**Status:** Architecture Finalized  
-**Ready for:** Phase 1 Implementation
-**Estimated Timeline:** 4 weeks (1 week per phase)
+**Status:** ✅ IMPLEMENTED  
+**Version:** 2.1.0
+**Completion Date:** February 17, 2026
+**Location:** `tais_frontend/src/`

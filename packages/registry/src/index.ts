@@ -47,17 +47,27 @@ const logger = winston.createLogger({
   ]
 });
 
-// Initialize database with connection pooling
-const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' 
-    ? ['query', 'info', 'warn', 'error'] 
-    : ['error'],
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL
-    }
-  }
-});
+// Import database configuration
+import { createRAGPrismaClient, createSkillsPrismaClient } from './config/database';
+
+// Initialize databases with connection pooling
+// Supports dual-database architecture: RAG database (tais-rag) and Skills database (tais_registry)
+const ragPrisma = createRAGPrismaClient(logger);
+const skillsPrisma = createSkillsPrismaClient(logger);
+
+// Legacy single client for backward compatibility
+const prisma = process.env.RAG_DATABASE_URL && process.env.SKILLS_DATABASE_URL 
+  ? ragPrisma  // Use RAG client as default when both are configured
+  : new PrismaClient({
+      log: process.env.NODE_ENV === 'development' 
+        ? ['query', 'info', 'warn', 'error'] 
+        : ['error'],
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL
+        }
+      }
+    });
 
 // Squad Zeta Fix: Configure trust proxy for IP spoofing prevention
 const trustedProxies = process.env.TRUSTED_PROXIES?.split(',') || false;
@@ -233,6 +243,20 @@ apiV1Router.use('/configurations',
   configurationRoutes
 );
 
+// ============================================
+// RAG (Retrieval-Augmented Generation) Routes
+// Three-tier RAG: Private, Platform, App
+// Uses separate RAG database (tais-rag)
+// ============================================
+import { createRAGRoutes } from './routes/rag';
+
+// RAG routes with tier-based rate limiting
+// Uses ragPrisma for RAG-specific database operations
+apiV1Router.use('/rag',
+  rateLimiters.authenticated, // Apply rate limiting to all RAG routes
+  createRAGRoutes(ragPrisma, logger)
+);
+
 // Mount API v1 router
 app.use('/api/v1', apiV1Router);
 
@@ -286,7 +310,7 @@ app.use((req: Request, res: Response) => {
 // Start server
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   logger.info('==========================================');
   logger.info('🚀 TAIS Platform API Server Started');
   logger.info('==========================================');
@@ -295,6 +319,19 @@ app.listen(PORT, () => {
   logger.info(`API Version: v1`);
   logger.info(`CORS Origins: ${corsConfig.origin.join(', ')}`);
   logger.info(`Trust Proxy: ${trustedProxies || 'disabled'}`);
+  
+  // Database configuration info
+  const usingDualDb = process.env.RAG_DATABASE_URL && process.env.SKILLS_DATABASE_URL;
+  logger.info('==========================================');
+  if (usingDualDb) {
+    logger.info('Database Configuration: Dual-Database Mode');
+    logger.info('  📁 RAG Database: tais-rag (Public RAG documents)');
+    logger.info('  📁 Skills Database: tais_registry (Skills & auth)');
+  } else {
+    logger.info('Database Configuration: Single-Database Mode');
+    logger.info(`  📁 Database: ${process.env.DATABASE_URL?.includes('tais-rag') ? 'tais-rag' : 'tais_registry'}`);
+  }
+  
   logger.info('==========================================');
   logger.info('Security Status:');
   logger.info('  ✅ JWT Authentication: Active');
@@ -310,13 +347,19 @@ app.listen(PORT, () => {
 // Squad Gamma: Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
-  await prisma.$disconnect();
+  logger.info('Disconnecting from databases...');
+  await ragPrisma.$disconnect();
+  await skillsPrisma.$disconnect();
+  logger.info('✅ All database connections closed');
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully');
-  await prisma.$disconnect();
+  logger.info('Disconnecting from databases...');
+  await ragPrisma.$disconnect();
+  await skillsPrisma.$disconnect();
+  logger.info('✅ All database connections closed');
   process.exit(0);
 });
 

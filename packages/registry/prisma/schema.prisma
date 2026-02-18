@@ -228,3 +228,178 @@ model AgentConfiguration {
   @@index([isActive])
   @@map("agent_configurations")
 }
+
+// ============================================
+// RAG (Retrieval-Augmented Generation) Models
+// ============================================
+
+// RAG Document - Encrypted document storage for Public RAG
+model RAGDocument {
+  id              String   @id @default(uuid())
+  
+  // Owner information
+  walletAddress   String   @map("wallet_address")
+  ownerPublicKey  String   @map("owner_public_key")
+  
+  // Encrypted content (E2EE)
+  encryptedData       String   @map("encrypted_data") // Base64 encrypted content
+  encryptedMetadata   String   @map("encrypted_metadata") // Base64 encrypted metadata
+  iv                  String   // Base64 IV
+  salt                String   // Base64 salt for key derivation
+  
+  // Document properties
+  title           String?  // Optional - may be encrypted in metadata
+  isPublic        Boolean  @default(false) @map("is_public")
+  tags            String[] // PostgreSQL array
+  
+  // Storage info
+  size            Int      // Size in bytes
+  chunkCount      Int      @map("chunk_count")
+  storageUrl      String?  @map("storage_url") // S3/R2 URL
+  
+  // Access control
+  allowedViewers  String[] @map("allowed_viewers") // Array of public keys
+  
+  // Engagement metrics
+  downloadCount   Int      @default(0) @map("download_count")
+  popularityScore Float    @default(0) @map("popularity_score")
+  
+  // Timestamps
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  chunks          RAGChunk[]
+  
+  @@index([walletAddress])
+  @@index([isPublic])
+  @@index([tags])
+  @@index([createdAt])
+  @@index([popularityScore])
+  @@map("rag_documents")
+}
+
+// RAG Chunk - Individual chunks of documents with embedding hashes
+model RAGChunk {
+  id              String   @id @default(uuid())
+  
+  // Parent document
+  documentId      String   @map("document_id")
+  document        RAGDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  // Encrypted content
+  encryptedContent String  @map("encrypted_content") // Base64
+  iv              String   // Base64 IV
+  
+  // Indexing
+  index           Int      // Position in document
+  embeddingHash   String   @map("embedding_hash") // SHA-256 hash for search (privacy-preserving)
+  
+  // Size
+  size            Int      // Size in bytes
+  
+  @@index([documentId])
+  @@index([embeddingHash])
+  @@map("rag_chunks")
+}
+
+// RAG User Usage Tracking - Per-user quota enforcement
+model RAGUserUsage {
+  id              String   @id @default(uuid())
+  
+  walletAddress   String   @unique @map("wallet_address")
+  
+  // Storage usage
+  storageUsed     Int      @default(0) @map("storage_used") // Bytes
+  
+  // Monthly embeddings (resets monthly)
+  embeddingsThisMonth Int  @default(0) @map("embeddings_this_month")
+  lastResetMonth  DateTime @default(now()) @map("last_reset_month")
+  
+  // Daily queries (resets daily)
+  queriesToday    Int      @default(0) @map("queries_today")
+  lastResetDay    DateTime @default(now()) @map("last_reset_day")
+  
+  // App connections
+  appConnectionsUsed Int   @default(0) @map("app_connections_used")
+  
+  // Timestamps
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  @@index([walletAddress])
+  @@map("rag_user_usage")
+}
+
+// RAG Public Keys - Store user public keys for sharing
+model RAGPublicKey {
+  id              String   @id @default(uuid())
+  
+  walletAddress   String   @unique @map("wallet_address")
+  publicKey       String   @unique
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  @@index([walletAddress])
+  @@index([publicKey])
+  @@map("rag_public_keys")
+}
+
+// RAG App Connections - Track app integrations
+model RAGAppConnection {
+  id              String   @id @default(uuid())
+  
+  walletAddress   String   @map("wallet_address")
+  appId           String   @map("app_id")
+  appName         String   @map("app_name")
+  
+  // OAuth tokens (encrypted)
+  encryptedAccessToken  String @map("encrypted_access_token")
+  encryptedRefreshToken String? @map("encrypted_refresh_token")
+  tokenExpiresAt        DateTime? @map("token_expires_at")
+  
+  // Permissions
+  permissions     String[] // ['rag:read', 'rag:write']
+  
+  // Status
+  isActive        Boolean  @default(true) @map("is_active")
+  revokedAt       DateTime? @map("revoked_at")
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  @@unique([walletAddress, appId])
+  @@index([walletAddress])
+  @@index([appId])
+  @@map("rag_app_connections")
+}
+
+// RAG Audit Log - Track all RAG operations (for compliance/debugging)
+model RAGAuditLog {
+  id              String   @id @default(uuid())
+  
+  walletAddress   String   @map("wallet_address")
+  action          String   // 'upload', 'search', 'download', 'share', 'delete'
+  
+  // Target (if applicable)
+  documentId      String?  @map("document_id")
+  
+  // Metadata
+  queryHash       String?  @map("query_hash") // Hashed query for privacy
+  resultCount     Int?     @map("result_count")
+  
+  // Performance
+  duration        Int      // Milliseconds
+  
+  // IP and user agent (for security)
+  ipAddress       String?  @map("ip_address")
+  userAgent       String?  @map("user_agent")
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  @@index([walletAddress])
+  @@index([action])
+  @@index([createdAt])
+  @@map("rag_audit_logs")
+}

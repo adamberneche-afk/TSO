@@ -8,12 +8,203 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Conversational interview experience (v2.5)
 - Configuration templates gallery
 - Version history for configurations
 - $THINK token integration (migrating from Genesis NFT)
 - Tier system (Free/Bronze/Silver/Gold)
 - Multi-device sync with Supabase
+- App RAG SDK for third-party developers
+- Enterprise RAG with SSO integration
+
+## [2.4.0] - 2026-02-18
+
+### Added
+- **Public RAG (E2EE Platform)** - Community knowledge sharing with end-to-end encryption
+  - **E2EE Encryption Service** (`e2eeEncryption.ts`):
+    - AES-256-GCM encryption with wallet-derived keys
+    - Public/private key pair generation from wallet signature
+    - Hybrid encryption for sharing (RSA-like with XOR for demo)
+    - Client-side encryption before upload
+    - Local key storage in encrypted form
+    
+  - **Public RAG API Client** (`publicRAGClient.ts`):
+    - Wallet-authenticated API access
+    - Encrypted document upload with chunking
+    - Privacy-preserving search (embedding hashes only)
+    - Client-side decryption of results
+    - Document sharing with public keys
+    - Community document discovery
+    
+  - **Public RAG React Hooks** (`usePublicRAG.ts`):
+    - `usePublicRAG` - Search, load documents, manage state
+    - `usePublicRAGUpload` - Upload with progress tracking
+    - Zustand store with persistence
+    
+  - **Public RAG UI** (`PublicRAGManager.tsx`):
+    - Tabbed interface (Upload, Search, My Docs, Community)
+    - Document upload with public/private toggle
+    - Search with client-side decryption
+    - Document sharing with public key input
+    - Community document browser
+    - Public key display and copying
+    
+  - **Security Features**:
+    - Documents encrypted client-side before upload
+    - Only embedding hashes stored on server (not actual embeddings)
+    - Server never sees plaintext content
+    - Zero-knowledge search architecture
+    - Public key cryptography for sharing
+
+## [2.3.0] - 2026-02-18
+
+### Added
+- **Multi-RAG System**: Four-tier retrieval-augmented generation architecture
+  - **Private RAG** - Local-only knowledge base (IndexedDB, 100% private) ✅
+  - **Public RAG** - E2EE community knowledge (implemented in v2.4.0) ✅
+  - **App RAG** - SDK for third-party developers (planned)
+  - **Enterprise RAG** - Org-level with admin controls (planned)
+
+- **Private RAG Implementation** (`privateRAG.ts`):
+  - IndexedDB storage for documents and embeddings
+  - TensorFlow.js Universal Sentence Encoder for client-side embeddings
+  - Cosine similarity search with MMR re-ranking
+  - Document chunking (500 chars, 50 overlap)
+  - 50MB default storage limit (configurable)
+  - Progress tracking during document ingestion
+  - Support for TXT, MD, JSON, PDF files
+
+- **RAG Router** (`ragRouter.ts`):
+  - Multi-source aggregation from different RAG tiers
+  - Weighted result ranking
+  - Deduplication with similarity threshold
+  - Fallback ordering when sources unavailable
+  - Context string generation for LLM injection
+  - Citation extraction for responses
+
+- **Platform Detection** (`platformDetection.ts`):
+  - Automatic platform detection (web, mobile, desktop, local)
+  - Capability checking (localStorage, IndexedDB, fileSystem, encryption)
+  - Dynamic RAG source selection based on platform
+  - Storage estimation and constraints
+
+- **Enhanced RAG Types** (`rag-enhanced.ts`):
+  - Context source configuration with isolation rules
+  - Platform detection and access conditions
+  - Data governance and classification
+  - Skills + RAG integration types
+  - Audit trail and security configuration
+
+- **RAG React Hooks** (`useRAG.ts`):
+  - `useRAG` - Query multiple sources, get context strings
+  - `usePrivateRAG` - Document upload, delete, management
+  - Zustand store with persistence
+  - Real-time stats and progress tracking
+
+- **RAG UI Components**:
+  - `RAGSourceManager` - Configure and weight RAG sources
+  - `PrivateRAGManager` - Upload and manage local documents
+  - Progress indicators for document processing
+  - Source health monitoring
+
+### Architecture
+- **Context Isolation**: Private data never leaves device, no cross-contamination
+- **Encryption**: Local encryption with user-managed keys
+- **Privacy**: Zero server storage for private RAG
+- **Scalability**: Router pattern supports unlimited sources
+
+### Technical
+- **Embeddings**: TensorFlow.js Universal Sentence Encoder (512 dimensions)
+- **Storage**: IndexedDB with separate stores for documents and chunks
+- **Search**: Client-side cosine similarity with threshold filtering
+- **Re-ranking**: Maximal Marginal Relevance (MMR) for diversity
+
+## [2.2.0] - 2026-02-18
+
+### Added
+- **LLM Provider Integration**: Multi-provider AI support with secure API key management
+  - **Supported Providers**: OpenAI, Anthropic, Local (Ollama), Custom APIs
+  - **Secure Storage**: Wallet-signature encrypted API keys stored in localStorage only
+  - **Cost Tracking**: Real-time budget monitoring with configurable limits ($0.10 - $5.00)
+  - **Dynamic Questions**: AI-generated contextual follow-up questions
+  
+- **API Key Management** (`apiKeyManager.ts`):
+  - AES-256-GCM encryption using wallet signature as key material
+  - Decryption requires user's wallet to sign static message
+  - API keys never leave the browser
+  - Support for multiple provider keys
+  
+- **LLM Client Service** (`llmClient.ts`):
+  - Universal client for OpenAI, Anthropic, Local, and Custom APIs
+  - Automatic cost calculation per API call
+  - Dynamic question generation based on conversation context
+  - Entity extraction using LLM
+  
+- **Cost Tracking System** (`useCostTracker.ts`):
+  - Zustand store with persistence
+  - Configurable max budget and warning threshold
+  - Real-time cost display with progress indicator
+  - Automatic interview stop when budget exceeded
+  - Cost warnings at configurable percentage (default 80%)
+  
+- **Provider Settings** (`useLLMSettings.ts`):
+  - Provider selection with cost information
+  - Custom base URL support for local/custom APIs
+  - Budget configuration persistence
+  
+- **UI Components**:
+  - `ProviderSelector` - Dropdown with provider info and cost badges
+  - `ApiKeyInput` - Secure input with encryption feedback
+  - `CostSettingsPanel` - Budget and threshold configuration
+  - `CostDisplay` - Real-time cost tracking display
+  - `LLMSettingsPanel` - Complete settings panel
+  - `DynamicConversationContainer` - Enhanced chat with LLM integration
+
+### Security
+- API key encryption derived from wallet signature (user-owned keys)
+- No server-side storage of API keys
+- Encrypted at rest in browser localStorage
+- Decryption requires active wallet connection
+
+### Technical
+- **New Dependencies**: None (uses existing ethers.js)
+- **Encryption**: Web Crypto API (AES-256-GCM)
+- **Storage**: localStorage with Zustand persistence
+- **Cost Calculation**: Provider-specific pricing per 1K tokens
+
+## [2.1.0] - 2026-02-17
+
+### Added
+- **Conversation UI Components**: Complete AI-powered interview interface
+  - `ConversationContainer` - Main chat interface with sidebar navigation
+  - `MessageBubble` - Message display with entity extraction badges
+  - `InputArea` - Auto-resizing text input with voice input placeholder
+  - `FixedQuestions` - Progress tracker for 3 interview questions
+  - `ConversationUI` - Landing page with session management
+- **3 Fixed Interview Questions**:
+  1. Professional background and current work
+  2. Core technical skills and technologies
+  3. Career goals and project interests
+- **TensorFlow.js Integration**: Universal Sentence Encoder for NLP
+  - Semantic similarity calculations between responses
+  - Intent classification (describing_experience, listing_skills, expressing_goals)
+  - Text embeddings for ML processing
+- **Entity Extraction Pipeline**: Pattern-based NLP system
+  - Extracts: skills, technologies, experiences, roles, companies, durations
+  - Semantic analysis: sentiment scoring, topic detection, complexity metrics
+  - Confidence scoring for all extracted entities
+- **LocalStorage Persistence**: Automatic conversation saving
+  - Session management with create/resume/delete
+  - Exported data: messages, entities, timestamps, extracted skills
+  - JSON export functionality for backup/sharing
+- **Zustand State Management**: `useConversation` store
+  - Real-time message updates
+  - Session history tracking
+  - Progress through interview questions
+
+### Technical
+- **Dependencies**: Added `@tensorflow/tfjs` and `@tensorflow-models/universal-sentence-encoder`
+- **Performance**: Lazy loading of TensorFlow model with progress indicator
+- **Storage**: Zustand persistence middleware with localStorage backend
 
 ## [2.0.1] - 2026-02-15
 
