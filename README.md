@@ -1,4 +1,4 @@
-# TAIS Skill Registry v1.0 🚀
+# TAIS Platform v2.5 🚀
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -8,10 +8,11 @@
 [![Security](https://img.shields.io/badge/Security-A%20Grade-success.svg)]()
 [![Audits](https://img.shields.io/badge/Audits-3%20Passed-success.svg)]()
 [![Frontend](https://img.shields.io/badge/Frontend-Vercel%20Ready-black.svg)]()
+[![RAG](https://img.shields.io/badge/RAG-Multi--Tier-orange.svg)]()
 
-**Production-Ready • Enterprise Security • NFT-Verified • Decentralized Storage**
+**Production-Ready • Enterprise Security • NFT-Verified • E2EE Multi-RAG • Decentralized Storage**
 
-TAIS (Think Agent Interview System) Skill Registry is a secure, scalable API for discovering, publishing, and auditing AI agent skills. Built with Express.js, PostgreSQL, and blockchain verification via THINK Genesis Bundle NFTs.
+TAIS (Think Agent Interview System) is a comprehensive platform for AI agent configuration, skill management, and privacy-first knowledge retrieval. Features a three-tier RAG (Retrieval-Augmented Generation) system with end-to-end encryption, dual-database architecture, and blockchain verification via THINK Genesis Bundle NFTs.
 
 ## 🔒 Security Status: A Grade (94%)
 
@@ -92,35 +93,52 @@ curl -X POST https://tso.onrender.com/api/skills \
 ```
 TSO/
 ├── packages/
-│   ├── registry/          # Main API server (deployed)
+│   ├── registry/              # Main API server (deployed)
 │   │   ├── src/
-│   │   │   ├── index.ts              # Express app
-│   │   │   ├── routes/               # API endpoints
-│   │   │   ├── services/             # Business logic
+│   │   │   ├── index.ts                  # Express app with dual-db support
+│   │   │   ├── routes/
+│   │   │   │   ├── skills.ts             # Skill registry endpoints
+│   │   │   │   ├── rag.ts                # Public RAG endpoints (v2.5.0)
+│   │   │   │   └── configurations.ts     # Agent config persistence
+│   │   │   ├── services/
 │   │   │   │   ├── nftVerification.ts    # NFT checking
+│   │   │   │   ├── ragStorage.ts         # RAG document storage
+│   │   │   │   ├── ragAccessControl.ts   # Tier enforcement
 │   │   │   │   ├── yaraScanner.ts        # Security scanning
 │   │   │   │   └── ipfs.ts               # IPFS client
-│   │   │   └── monitoring/           # Metrics & alerts
+│   │   │   ├── config/
+│   │   │   │   └── database.ts           # Dual-database clients
+│   │   │   └── monitoring/               # Metrics & alerts
 │   │   ├── prisma/
-│   │   │   └── schema.prisma         # Database schema
-│   │   └── render.yaml               # Deployment config
-│   ├── core/              # Security services (shared)
-│   ├── types/             # TypeScript schemas
-│   └── sdk/               # Client SDK
-├── tais-frontend/         # Next.js interview system (NEW)
-│   ├── app/               # Next.js App Router
-│   ├── components/        # React components
-│   │   ├── ui/            # Base UI components
-│   │   ├── interview/     # Interview wizard
-│   │   └── conversation/  # AI conversation UI (v2.1.0)
-│   ├── lib/               # Utilities & configs
-│   └── types/             # TypeScript types
-├── demo-skills/           # Example skills
-│   ├── weather-api/
-│   ├── data-processor/
-│   └── crypto-price/
-├── frontend.md            # Frontend development guide
-└── render.yaml            # Infrastructure as code
+│   │   │   └── schema.prisma             # Database schema
+│   │   ├── build.sh                      # Dual-database build script
+│   │   └── start.sh                      # Dual-database startup script
+│   ├── core/                  # Security services (shared)
+│   ├── types/                 # TypeScript schemas
+│   └── sdk/                   # Client SDK
+├── tais_frontend/             # Next.js application (deployed)
+│   ├── src/
+│   │   ├── app/               # Next.js App Router
+│   │   ├── components/
+│   │   │   ├── ui/            # Base UI components
+│   │   │   ├── interview/     # Interview wizard
+│   │   │   ├── conversation/  # AI conversation UI (v2.1.0)
+│   │   │   └── rag/           # Multi-RAG components (v2.5.0)
+│   │   │       ├── PublicRAGManager.tsx
+│   │   │       ├── PrivateRAGManager.tsx
+│   │   │       └── README.md
+│   │   ├── services/
+│   │   │   └── rag/
+│   │   │       ├── e2eeEncryption.ts     # ECIES encryption
+│   │   │       ├── publicRAGClient.ts    # API client
+│   │   │       └── privateRAG.ts         # Local RAG
+│   │   └── types/             # TypeScript types
+├── docs/                      # Documentation
+│   ├── DATABASE_ARCHITECTURE.md
+│   ├── DEPLOYMENT_GUIDE.md
+│   └── RAG_IMPLEMENTATION_SUMMARY.md
+├── demo-skills/               # Example skills
+└── render.yaml                # Infrastructure as code
 ```
 
 ---
@@ -130,12 +148,29 @@ TSO/
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | **API Server** | Express.js + TypeScript | REST API endpoints |
-| **Database** | PostgreSQL + Prisma | Skill metadata & relations |
+| **Database** | PostgreSQL x2 (Dual-DB) | tais-rag (RAG) + tais_registry (Skills) |
+| **ORM** | Prisma Client x2 | Separate clients per database |
+| **RAG Storage** | PostgreSQL (Base64) | Zero-cost encrypted document storage |
+| **Encryption** | ECIES (ECDH P-384 + HKDF) | End-to-end document encryption |
 | **Storage** | IPFS (Pinata) | Decentralized skill packages |
 | **Blockchain** | Ethereum (Mainnet) | NFT verification |
 | **Security** | YARA + Custom Rules | Automated code scanning |
 | **Monitoring** | Prometheus + Sentry | Metrics & error tracking |
-| **Hosting** | Render (Free Tier) | Production deployment |
+| **Hosting** | Render + Vercel | Dual-service deployment |
+
+### Dual-Database Architecture
+
+**Database 1: tais-rag** (Public RAG Service)
+- Stores encrypted documents, chunks, audit logs
+- E2EE encryption (server never sees plaintext)
+- Privacy-preserving search (embedding hashes)
+- Connection: `RAG_DATABASE_URL`
+
+**Database 2: tais_registry** (Skills Registry)
+- Stores skills, auth, configurations
+- NFT ownership verification
+- Agent configuration persistence
+- Connection: `SKILLS_DATABASE_URL`
 | **Frontend** | Next.js 14 + Tailwind | Interview wizard & agent builder |
 | **State Management** | Zustand | Interview progress & config |
 | **Animations** | Framer Motion | UI transitions |

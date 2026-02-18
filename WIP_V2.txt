@@ -311,7 +311,9 @@ GET  /api/v1/configurations/nft/verify
 |-----------|--------|-----|-------|
 | Backend API | 🟢 Live | https://tso.onrender.com | Healthy, all endpoints operational |
 | Frontend | 🟢 Live | https://taisplatform.vercel.app | Static export, CORS configured |
-| Database | 🟢 Connected | PostgreSQL | All migrations applied |
+| RAG Database | 🟢 Connected | PostgreSQL (tais-rag) | Public RAG documents & audit logs |
+| Skills Database | 🟢 Connected | PostgreSQL (tais_registry) | Skills registry & auth data |
+| Dual-DB Arch | 🟢 Active | Separate instances | tais-rag + tais_registry |
 | Monitoring | 🟡 Partial | - | Prometheus active, alerts pending |
 
 ### Feature Status
