@@ -23,6 +23,8 @@
     "deploy:check": "npm run preflight && npm run security:audit && npm run db:verify"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.450.0",
+    "@aws-sdk/s3-request-presigner": "^3.450.0",
     "@prisma/client": "^5.6.0",
     "@sentry/node": "^7.100.0",
     "@sentry/tracing": "^7.100.0",
