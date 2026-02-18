@@ -31,12 +31,24 @@ npm run build
 echo "Generating Prisma client..."
 npx prisma generate
 
-# Run database migrations (if DATABASE_URL is set)
-if [ -n "$DATABASE_URL" ]; then
-    echo "Running database migrations..."
+# Run database migrations
+# Support dual-database architecture: RAG_DATABASE_URL and SKILLS_DATABASE_URL
+if [ -n "$RAG_DATABASE_URL" ]; then
+    echo "Running migrations on RAG database (tais-rag)..."
+    export DATABASE_URL="$RAG_DATABASE_URL"
     npx prisma migrate deploy || echo "Migration may have already been applied"
-else
-    echo "DATABASE_URL not set, skipping migrations"
+fi
+
+if [ -n "$SKILLS_DATABASE_URL" ]; then
+    echo "Running migrations on Skills database (tais_registry)..."
+    export DATABASE_URL="$SKILLS_DATABASE_URL"
+    npx prisma migrate deploy || echo "Migration may have already been applied"
+fi
+
+# Legacy: single database mode
+if [ -z "$RAG_DATABASE_URL" ] && [ -z "$SKILLS_DATABASE_URL" ] && [ -n "$DATABASE_URL" ]; then
+    echo "Running database migrations (single database mode)..."
+    npx prisma migrate deploy || echo "Migration may have already been applied"
 fi
 
 # Seed database (optional, only if SEED_DATABASE is set to true)

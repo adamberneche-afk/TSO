@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Note: This schema supports dual-database architecture
+// DATABASE_URL is used by Prisma CLI for migrations
+// RAG_DATABASE_URL and SKILLS_DATABASE_URL are used by the application at runtime
+// For migration commands, set DATABASE_URL to the target database (tais-rag or tais_registry)
+
 model Skill {
   id          String   @id @default(uuid())
   skillHash   String   @unique @map("skill_hash")
