@@ -1,6 +1,6 @@
 #!/bin/bash
 # Start script for dual-database architecture
-# Handles migrations and server startup
+# Handles build, migrations, and server startup
 
 set -e
 
@@ -8,7 +8,15 @@ echo "=========================================="
 echo "TAIS Platform - Startup Script"
 echo "=========================================="
 
+# Build if dist/ doesn't exist
+if [ ! -d "dist" ]; then
+    echo ""
+    echo "Building TypeScript..."
+    npm run build
+fi
+
 # Show database configuration
+echo ""
 echo "Database Configuration:"
 echo "  RAG_DATABASE_URL set: $([ -n "$RAG_DATABASE_URL" ] && echo "YES" || echo "NO")"
 echo "  SKILLS_DATABASE_URL set: $([ -n "$SKILLS_DATABASE_URL" ] && echo "YES" || echo "NO")"
