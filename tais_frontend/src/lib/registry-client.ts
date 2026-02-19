@@ -3,7 +3,7 @@
 import { Skill, SearchResults, CreateSkillDTO, RegistryClientConfig } from '../types/registry';
 import { MOCK_SKILLS, MOCK_TRENDING_SKILLS, USE_MOCK_DATA } from './mock-data';
 
-const REGISTRY_API_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
+const REGISTRY_API_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com/api/v1';
 
 class RegistryClient {
   private baseURL: string;

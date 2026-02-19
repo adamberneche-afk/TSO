@@ -76,7 +76,7 @@ npm run build
 Create a `.env` file:
 
 ```bash
-VITE_REGISTRY_URL=https://tso.onrender.com
+VITE_REGISTRY_URL=https://tso.onrender.com/api/v1
 VITE_GENESIS_CONTRACT=0x11B3EfbF04F0bA505F380aC20444B6952970AdA6
 ```
 
@@ -95,13 +95,13 @@ VITE_GENESIS_CONTRACT=0x11B3EfbF04F0bA505F380aC20444B6952970AdA6
 
 ### Registry API
 
-The platform connects to the TAIS Registry at `https://tso.onrender.com`:
+The platform connects to the TAIS Registry at `https://tso.onrender.com/api/v1`:
 
-- `GET /api/skills` - List available skills
-- `GET /api/skills/:hash` - Get skill details
-- `POST /api/skills` - Publish new skill (requires Genesis NFT)
-- `GET /api/search` - Search skills
-- `GET /api/search/trending` - Get trending skills
+- `GET /api/v1/skills` - List available skills
+- `GET /api/v1/skills/:hash` - Get skill details
+- `POST /api/v1/skills` - Publish new skill (requires Genesis NFT)
+- `GET /api/v1/search` - Search skills
+- `GET /api/v1/search/trending` - Get trending skills
 
 ### Wallet Integration
 
