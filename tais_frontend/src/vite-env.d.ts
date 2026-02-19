@@ -5,6 +5,7 @@ interface ImportMetaEnv {
   readonly VITE_RPC_URL: string;
   readonly VITE_GENESIS_CONTRACT: string;
   readonly VITE_APP_URL: string;
+  readonly VITE_PUBLIC_RAG_API_URL?: string;
 }
 
 interface ImportMeta {

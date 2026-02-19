@@ -16,7 +16,7 @@ import type {
 import type { Chunk } from '../../types/rag';
 import { ethers } from 'ethers';
 
-const API_BASE_URL = process.env.VITE_PUBLIC_RAG_API_URL || 'https://api.taisplatform.com/v1/rag';
+const API_BASE_URL = import.meta.env.VITE_PUBLIC_RAG_API_URL || 'https://tso.onrender.com/api/v1/rag';
 
 export class PublicRAGClient {
   private apiKey: string | null = null;
