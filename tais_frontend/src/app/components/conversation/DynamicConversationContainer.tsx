@@ -114,11 +114,11 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
 
   if (showSettings) {
     return (
-      <div className="h-full overflow-y-auto p-6">
+      <div className="h-full overflow-y-auto p-6 bg-[#0A0A0B]">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">AI Provider Settings</h2>
-            <Button variant="outline" onClick={() => setShowSettings(false)}>
+            <h2 className="text-2xl font-bold text-[#EDEDED]">AI Provider Settings</h2>
+            <Button variant="outline" onClick={() => setShowSettings(false)} className="border-[#262626] text-[#A1A1A1] hover:bg-white/5">
               Back to Interview
             </Button>
           </div>
@@ -128,23 +128,22 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
     );
   }
 
-  // Show setup prompt if no provider selected
   if (!selectedProvider) {
     return (
-      <div className="flex h-full items-center justify-center p-6">
-        <Card className="max-w-md w-full">
+      <div className="flex h-full items-center justify-center p-6 bg-[#0A0A0B]">
+        <Card className="max-w-md w-full bg-[#141415] border-[#262626]">
           <CardContent className="p-6 text-center space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-blue-100 flex items-center justify-center">
-              <Settings className="w-8 h-8 text-blue-500" />
+            <div className="w-16 h-16 mx-auto rounded-full bg-[#3B82F6]/10 border border-[#3B82F6]/20 flex items-center justify-center">
+              <Settings className="w-8 h-8 text-[#3B82F6]" />
             </div>
-            <h3 className="text-xl font-semibold">Configure AI Provider</h3>
-            <p className="text-gray-600">
+            <h3 className="text-xl font-semibold text-[#EDEDED]">Configure AI Provider</h3>
+            <p className="text-[#A1A1A1]">
               To enable dynamic question generation, please configure your AI provider and API key.
             </p>
             <div className="space-y-2">
               <Button 
                 onClick={() => setShowSettings(true)} 
-                className="w-full"
+                className="w-full bg-white text-black font-bold uppercase tracking-widest text-xs hover:bg-white/90"
               >
                 <Settings className="w-4 h-4 mr-2" />
                 Configure Provider
@@ -152,7 +151,7 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
               <Button 
                 variant="outline" 
                 onClick={onClose}
-                className="w-full"
+                className="w-full border-[#262626] text-[#A1A1A1] hover:bg-white/5"
               >
                 <MessageSquare className="w-4 h-4 mr-2" />
                 Use Static Mode
@@ -165,14 +164,13 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header with cost display */}
-      <div className="border-b border-gray-200 p-4">
+    <div className="h-full flex flex-col bg-[#0A0A0B]">
+      <div className="border-b border-[#262626] p-4 bg-[#0A0A0B]">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <div className="flex items-center gap-4">
-            <h2 className="font-semibold">AI-Powered Interview</h2>
+            <h2 className="font-semibold text-[#EDEDED] text-xs uppercase tracking-widest">AI-Powered Interview</h2>
             {llmClient && (
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-[#717171]">
                 Using: {selectedProvider === 'local' ? 'Local (Ollama)' : selectedProvider}
               </span>
             )}
@@ -185,6 +183,7 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
               variant="outline" 
               size="sm"
               onClick={() => setShowSettings(true)}
+              className="border-[#262626] text-[#A1A1A1] hover:bg-white/5"
             >
               <Settings className="w-4 h-4 mr-1" />
               Settings
@@ -193,7 +192,6 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
         </div>
       </div>
 
-      {/* Main conversation area */}
       <div className="flex-1">
         <ConversationContainer 
           onClose={onClose}
@@ -201,13 +199,12 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
         />
       </div>
 
-      {/* Dynamic question generation indicator */}
       {isInitializing && (
         <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2">
-          <Card className="bg-blue-50 border-blue-200">
+          <Card className="bg-[#3B82F6]/10 border-[#3B82F6]/20">
             <CardContent className="py-2 px-4 flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-blue-700">Generating next question...</span>
+              <div className="w-4 h-4 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm text-[#93C5FD]">Generating next question...</span>
             </CardContent>
           </Card>
         </div>

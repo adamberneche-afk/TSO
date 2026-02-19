@@ -13,13 +13,13 @@ interface FixedQuestionsProps {
 const getCategoryColor = (category: FixedQuestion['category']): string => {
   switch (category) {
     case 'background':
-      return 'bg-blue-100 text-blue-800';
+      return 'bg-[#3B82F6]/10 text-[#93C5FD] border-[#3B82F6]/20';
     case 'skills':
-      return 'bg-purple-100 text-purple-800';
+      return 'bg-[#A855F7]/10 text-[#C4B5FD] border-[#A855F7]/20';
     case 'goals':
-      return 'bg-green-100 text-green-800';
+      return 'bg-[#4ADE80]/10 text-[#4ADE80] border-[#4ADE80]/20';
     default:
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-white/5 text-[#A1A1A1] border-white/10';
   }
 };
 
@@ -31,9 +31,9 @@ export const FixedQuestions: React.FC<FixedQuestionsProps> = ({
   return (
     <div className="space-y-3 p-4">
       <div className="flex items-center gap-2 mb-4">
-        <MessageSquare className="w-5 h-5 text-blue-500" />
-        <h3 className="font-semibold text-gray-800">Interview Questions</h3>
-        <Badge variant="outline" className="ml-auto">
+        <MessageSquare className="w-5 h-5 text-[#3B82F6]" />
+        <h3 className="font-semibold text-[#EDEDED] text-xs uppercase tracking-widest">Interview Questions</h3>
+        <Badge variant="outline" className="ml-auto border-[#262626] text-[#A1A1A1]">
           {Math.min(currentIndex + 1, FIXED_QUESTIONS.length)} / {FIXED_QUESTIONS.length}
         </Badge>
       </div>
@@ -47,57 +47,54 @@ export const FixedQuestions: React.FC<FixedQuestionsProps> = ({
           return (
             <Card
               key={question.id}
-              className={`cursor-pointer transition-all duration-200 ${
+              className={`cursor-pointer transition-all duration-200 bg-[#141415] border-[#262626] ${
                 isActive
-                  ? 'border-blue-500 ring-1 ring-blue-500 shadow-md'
+                  ? 'border-[#3B82F6] ring-1 ring-[#3B82F6]/50 bg-[#3B82F6]/5'
                   : isCompleted
-                    ? 'border-green-300 bg-green-50/50'
-                    : 'border-gray-200 hover:border-gray-300'
-              } ${isPending ? 'opacity-60' : ''}`}
+                    ? 'border-[#4ADE80]/30 bg-[#4ADE80]/5'
+                    : 'hover:border-white/10 hover:bg-white/[0.02]'
+              } ${isPending ? 'opacity-50' : ''}`}
               onClick={() => onQuestionClick?.(index)}
             >
               <CardContent className="p-3">
                 <div className="flex items-start gap-3">
-                  {/* Status Icon */}
                   <div className="shrink-0 mt-0.5">
                     {isCompleted ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                      <CheckCircle2 className="w-5 h-5 text-[#4ADE80]" />
                     ) : isActive ? (
-                      <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                      <div className="w-5 h-5 rounded-full bg-[#3B82F6] flex items-center justify-center">
                         <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                       </div>
                     ) : (
-                      <Circle className="w-5 h-5 text-gray-300" />
+                      <Circle className="w-5 h-5 text-[#262626]" />
                     )}
                   </div>
 
-                  {/* Question Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium text-gray-500">
+                      <span className="text-xs font-medium text-[#717171] uppercase tracking-widest">
                         Question {index + 1}
                       </span>
                       <Badge
                         variant="secondary"
-                        className={`text-xs ${getCategoryColor(question.category)}`}
+                        className={`text-xs border ${getCategoryColor(question.category)}`}
                       >
                         {question.category}
                       </Badge>
                     </div>
                     
-                    <p className={`text-sm ${isActive ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
+                    <p className={`text-sm ${isActive ? 'text-[#EDEDED] font-medium' : 'text-[#A1A1A1]'}`}>
                       {question.question}
                     </p>
 
-                    {/* Expected Entities */}
                     {isActive && (
                       <div className="mt-2 flex flex-wrap gap-1">
-                        <span className="text-xs text-gray-400">Looking for:</span>
+                        <span className="text-xs text-[#717171]">Looking for:</span>
                         {question.expectedEntities.map((entity) => (
                           <Badge
                             key={entity}
                             variant="outline"
-                            className="text-xs px-1.5 py-0"
+                            className="text-xs px-1.5 py-0 border-[#262626] text-[#A1A1A1]"
                           >
                             {entity}
                           </Badge>
@@ -112,15 +109,14 @@ export const FixedQuestions: React.FC<FixedQuestionsProps> = ({
         })}
       </div>
 
-      {/* Progress Bar */}
       <div className="mt-4">
-        <div className="flex justify-between text-xs text-gray-500 mb-1">
+        <div className="flex justify-between text-xs text-[#717171] mb-1 uppercase tracking-widest">
           <span>Progress</span>
           <span>{Math.round((currentIndex / FIXED_QUESTIONS.length) * 100)}%</span>
         </div>
-        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div className="w-full h-2 bg-[#262626] rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
+            className="h-full bg-gradient-to-r from-[#3B82F6] to-[#A855F7] transition-all duration-300"
             style={{ width: `${(currentIndex / FIXED_QUESTIONS.length) * 100}%` }}
           />
         </div>

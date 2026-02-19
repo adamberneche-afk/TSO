@@ -1,57 +1,33 @@
 import React from 'react';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Badge } from '../ui/badge';
-import { User, Bot, Sparkles } from 'lucide-react';
+import { User, Bot, Sparkles, Terminal, Shield } from 'lucide-react';
 import type { Message, ExtractedEntity } from '../../../types/conversation';
+import { motion } from 'motion/react';
 
 interface MessageBubbleProps {
   message: Message;
   showEntities?: boolean;
 }
 
-const getEntityColor = (type: ExtractedEntity['type']): string => {
+const getEntityStyles = (type: ExtractedEntity['type']): string => {
   switch (type) {
     case 'skill':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
+      return 'border-[#3B82F6] text-[#3B82F6] bg-[#3B82F6]/5';
     case 'technology':
-      return 'bg-purple-100 text-purple-800 border-purple-200';
+      return 'border-[#8B5CF6] text-[#8B5CF6] bg-[#8B5CF6]/5';
     case 'experience':
-      return 'bg-green-100 text-green-800 border-green-200';
+      return 'border-[#4ADE80] text-[#4ADE80] bg-[#4ADE80]/5';
     case 'duration':
-      return 'bg-orange-100 text-orange-800 border-orange-200';
+      return 'border-[#F59E0B] text-[#F59E0B] bg-[#F59E0B]/5';
     case 'proficiency':
-      return 'bg-pink-100 text-pink-800 border-pink-200';
+      return 'border-[#EC4899] text-[#EC4899] bg-[#EC4899]/5';
     case 'role':
-      return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      return 'border-[#6366F1] text-[#6366F1] bg-[#6366F1]/5';
     case 'company':
-      return 'bg-cyan-100 text-cyan-800 border-cyan-200';
-    case 'date':
-      return 'bg-gray-100 text-gray-800 border-gray-200';
+      return 'border-[#06B6D4] text-[#06B6D4] bg-[#06B6D4]/5';
     default:
-      return 'bg-gray-100 text-gray-800 border-gray-200';
-  }
-};
-
-const getEntityIcon = (type: ExtractedEntity['type']): string => {
-  switch (type) {
-    case 'skill':
-      return '🎯';
-    case 'technology':
-      return '💻';
-    case 'experience':
-      return '💼';
-    case 'duration':
-      return '⏱️';
-    case 'proficiency':
-      return '📊';
-    case 'role':
-      return '👤';
-    case 'company':
-      return '🏢';
-    case 'date':
-      return '📅';
-    default:
-      return '📌';
+      return 'border-[#262626] text-[#A1A1A1] bg-[#141415]';
   }
 };
 
@@ -63,77 +39,83 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, showEntit
   });
 
   return (
-    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'} mb-4`}>
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'} mb-8`}
+    >
       {/* Avatar */}
-      <Avatar className={`w-8 h-8 ${isUser ? 'bg-blue-500' : 'bg-purple-500'}`}>
-        <AvatarFallback className={isUser ? 'bg-blue-500 text-white' : 'bg-purple-500 text-white'}>
-          {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-        </AvatarFallback>
-      </Avatar>
+      <div className={`w-8 h-8 rounded border ${isUser ? 'bg-white text-black border-white' : 'bg-[#141415] text-[#3B82F6] border-[#262626]'} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+        {isUser ? <User className="w-4 h-4" /> : <Terminal className="w-4 h-4" />}
+      </div>
 
       {/* Message Content */}
-      <div className={`flex flex-col max-w-[80%] ${isUser ? 'items-end' : 'items-start'}`}>
+      <div className={`flex flex-col max-w-[85%] ${isUser ? 'items-end' : 'items-start'} space-y-2`}>
+        {/* Label */}
+        <div className="flex items-center gap-2 px-1">
+          <label className="text-[9px] uppercase tracking-[0.2em] text-[#717171] font-bold">
+            {isUser ? 'TRANSMISSION' : 'NEURAL_LINK'}
+          </label>
+          <span className="text-[9px] font-mono text-[#444] uppercase">{timestamp}</span>
+        </div>
+
         {/* Bubble */}
         <div
-          className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+          className={`px-5 py-3 rounded-lg text-sm leading-relaxed border ${
             isUser
-              ? 'bg-blue-500 text-white rounded-br-md'
-              : 'bg-gray-100 text-gray-800 rounded-bl-md'
-          }`}
+              ? 'bg-[#141415] text-white border-[#3B82F6]/30'
+              : 'bg-[#141415] text-[#EDEDED] border-[#262626]'
+          } shadow-sm`}
         >
           {message.content}
         </div>
 
-        {/* Timestamp */}
-        <span className="text-xs text-gray-400 mt-1 px-1">
-          {timestamp}
-        </span>
-
         {/* Extracted Entities */}
         {showEntities && isUser && message.entities && message.entities.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
-              <Sparkles className="w-3 h-3" />
-              <span>Extracted entities:</span>
+          <div className="mt-3 w-full bg-[#0F0F10] border border-[#262626] rounded-md p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[9px] uppercase tracking-widest text-[#717171] font-bold">
+                <Sparkles className="w-3 h-3 text-[#3B82F6]" />
+                <span>Extracted Telemetry</span>
+              </div>
+              <Badge variant="outline" className="text-[8px] border-[#262626] text-[#444]">NLP_V1</Badge>
             </div>
-            {message.entities.map((entity, index) => (
-              <Badge
-                key={`${entity.type}-${index}`}
-                variant="outline"
-                className={`text-xs px-2 py-0.5 ${getEntityColor(entity.type)}`}
-                title={`Confidence: ${Math.round(entity.confidence * 100)}%`}
-              >
-                <span className="mr-1">{getEntityIcon(entity.type)}</span>
-                {entity.value}
-              </Badge>
-            ))}
+            <div className="flex flex-wrap gap-1.5">
+              {message.entities.map((entity, index) => (
+                <Badge
+                  key={`${entity.type}-${index}`}
+                  variant="outline"
+                  className={`text-[9px] uppercase font-mono tracking-wider px-2 py-0.5 border ${getEntityStyles(entity.type)} transition-all hover:brightness-110`}
+                >
+                  {entity.value}
+                </Badge>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Intent & Sentiment (for user messages) */}
+        {/* Intent & Sentiment */}
         {showEntities && isUser && (message.intent || message.sentiment !== undefined) && (
-          <div className="mt-1 flex gap-2 text-xs text-gray-400">
+          <div className="flex gap-3 px-1">
             {message.intent && (
-              <span className="bg-gray-50 px-2 py-0.5 rounded">
-                Intent: {message.intent}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1 h-1 rounded-full bg-[#3B82F6]" />
+                <span className="text-[9px] uppercase tracking-widest text-[#717171] font-bold">
+                  INTENT: {message.intent}
+                </span>
+              </div>
             )}
             {message.sentiment !== undefined && (
-              <span 
-                className={`px-2 py-0.5 rounded ${
-                  message.sentiment > 0.6 
-                    ? 'bg-green-50 text-green-600' 
-                    : message.sentiment < 0.4 
-                      ? 'bg-red-50 text-red-600' 
-                      : 'bg-gray-50 text-gray-600'
-                }`}
-              >
-                Sentiment: {Math.round(message.sentiment * 100)}%
-              </span>
+              <div className="flex items-center gap-1.5">
+                <div className={`w-1 h-1 rounded-full ${message.sentiment > 0.6 ? 'bg-[#4ADE80]' : message.sentiment < 0.4 ? 'bg-red-500' : 'bg-[#717171]'}`} />
+                <span className="text-[9px] uppercase tracking-widest text-[#717171] font-bold">
+                  SENTIMENT: {Math.round(message.sentiment * 100)}%
+                </span>
+              </div>
             )}
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Slider } from '../ui/slider';
-import { ExternalLink, Key, DollarSign, AlertCircle, CheckCircle2, Trash2 } from 'lucide-react';
+import { ExternalLink, Key, DollarSign, AlertCircle, CheckCircle2, Trash2, Cpu, Zap, ShieldCheck } from 'lucide-react';
 import { useLLMSettings } from '../../../hooks/useLLMSettings';
 import { LLM_PROVIDERS } from '../../../types/llm';
 import type { LLMProvider } from '../../../types/llm';
@@ -35,18 +35,18 @@ export const ProviderSelector: React.FC<ProviderSelectorProps> = ({ onProviderCh
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="provider">Select AI Provider</Label>
+        <label className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">Select AI Provider</label>
         <Select value={selectedProvider || ''} onValueChange={handleProviderChange}>
-          <SelectTrigger id="provider" className="w-full">
-            <SelectValue placeholder="Choose a provider..." />
+          <SelectTrigger id="provider" className="w-full bg-[#0A0A0B] border-[#262626] h-12">
+            <SelectValue placeholder="CHOOSE A PROVIDER..." />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-[#141415] border-[#262626]">
             {Object.values(LLM_PROVIDERS).map((provider) => (
-              <SelectItem key={provider.id} value={provider.id}>
+              <SelectItem key={provider.id} value={provider.id} className="focus:bg-white/5 focus:text-white">
                 <div className="flex items-center justify-between w-full">
-                  <span>{provider.name}</span>
+                  <span className="uppercase tracking-widest text-xs font-mono">{provider.name}</span>
                   {hasApiKey(provider.id) && (
-                    <CheckCircle2 className="w-4 h-4 text-green-500 ml-2" />
+                    <CheckCircle2 className="w-3 h-3 text-[#4ADE80] ml-2" />
                   )}
                 </div>
               </SelectItem>
@@ -56,29 +56,27 @@ export const ProviderSelector: React.FC<ProviderSelectorProps> = ({ onProviderCh
       </div>
 
       {selectedProvider && (
-        <Card className="bg-gray-50">
-          <CardContent className="p-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium">{LLM_PROVIDERS[selectedProvider].name}</h4>
-                <Badge variant="outline">
-                  ${LLM_PROVIDERS[selectedProvider].costPer1KTokens.input}/1K tokens
-                </Badge>
-              </div>
-              <p className="text-sm text-gray-600">
-                {LLM_PROVIDERS[selectedProvider].description}
-              </p>
-              <a
-                href={LLM_PROVIDERS[selectedProvider].docsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-500 hover:text-blue-600 flex items-center gap-1"
-              >
-                Get API Key <ExternalLink className="w-3 h-3" />
-              </a>
+        <div className="bg-[#0A0A0B] border border-[#262626] rounded-lg p-4 animate-in fade-in slide-in-from-top-1">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-white">{LLM_PROVIDERS[selectedProvider].name}</h4>
+              <Badge variant="outline" className="text-[9px] uppercase tracking-widest border-[#262626] text-[#3B82F6]">
+                ${LLM_PROVIDERS[selectedProvider].costPer1KTokens.input}/1K TOKENS
+              </Badge>
             </div>
-          </CardContent>
-        </Card>
+            <p className="text-xs text-[#A1A1A1] leading-relaxed">
+              {LLM_PROVIDERS[selectedProvider].description}
+            </p>
+            <a
+              href={LLM_PROVIDERS[selectedProvider].docsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-[#3B82F6] hover:text-white uppercase tracking-widest font-bold flex items-center gap-1 transition-colors"
+            >
+              Get API Key <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -129,68 +127,69 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ provider, onSaved }) =
 
   if (hasKey) {
     return (
-      <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5 text-green-500" />
-          <span className="text-sm text-green-800">API key saved securely</span>
+      <div className="flex items-center justify-between p-4 bg-[#4ADE80]/5 border border-[#4ADE80]/20 rounded-lg">
+        <div className="flex items-center gap-3">
+          <ShieldCheck className="w-4 h-4 text-[#4ADE80]" />
+          <span className="text-[10px] uppercase tracking-widest font-bold text-[#4ADE80]">API KEY ENCRYPTED & STORED</span>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleDelete} className="text-red-500 hover:text-red-600">
-          <Trash2 className="w-4 h-4 mr-1" />
-          Remove
-        </Button>
+        <button 
+          onClick={handleDelete}
+          className="text-[10px] uppercase tracking-widest font-bold text-red-500 hover:text-red-400 transition-colors"
+        >
+          REMOVE
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Label htmlFor="apiKey" className="flex items-center gap-2">
-          <Key className="w-4 h-4" />
+        <label className="text-[10px] uppercase tracking-widest text-[#717171] font-bold flex items-center gap-2">
+          <Key className="w-3 h-3" />
           API Key
-        </Label>
+        </label>
         {provider !== 'local' && (
-          <span className="text-xs text-gray-500">
-            Encrypted with your wallet signature
+          <span className="text-[9px] uppercase tracking-widest text-[#717171]">
+            Encrypted with wallet signature
           </span>
         )}
       </div>
       
       <div className="flex gap-2">
-        <Input
-          id="apiKey"
+        <input
           type={isRevealed ? 'text' : 'password'}
-          placeholder={provider === 'local' ? 'No API key needed for local models' : 'Enter your API key...'}
+          placeholder={provider === 'local' ? 'NO KEY NEEDED FOR LOCAL MODELS' : 'ENTER API KEY...'}
+          className="flex-1 bg-[#0A0A0B] border border-[#262626] rounded-md px-4 py-3 text-sm focus:border-[#3B82F6] outline-none font-mono"
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           disabled={provider === 'local' || isLoading}
-          className="flex-1"
         />
         {provider !== 'local' && (
-          <Button
+          <button
             type="button"
-            variant="outline"
             onClick={() => setIsRevealed(!isRevealed)}
+            className="px-4 border border-[#262626] rounded-md text-[10px] font-bold uppercase tracking-widest hover:bg-white/5 transition-colors"
             disabled={isLoading}
           >
-            {isRevealed ? 'Hide' : 'Show'}
-          </Button>
+            {isRevealed ? 'HIDE' : 'SHOW'}
+          </button>
         )}
       </div>
 
       {provider !== 'local' && (
-        <Button 
+        <button 
           onClick={handleSave} 
           disabled={!apiKey.trim() || isLoading}
-          className="w-full"
+          className="w-full bg-white text-black font-bold text-xs uppercase tracking-widest py-4 rounded-md hover:bg-white/90 disabled:opacity-50 transition-all active:scale-95"
         >
-          {isLoading ? 'Encrypting...' : 'Save API Key Securely'}
-        </Button>
+          {isLoading ? 'ENCRYPTING...' : 'COMMIT API KEY'}
+        </button>
       )}
 
-      <div className="flex items-start gap-2 text-xs text-gray-500">
-        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-        <p>
+      <div className="flex items-start gap-3 p-4 bg-[#3B82F6]/5 border border-[#3B82F6]/20 rounded-lg">
+        <ShieldCheck className="w-4 h-4 text-[#3B82F6] mt-0.5 flex-shrink-0" />
+        <p className="text-[10px] text-[#A1A1A1] uppercase tracking-widest leading-relaxed">
           Your API key is encrypted using your wallet signature and stored only in your browser's localStorage. 
           It never leaves your device.
         </p>
@@ -208,13 +207,13 @@ export const CostSettingsPanel: React.FC<CostSettingsPanelProps> = ({ compact = 
 
   if (compact) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <Label className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4" />
-            Max Cost per Interview
-          </Label>
-          <span className="font-medium">${costSettings.maxCostPerInterview.toFixed(2)}</span>
+          <label className="text-[10px] uppercase tracking-widest text-[#717171] font-bold flex items-center gap-2">
+            <DollarSign className="w-3 h-3" />
+            Max Budget
+          </label>
+          <span className="font-mono text-sm text-[#3B82F6]">${costSettings.maxCostPerInterview.toFixed(2)}</span>
         </div>
         <Slider
           value={[costSettings.maxCostPerInterview]}
@@ -222,31 +221,30 @@ export const CostSettingsPanel: React.FC<CostSettingsPanelProps> = ({ compact = 
           min={0.10}
           max={5.00}
           step={0.10}
+          className="py-4"
         />
-        <div className="flex justify-between text-xs text-gray-500">
-          <span>$0.10</span>
-          <span>$5.00</span>
-        </div>
       </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <DollarSign className="w-5 h-5" />
-          Budget Settings
-        </CardTitle>
-        <CardDescription>
-          Control your AI inference costs
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-3">
+    <div className="bg-[#141415] border border-[#262626] rounded-lg overflow-hidden">
+      <div className="p-6 border-b border-[#262626] bg-[#141415]/50 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-widest text-white flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-[#3B82F6]" />
+            Budget Settings
+          </h3>
+        </div>
+        <Badge variant="outline" className="text-[9px] uppercase tracking-widest border-[#262626]">
+          COST PROTECTION
+        </Badge>
+      </div>
+      <div className="p-6 space-y-8">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <Label>Maximum Cost per Interview</Label>
-            <span className="font-medium text-lg">${costSettings.maxCostPerInterview.toFixed(2)}</span>
+            <label className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">Max Cost per Interview</label>
+            <span className="font-mono text-lg text-[#3B82F6] font-bold">${costSettings.maxCostPerInterview.toFixed(2)}</span>
           </div>
           <Slider
             value={[costSettings.maxCostPerInterview]}
@@ -255,15 +253,15 @@ export const CostSettingsPanel: React.FC<CostSettingsPanelProps> = ({ compact = 
             max={5.00}
             step={0.10}
           />
-          <p className="text-sm text-gray-600">
-            The interview will automatically stop when this limit is reached.
+          <p className="text-[10px] text-[#717171] uppercase tracking-widest">
+            Automatic shutdown when limit reached.
           </p>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4 pt-4 border-t border-[#262626]">
           <div className="flex items-center justify-between">
-            <Label>Warning Threshold</Label>
-            <span className="font-medium">{Math.round(costSettings.warningThreshold * 100)}%</span>
+            <label className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">Warning Threshold</label>
+            <span className="font-mono text-sm text-white font-bold">{Math.round(costSettings.warningThreshold * 100)}%</span>
           </div>
           <Slider
             value={[costSettings.warningThreshold * 100]}
@@ -272,12 +270,9 @@ export const CostSettingsPanel: React.FC<CostSettingsPanelProps> = ({ compact = 
             max={95}
             step={5}
           />
-          <p className="text-sm text-gray-600">
-            Show warning when budget usage reaches this percentage.
-          </p>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
@@ -289,42 +284,59 @@ export const LLMSettingsPanel: React.FC<LLMSettingsPanelProps> = ({ onComplete }
   const { selectedProvider } = useLLMSettings();
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle>AI Provider Settings</CardTitle>
-          <CardDescription>
-            Configure your AI provider and budget for dynamic question generation
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+    <div className="space-y-6 max-w-2xl mx-auto py-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="bg-[#141415] border border-[#262626] rounded-lg overflow-hidden">
+        <div className="p-6 border-b border-[#262626] bg-[#141415]/50 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-widest text-white flex items-center gap-2">
+              <Zap className="w-4 h-4 text-[#3B82F6]" />
+              AI Provider
+            </h3>
+          </div>
+          <Badge variant="outline" className="text-[9px] uppercase tracking-widest border-[#262626] text-[#3B82F6]">
+            V2.2.0
+          </Badge>
+        </div>
+        <div className="p-6 space-y-8">
           <ProviderSelector />
           
           {selectedProvider && (
-            <ApiKeyInput 
-              provider={selectedProvider} 
-              onSaved={onComplete}
-            />
+            <div className="pt-6 border-t border-[#262626]">
+              <ApiKeyInput 
+                provider={selectedProvider} 
+                onSaved={onComplete}
+              />
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <CostSettingsPanel />
 
-      <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg">
-        <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-blue-800">
-          <p className="font-medium mb-1">How costs work:</p>
-          <ul className="list-disc list-inside space-y-1">
-            <li>You pay directly to the AI provider (OpenAI, Anthropic, etc.)</li>
-            <li>We don't charge any markup or fees</li>
-            <li>Local models (Ollama) are completely free</li>
-            <li>The interview stops automatically when your budget is reached</li>
-          </ul>
+      <div className="flex items-start gap-4 p-6 bg-[#0F0F10] border border-[#262626] rounded-lg">
+        <div className="w-10 h-10 rounded bg-[#141415] border border-[#262626] flex items-center justify-center flex-shrink-0">
+          <Cpu className="w-5 h-5 text-[#3B82F6]" />
+        </div>
+        <div className="space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-white">Cost Architecture</h4>
+          <div className="space-y-2">
+            <CostInfoItem text="Direct payment to providers (OpenAI/Anthropic)" />
+            <CostInfoItem text="Zero TAIS markup or hidden fees" />
+            <CostInfoItem text="Local models (Ollama) are 100% free" />
+          </div>
         </div>
       </div>
     </div>
   );
 };
+
+function CostInfoItem({ text }: { text: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-1 h-1 rounded-full bg-[#3B82F6]" />
+      <span className="text-[10px] text-[#A1A1A1] uppercase tracking-widest">{text}</span>
+    </div>
+  );
+}
 
 export default LLMSettingsPanel;

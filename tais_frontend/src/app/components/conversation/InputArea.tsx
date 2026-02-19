@@ -52,14 +52,13 @@ export const InputArea: React.FC<InputAreaProps> = ({
   };
 
   return (
-    <div className="border-t border-gray-200 bg-white p-4">
+    <div className="border-t border-[#262626] bg-[#0A0A0B] p-4">
       <div className="flex gap-2 items-end max-w-4xl mx-auto">
-        {/* Voice Input Button */}
         <Button
           type="button"
           variant="outline"
           size="icon"
-          className={`shrink-0 ${isRecording ? 'bg-red-100 text-red-600 hover:bg-red-200' : ''}`}
+          className={`shrink-0 border-[#262626] hover:bg-white/5 ${isRecording ? 'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20' : 'text-[#A1A1A1]'}`}
           onClick={toggleRecording}
           disabled={disabled || isProcessing}
           title={isRecording ? 'Stop recording' : 'Start voice input'}
@@ -67,7 +66,6 @@ export const InputArea: React.FC<InputAreaProps> = ({
           {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
         </Button>
 
-        {/* Text Input */}
         <div className="flex-1 relative">
           <Textarea
             ref={textareaRef}
@@ -76,20 +74,19 @@ export const InputArea: React.FC<InputAreaProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={disabled ? 'Conversation complete' : placeholder}
             disabled={disabled || isProcessing}
-            className="min-h-[44px] max-h-[150px] resize-none pr-12 py-3"
+            className="min-h-[44px] max-h-[150px] resize-none pr-12 py-3 bg-[#0A0A0B] border-[#262626] text-[#EDEDED] placeholder:text-[#717171] focus:border-[#3B82F6] rounded-md"
             rows={1}
           />
-          <div className="absolute right-3 bottom-3 text-xs text-gray-400">
+          <div className="absolute right-3 bottom-3 text-xs text-[#717171]">
             {input.length > 0 && `${input.length} chars`}
           </div>
         </div>
 
-        {/* Send Button */}
         <Button
           type="button"
           onClick={handleSend}
           disabled={!input.trim() || isProcessing || disabled}
-          className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white"
+          className="shrink-0 bg-white text-black font-bold uppercase tracking-widest text-xs hover:bg-white/90 disabled:opacity-50"
         >
           {isProcessing ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -99,8 +96,7 @@ export const InputArea: React.FC<InputAreaProps> = ({
         </Button>
       </div>
 
-      {/* Help Text */}
-      <div className="text-center mt-2 text-xs text-gray-400">
+      <div className="text-center mt-2 text-xs text-[#717171]">
         Press Enter to send, Shift + Enter for new line
       </div>
     </div>

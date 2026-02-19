@@ -9,9 +9,10 @@ import { Label } from '../ui/label';
 import { Progress } from '../ui/progress';
 import { ScrollArea } from '../ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Globe, Lock, Upload, Search, Share2, Trash2, FileText, Users, Key } from 'lucide-react';
+import { Globe, Lock, Upload, Search, Share2, Trash2, FileText, Users, Key, Database, Shield } from 'lucide-react';
 import { usePublicRAG, usePublicRAGUpload } from '../../../hooks/usePublicRAG';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'motion/react';
 import type { CommunityDocument } from '../../../types/rag-public';
 
 export const PublicRAGManager: React.FC = () => {
@@ -44,30 +45,35 @@ export const PublicRAGManager: React.FC = () => {
 
   if (isAuthenticating) {
     return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4" />
-          <p>Initializing Public RAG...</p>
-          <p className="text-sm text-gray-500 mt-2">Please sign the message in your wallet</p>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center justify-center p-20 animate-in fade-in duration-500">
+        <div className="w-12 h-12 relative mb-6">
+          <div className="absolute inset-0 border-2 border-blue-500/20 rounded-full" />
+          <div className="absolute inset-0 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+        <h2 className="text-xl font-bold tracking-tightest mb-2">Initializing Public RAG</h2>
+        <p className="text-[#A1A1A1] text-sm uppercase tracking-widest">Sign authentication request in wallet</p>
+      </div>
     );
   }
 
   if (!isInitialized) {
     return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <Globe className="w-12 h-12 mx-auto mb-4 text-blue-500" />
-          <h3 className="text-lg font-medium mb-2">Connect to Public RAG</h3>
-          <p className="text-gray-600 mb-4">
-            Share knowledge with the community using end-to-end encryption
-          </p>
-          <Button onClick={() => window.location.reload()}>
-            Connect Wallet
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="max-w-md mx-auto my-20 p-8 bg-[#141415] border border-[#262626] rounded-lg text-center animate-in fade-in slide-in-from-bottom-4">
+        <div className="w-16 h-16 bg-[#0A0A0B] border border-[#262626] rounded-xl flex items-center justify-center mx-auto mb-6">
+          <Globe className="w-8 h-8 text-[#3B82F6]" />
+        </div>
+        <h2 className="text-2xl font-bold tracking-tightest mb-3">Connect to Public RAG</h2>
+        <p className="text-[#A1A1A1] text-sm leading-relaxed mb-8">
+          Share knowledge with the community using end-to-end encryption. 
+          Your plaintext data never touches our servers.
+        </p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="w-full bg-white text-black font-bold text-xs uppercase tracking-widest py-4 rounded-md hover:bg-white/90 transition-all active:scale-95"
+        >
+          Connect Wallet
+        </button>
+      </div>
     );
   }
 
@@ -84,6 +90,7 @@ export const PublicRAGManager: React.FC = () => {
       );
       setUploadForm({ title: '', content: '', isPublic: false, tags: '' });
       refresh();
+      toast.success('Document uploaded successfully');
     } catch (error) {
       // Error handled in hook
     }
@@ -104,343 +111,363 @@ export const PublicRAGManager: React.FC = () => {
       await shareDocument(docId, shareKey);
       setShareKey('');
       setSelectedDoc(null);
+      toast.success('Document shared successfully');
     } catch (error) {
-      // Error handled in hook
-    }
-  };
-
-  const copyPublicKey = () => {
-    if (publicKey) {
-      navigator.clipboard.writeText(publicKey);
-      toast.success('Public key copied to clipboard');
+      toast.error('Failed to share document');
     }
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="w-5 h-5" />
-              Community Knowledge Base
-            </CardTitle>
-            <CardDescription>
-              Share and discover knowledge with E2EE protection
-            </CardDescription>
+    <div className="max-w-7xl mx-auto p-6 space-y-6 animate-in fade-in duration-500">
+      {/* Header Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <StatsCard icon={<Database className="w-4 h-4" />} label="Storage" value={stats.storageUsedFormatted} subvalue={`Limit: ${stats.storageLimitFormatted}`} />
+        <StatsCard icon={<Shield className="w-4 h-4" />} label="Documents" value={stats.documentCount.toString()} subvalue="Personal + Shared" />
+        <StatsCard icon={<Users className="w-4 h-4" />} label="Community" value={communityDocuments.length.toString()} subvalue="Public Knowledge" />
+        <div className="bg-[#141415] border border-[#262626] p-4 rounded-lg flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">Public Key</label>
+            <Key className="w-3 h-3 text-[#3B82F6]" />
           </div>
-          {stats && (
-            <div className="text-right text-sm">
-              <p className="text-gray-600">{stats.myDocuments} my docs</p>
-              <p className="text-gray-500">{stats.totalDocuments} total</p>
-            </div>
-          )}
+          <div className="flex gap-2">
+            <code className="text-[10px] bg-[#0A0A0B] p-1.5 rounded border border-[#262626] flex-1 truncate text-[#3B82F6]">
+              {publicKey}
+            </code>
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(publicKey || '');
+                toast.success('Public key copied');
+              }}
+              className="p-1.5 hover:bg-white/5 rounded border border-[#262626] transition-colors"
+            >
+              <FileText className="w-3 h-3" />
+            </button>
+          </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="upload" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="upload">Upload</TabsTrigger>
-            <TabsTrigger value="search">Search</TabsTrigger>
-            <TabsTrigger value="my-docs">My Docs</TabsTrigger>
-            <TabsTrigger value="community">Community</TabsTrigger>
-          </TabsList>
+      </div>
 
-          {/* Upload Tab */}
-          <TabsContent value="upload" className="space-y-4">
-            <form onSubmit={handleUpload} className="space-y-4">
-              <div>
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={uploadForm.title}
-                  onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
-                  placeholder="Document title"
-                  required
+      <Tabs defaultValue="search" className="w-full">
+        <TabsList className="bg-[#141415] border border-[#262626] p-1 h-auto mb-6">
+          <TabsTrigger value="search" className="px-6 py-2 text-xs uppercase tracking-widest font-bold data-[state=active]:bg-white/5 data-[state=active]:text-white">
+            <Search className="w-3 h-3 mr-2" /> Search
+          </TabsTrigger>
+          <TabsTrigger value="upload" className="px-6 py-2 text-xs uppercase tracking-widest font-bold data-[state=active]:bg-white/5 data-[state=active]:text-white">
+            <Upload className="w-3 h-3 mr-2" /> Upload
+          </TabsTrigger>
+          <TabsTrigger value="my-docs" className="px-6 py-2 text-xs uppercase tracking-widest font-bold data-[state=active]:bg-white/5 data-[state=active]:text-white">
+            <Lock className="w-3 h-3 mr-2" /> My Docs
+          </TabsTrigger>
+          <TabsTrigger value="community" className="px-6 py-2 text-xs uppercase tracking-widest font-bold data-[state=active]:bg-white/5 data-[state=active]:text-white">
+            <Users className="w-3 h-3 mr-2" /> Community
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Search Tab */}
+        <TabsContent value="search" className="space-y-6">
+          <div className="bg-[#141415] border border-[#262626] p-6 rounded-lg">
+            <form onSubmit={handleSearch} className="flex gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#717171]" />
+                <input
+                  type="text"
+                  placeholder="SEARCH KNOWLEDGE BASE..."
+                  className="w-full bg-[#0A0A0B] border border-[#262626] rounded-md pl-10 pr-4 py-3 text-sm focus:border-[#3B82F6] outline-none uppercase tracking-widest font-mono"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
+              <button 
+                type="submit"
+                disabled={isSearching}
+                className="bg-white text-black px-8 font-bold text-xs uppercase tracking-widest rounded-md hover:bg-white/90 disabled:opacity-50"
+              >
+                {isSearching ? 'SEARCHING...' : 'QUERY'}
+              </button>
+            </form>
+          </div>
 
-              <div>
-                <Label htmlFor="content">Content</Label>
-                <Textarea
-                  id="content"
-                  value={uploadForm.content}
-                  onChange={(e) => setUploadForm({ ...uploadForm, content: e.target.value })}
-                  placeholder="Document content..."
-                  rows={6}
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="tags">Tags (comma-separated)</Label>
-                <Input
-                  id="tags"
-                  value={uploadForm.tags}
-                  onChange={(e) => setUploadForm({ ...uploadForm, tags: e.target.value })}
-                  placeholder="react, javascript, tutorial"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="public"
-                    checked={uploadForm.isPublic}
-                    onCheckedChange={(checked) => setUploadForm({ ...uploadForm, isPublic: checked })}
-                  />
-                  <Label htmlFor="public" className="flex items-center gap-2">
-                    {uploadForm.isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                    {uploadForm.isPublic ? 'Public (anyone can view)' : 'Private (only you)'}
-                  </Label>
-                </div>
-                <Button type="submit" disabled={isUploading}>
-                  {isUploading ? (
-                    <>
-                      <Upload className="w-4 h-4 mr-2 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Document
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {isUploading && (
-                <div className="space-y-2">
-                  <Progress value={uploadProgress} />
-                  <p className="text-sm text-center text-gray-500">
-                    Encrypting and uploading... {uploadProgress}%
-                  </p>
+          <div className="grid grid-cols-1 gap-4">
+            <AnimatePresence mode="popLayout">
+              {searchResults.length > 0 ? (
+                searchResults.map((result, idx) => (
+                  <motion.div
+                    key={`${result.documentId}-${idx}`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ delay: idx * 0.05 }}
+                    className="bg-[#141415] border border-[#262626] rounded-lg overflow-hidden group hover:border-[#3B82F6]/50 transition-all"
+                  >
+                    <div className="p-4 flex flex-col md:flex-row gap-6">
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-[#0A0A0B] border border-[#262626] rounded flex items-center justify-center">
+                            <FileText className="w-4 h-4 text-[#3B82F6]" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm tracking-tightest">Result Chunk #{idx + 1}</h4>
+                            <div className="flex gap-2 mt-1">
+                              <span className="text-[9px] uppercase tracking-widest font-bold text-[#717171]">Score: {(result.score * 100).toFixed(1)}%</span>
+                              <span className="text-[9px] uppercase tracking-widest font-bold text-[#3B82F6]">Public Document</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="bg-[#09090B] p-4 rounded border border-[#262626] font-mono text-xs leading-relaxed text-[#EDEDED]">
+                          {result.content}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))
+              ) : searchQuery && !isSearching && (
+                <div className="text-center py-20 border border-[#262626] rounded-lg bg-[#141415]/50">
+                  <p className="text-[#717171] uppercase tracking-widest text-xs">No matching knowledge found</p>
                 </div>
               )}
-            </form>
+            </AnimatePresence>
+          </div>
+        </TabsContent>
 
-            {/* Public Key Section */}
-            <div className="p-4 bg-gray-50 rounded-lg mt-4">
-              <div className="flex items-center justify-between mb-2">
-                <Label className="flex items-center gap-2">
-                  <Key className="w-4 h-4" />
-                  Your Public Key
-                </Label>
-                <Button variant="ghost" size="sm" onClick={copyPublicKey}>
-                  Copy
-                </Button>
+        {/* Upload Tab */}
+        <TabsContent value="upload">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-[#141415] border border-[#262626] p-6 rounded-lg">
+                <form onSubmit={handleUpload} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">Document Title</label>
+                    <input
+                      type="text"
+                      className="w-full bg-[#0A0A0B] border border-[#262626] rounded-md px-4 py-3 text-sm focus:border-[#3B82F6] outline-none"
+                      placeholder="ENTER DOCUMENT NAME..."
+                      value={uploadForm.title}
+                      onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">Knowledge Content</label>
+                    <textarea
+                      className="w-full h-64 bg-[#0A0A0B] border border-[#262626] rounded-md px-4 py-3 text-sm focus:border-[#3B82F6] outline-none font-mono resize-none"
+                      placeholder="PASTE OR TYPE KNOWLEDGE HERE..."
+                      value={uploadForm.content}
+                      onChange={(e) => setUploadForm({ ...uploadForm, content: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">Tags (Comma separated)</label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#0A0A0B] border border-[#262626] rounded-md px-4 py-3 text-sm focus:border-[#3B82F6] outline-none"
+                        placeholder="AI, RAG, ETH..."
+                        value={uploadForm.tags}
+                        onChange={(e) => setUploadForm({ ...uploadForm, tags: e.target.value })}
+                      />
+                    </div>
+                    <div className="bg-[#0A0A0B] border border-[#262626] rounded-lg p-4 flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <label className="text-[10px] uppercase tracking-widest text-white font-bold">Public Sharing</label>
+                        <p className="text-[10px] text-[#717171] uppercase tracking-widest">Share with community</p>
+                      </div>
+                      <Switch
+                        checked={uploadForm.isPublic}
+                        onCheckedChange={(checked) => setUploadForm({ ...uploadForm, isPublic: checked })}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isUploading}
+                    className="w-full bg-white text-black font-bold text-xs uppercase tracking-widest py-4 rounded-md hover:bg-white/90 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                  >
+                    {isUploading ? (
+                      <>
+                        <div className="animate-spin w-3 h-3 border border-black border-t-transparent rounded-full" />
+                        UPLOADING ({uploadProgress}%)
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3 h-3" />
+                        COMMIT TO KNOWLEDGE BASE
+                      </>
+                    )}
+                  </button>
+                </form>
               </div>
-              <code className="text-xs bg-gray-100 p-2 rounded block break-all">
-                {publicKey}
-              </code>
-              <p className="text-xs text-gray-500 mt-2">
-                Share this key with others to let them share documents with you
-              </p>
             </div>
-          </TabsContent>
 
-          {/* Search Tab */}
-          <TabsContent value="search" className="space-y-4">
-            <form onSubmit={handleSearch} className="flex gap-2">
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search community knowledge..."
-                className="flex-1"
-              />
-              <Button type="submit" disabled={isSearching}>
-                <Search className="w-4 h-4 mr-2" />
-                Search
-              </Button>
-            </form>
+            <div className="space-y-6">
+              <div className="bg-[#141415] border border-[#262626] p-6 rounded-lg">
+                <h3 className="text-xs uppercase tracking-[0.2em] font-bold text-[#3B82F6] mb-4">Encryption Status</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 text-xs">
+                    <Shield className="w-4 h-4 text-[#4ADE80]" />
+                    <span className="text-[#A1A1A1] uppercase tracking-widest">ECIES (P-384) Active</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs">
+                    <Lock className="w-4 h-4 text-[#4ADE80]" />
+                    <span className="text-[#A1A1A1] uppercase tracking-widest">Client-Side Chunking</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs">
+                    <Globe className="w-4 h-4 text-[#3B82F6]" />
+                    <span className="text-[#A1A1A1] uppercase tracking-widest">Zero-Knowledge Search</span>
+                  </div>
+                </div>
+                <div className="mt-8 pt-6 border-t border-[#262626]">
+                  <p className="text-[10px] text-[#717171] leading-relaxed uppercase tracking-widest">
+                    All documents are encrypted with your wallet signature before leaving the browser. 
+                    TAIS cannot read your knowledge.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
 
-            {isSearching && (
-              <div className="text-center py-8">
-                <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto" />
-                <p className="text-sm text-gray-500 mt-2">Searching encrypted index...</p>
+        {/* My Docs Tab */}
+        <TabsContent value="my-docs">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <AnimatePresence>
+              {documents.map((doc) => (
+                <motion.div
+                  key={doc.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  className="bg-[#141415] border border-[#262626] rounded-lg p-4 hover:border-[#3B82F6]/50 transition-all group"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-8 h-8 bg-[#0A0A0B] border border-[#262626] rounded flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-[#3B82F6]" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => setSelectedDoc(doc.id)}
+                        className="p-1.5 hover:bg-[#3B82F6]/10 rounded border border-[#262626] transition-colors"
+                      >
+                        <Share2 className="w-3 h-3 text-[#3B82F6]" />
+                      </button>
+                      <button 
+                        onClick={() => deleteDocument(doc.id)}
+                        className="p-1.5 hover:bg-red-500/10 rounded border border-[#262626] transition-colors"
+                      >
+                        <Trash2 className="w-3 h-3 text-red-500" />
+                      </button>
+                    </div>
+                  </div>
+                  <h4 className="font-bold text-sm tracking-tightest mb-1 truncate">{doc.title}</h4>
+                  <p className="text-[10px] text-[#717171] uppercase tracking-widest mb-4">
+                    {new Date(doc.createdAt).toLocaleDateString()} • {(doc.size / 1024).toFixed(1)} KB
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {doc.tags.map(tag => (
+                      <span key={tag} className="text-[8px] uppercase tracking-tighter bg-[#0A0A0B] border border-[#262626] px-1.5 py-0.5 rounded text-[#A1A1A1]">
+                        {tag}
+                      </span>
+                    ))}
+                    {doc.isPublic && (
+                      <span className="text-[8px] uppercase tracking-tighter bg-[#3B82F6]/10 border border-[#3B82F6]/30 px-1.5 py-0.5 rounded text-[#3B82F6]">
+                        Public
+                      </span>
+                    )}
+                  </div>
+
+                  {selectedDoc === doc.id && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      className="mt-4 pt-4 border-t border-[#262626] space-y-3"
+                    >
+                      <label className="text-[9px] uppercase tracking-widest text-[#717171] font-bold">Recipient Public Key</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          className="flex-1 bg-[#0A0A0B] border border-[#262626] rounded-md px-2 py-1.5 text-[10px] focus:border-[#3B82F6] outline-none"
+                          placeholder="PASTE KEY..."
+                          value={shareKey}
+                          onChange={(e) => setShareKey(e.target.value)}
+                        />
+                        <button 
+                          onClick={() => handleShare(doc.id)}
+                          className="bg-white text-black px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-white/90"
+                        >
+                          SHARE
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {documents.length === 0 && (
+              <div className="col-span-full py-20 text-center border border-dashed border-[#262626] rounded-lg">
+                <p className="text-[#717171] text-xs uppercase tracking-widest">No documents found in knowledge base</p>
               </div>
             )}
+          </div>
+        </TabsContent>
 
-            <ScrollArea className="h-[400px]">
-              <div className="space-y-2">
-                {searchResults.length === 0 && !isSearching && (
-                  <div className="text-center py-8 text-gray-500">
-                    <Search className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>Enter a query to search</p>
-                    <p className="text-sm">Results are decrypted client-side</p>
+        {/* Community Tab */}
+        <TabsContent value="community">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {communityDocuments.map((doc) => (
+              <div
+                key={doc.id}
+                className="bg-[#141415] border border-[#262626] rounded-lg p-4 hover:border-[#3B82F6]/50 transition-all group"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-8 h-8 bg-[#0A0A0B] border border-[#262626] rounded flex items-center justify-center">
+                    <Globe className="w-4 h-4 text-[#3B82F6]" />
                   </div>
-                )}
-
-                {searchResults.map((result, index) => (
-                  <div
-                    key={index}
-                    className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-medium">{result.decrypted?.metadata?.title}</h4>
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                          {result.decrypted?.content?.slice(0, 200)}...
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant="outline">
-                            Score: {(result.score * 100).toFixed(1)}%
-                          </Badge>
-                          {result.decrypted?.metadata?.tags?.map((tag: string) => (
-                            <Badge key={tag} variant="secondary" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  <Badge variant="outline" className="text-[8px] uppercase tracking-widest border-[#262626]">
+                    Shared
+                  </Badge>
+                </div>
+                <h4 className="font-bold text-sm tracking-tightest mb-1 truncate">{doc.title || 'UNNAMED KNOWLEDGE'}</h4>
+                <p className="text-[10px] text-[#717171] uppercase tracking-widest mb-4">
+                  By {doc.walletAddress.substring(0, 6)}...{doc.walletAddress.substring(38)}
+                </p>
+                <div className="flex flex-wrap gap-1 mb-4">
+                  {doc.tags.map(tag => (
+                    <span key={tag} className="text-[8px] uppercase tracking-tighter bg-[#0A0A0B] border border-[#262626] px-1.5 py-0.5 rounded text-[#A1A1A1]">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <button className="w-full bg-transparent border border-[#262626] text-white py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-white/5 transition-all">
+                  INDEX TO AGENT
+                </button>
               </div>
-            </ScrollArea>
-          </TabsContent>
-
-          {/* My Documents Tab */}
-          <TabsContent value="my-docs" className="space-y-4">
-            <ScrollArea className="h-[400px]">
-              <div className="space-y-2">
-                {documents.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>No documents yet</p>
-                    <p className="text-sm">Upload your first document</p>
-                  </div>
-                ) : (
-                  documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-gray-400" />
-                            <span className="font-medium">Document {doc.id.slice(0, 8)}</span>
-                            {doc.isPublic ? (
-                              <Badge variant="outline" className="bg-green-100 text-green-800">
-                                <Globe className="w-3 h-3 mr-1" />
-                                Public
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="bg-gray-100">
-                                <Lock className="w-3 h-3 mr-1" />
-                                Private
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
-                            <span>{doc.chunkCount} chunks</span>
-                            <span>•</span>
-                            <span>{doc.tags.join(', ')}</span>
-                            <span>•</span>
-                            <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedDoc(selectedDoc === doc.id ? null : doc.id)}
-                          >
-                            <Share2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteDocument(doc.id)}
-                            className="text-red-500"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {selectedDoc === doc.id && (
-                        <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                          <Label className="text-sm">Share with (public key):</Label>
-                          <div className="flex gap-2 mt-1">
-                            <Input
-                              value={shareKey}
-                              onChange={(e) => setShareKey(e.target.value)}
-                              placeholder="Paste recipient's public key..."
-                              className="text-xs"
-                            />
-                            <Button size="sm" onClick={() => handleShare(doc.id)}>
-                              Share
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
+            ))}
+            {communityDocuments.length === 0 && (
+              <div className="col-span-full py-20 text-center border border-dashed border-[#262626] rounded-lg">
+                <p className="text-[#717171] text-xs uppercase tracking-widest">No public community documents available</p>
               </div>
-            </ScrollArea>
-          </TabsContent>
-
-          {/* Community Tab */}
-          <TabsContent value="community" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                <span className="text-sm text-gray-600">
-                  {communityDocuments.length} public documents
-                </span>
-              </div>
-              <Button variant="outline" size="sm" onClick={refresh}>
-                Refresh
-              </Button>
-            </div>
-
-            <ScrollArea className="h-[400px]">
-              <div className="space-y-2">
-                {communityDocuments.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>No public documents yet</p>
-                    <p className="text-sm">Be the first to share!</p>
-                  </div>
-                ) : (
-                  communityDocuments.map((doc: CommunityDocument) => (
-                    <div
-                      key={doc.id}
-                      className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-medium">{doc.title}</h4>
-                          <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-                            <span>By {doc.author.slice(0, 6)}...{doc.author.slice(-4)}</span>
-                            <span>•</span>
-                            <span>{doc.downloadCount} downloads</span>
-                          </div>
-                          <div className="flex items-center gap-1 mt-2">
-                            {doc.tags.map((tag) => (
-                              <Badge key={tag} variant="secondary" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                        {!doc.canAccess && (
-                          <Badge variant="outline">No Access</Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 };
+
+function StatsCard({ icon, label, value, subvalue }: { icon: React.ReactNode; label: string; value: string; subvalue: string }) {
+  return (
+    <div className="bg-[#141415] border border-[#262626] p-4 rounded-lg flex flex-col justify-between h-full">
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">{label}</label>
+        <div className="text-[#3B82F6]">{icon}</div>
+      </div>
+      <div>
+        <div className="text-xl font-bold tracking-tightest">{value}</div>
+        <div className="text-[9px] uppercase tracking-widest text-[#717171] font-bold mt-0.5">{subvalue}</div>
+      </div>
+    </div>
+  );
+}
 
 export default PublicRAGManager;
