@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import { ScrollArea } from '../ui/scroll-area';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
 import { Loader2, X, Download, Trash2, MessageSquare, ShieldCheck, Zap, Terminal } from 'lucide-react';
 import { MessageBubble } from './MessageBubble';
 import { InputArea } from './InputArea';
