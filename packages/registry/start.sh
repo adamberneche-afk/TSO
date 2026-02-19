@@ -15,6 +15,11 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 
+# Generate Prisma client (required before building)
+echo ""
+echo "Generating Prisma client..."
+npx prisma generate
+
 # Build if dist/ doesn't exist
 if [ ! -d "dist" ]; then
     echo ""
