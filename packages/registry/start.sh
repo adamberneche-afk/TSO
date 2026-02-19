@@ -16,9 +16,15 @@ if [ ! -d "node_modules" ]; then
 fi
 
 # Generate Prisma client (required before building)
-echo ""
-echo "Generating Prisma client..."
-npx prisma generate
+if [ ! -d "node_modules/.prisma/client" ]; then
+    echo ""
+    echo "Generating Prisma client (this may take 30-60s on first run)..."
+    npx prisma generate
+    echo "Prisma client generated successfully"
+else
+    echo ""
+    echo "Prisma client already generated, skipping..."
+fi
 
 # Build if dist/ doesn't exist
 if [ ! -d "dist" ]; then
