@@ -343,7 +343,7 @@ export class E2EEEncryptionService {
   }> {
     // Parse recipient's public key
     const recipientKeyJwk = this.base64ToJwk(recipientPublicKey);
-    const recipientPublicKey = await crypto.subtle.importKey(
+    const recipientPublicKeyCrypto = await crypto.subtle.importKey(
       'jwk',
       recipientKeyJwk,
       { name: 'ECDH', namedCurve: CURVE },
@@ -365,7 +365,7 @@ export class E2EEEncryptionService {
     const sharedSecret = await crypto.subtle.deriveBits(
       {
         name: 'ECDH',
-        public: recipientPublicKey,
+        public: recipientPublicKeyCrypto,
       },
       ephemeralKeyPair.privateKey,
       384 // P-384 generates 384-bit shared secret
