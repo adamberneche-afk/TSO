@@ -157,16 +157,16 @@ tais-platform/
 
 ### Registry Endpoints
 ```typescript
-GET  /api/skills              # List all skills
-GET  /api/skills/:hash        # Get skill details
-POST /api/skills              # Publish skill (requires NFT)
-GET  /api/search?q=query      # Search skills
-GET  /api/search/trending     # Get trending skills
+GET  /api/v1/skills              # List all skills
+GET  /api/v1/skills/:hash        # Get skill details
+POST /api/v1/skills              # Publish skill (requires NFT)
+GET  /api/v1/search?q=query      # Search skills
+GET  /api/v1/search/trending     # Get trending skills
 ```
 
 ### Environment Variables
 ```bash
-VITE_REGISTRY_URL=https://tso.onrender.com
+VITE_REGISTRY_URL=https://tso.onrender.com/api/v1
 VITE_GENESIS_CONTRACT=0x11B3EfbF04F0bA505F380aC20444B6952970AdA6
 VITE_RPC_URL=https://cloudflare-eth.com
 ```
