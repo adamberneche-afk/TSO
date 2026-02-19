@@ -121,8 +121,8 @@ export const PublicRAGManager: React.FC = () => {
     <div className="max-w-7xl mx-auto p-6 space-y-6 animate-in fade-in duration-500">
       {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatsCard icon={<Database className="w-4 h-4" />} label="Storage" value={stats.storageUsedFormatted} subvalue={`Limit: ${stats.storageLimitFormatted}`} />
-        <StatsCard icon={<Shield className="w-4 h-4" />} label="Documents" value={stats.documentCount.toString()} subvalue="Personal + Shared" />
+        <StatsCard icon={<Database className="w-4 h-4" />} label="Storage" value={stats?.storageUsedFormatted ?? '...'} subvalue={`Limit: ${stats?.storageLimitFormatted ?? '...'}`} />
+        <StatsCard icon={<Shield className="w-4 h-4" />} label="Documents" value={stats?.documentCount?.toString() ?? '0'} subvalue="Personal + Shared" />
         <StatsCard icon={<Users className="w-4 h-4" />} label="Community" value={communityDocuments.length.toString()} subvalue="Public Knowledge" />
         <div className="bg-[#141415] border border-[#262626] p-4 rounded-lg flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
