@@ -63,33 +63,26 @@ export class RAGAccessControl {
    */
   async getUserTier(walletAddress: string): Promise<RAGTier> {
     // TODO: In production, query staking contract
-    // For now, query database or default to free
+    // For now, default to bronze for all users (beta/testing)
     try {
-      // Check if user has any documents (indicates bronze+)
-      const docCount = await this.prisma.rAGDocument.count({
+      const usage = await this.prisma.rAGUserUsage.findUnique({
         where: { walletAddress: walletAddress.toLowerCase() }
       });
       
-      if (docCount > 0) {
-        // Check usage to determine tier
-        const usage = await this.prisma.rAGUserUsage.findUnique({
-          where: { walletAddress: walletAddress.toLowerCase() }
-        });
-        
-        if (usage) {
-          if (usage.storageUsed >= RAG_TIER_QUOTAS.silver.platformStorage) {
-            return 'gold';
-          } else if (usage.storageUsed >= RAG_TIER_QUOTAS.bronze.platformStorage) {
-            return 'silver';
-          }
+      // Check usage to determine tier
+      if (usage) {
+        if (usage.storageUsed >= RAG_TIER_QUOTAS.silver.platformStorage) {
+          return 'gold';
+        } else if (usage.storageUsed >= RAG_TIER_QUOTAS.bronze.platformStorage) {
+          return 'silver';
         }
-        return 'bronze';
       }
       
-      return 'free';
+      // Default to bronze for beta/testing - allows basic RAG access
+      return 'bronze';
     } catch (error) {
       this.logger.error('Error getting user tier:', error);
-      return 'free';
+      return 'bronze'; // Default to bronze on error
     }
   }
 
