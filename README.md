@@ -58,16 +58,28 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 
 ## 🚀 Quick Start
 
+### 🌐 Access the Platform
+
+**Frontend (Vercel):** https://taisplatform.vercel.app
+
+**Available Features:**
+- **Interview Wizard** - Build AI agents through guided interview
+- **My Agents Dashboard** - Manage saved configurations
+- **Public RAG** - End-to-end encrypted document sharing
+- **Private RAG** - 100% local knowledge base
+- **AI Interview** - Conversational interview with LLM integration
+- **LLM Settings** - Configure OpenAI/Anthropic API keys
+
 ### Browse Skills (No Auth Required)
 ```bash
 # List all skills
-curl https://tso.onrender.com/api/skills
+curl https://tso.onrender.com/api/v1/skills
 
 # Search skills
-curl "https://tso.onrender.com/api/search?q=weather"
+curl "https://tso.onrender.com/api/v1/search?q=weather"
 
 # Get skill details
-curl https://tso.onrender.com/api/skills/{skill_hash}
+curl https://tso.onrender.com/api/v1/skills/{skill_hash}
 ```
 
 ### Publish Skills (Genesis Holders Only)
