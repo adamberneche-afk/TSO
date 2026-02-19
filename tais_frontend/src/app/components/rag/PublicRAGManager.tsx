@@ -364,7 +364,7 @@ export const PublicRAGManager: React.FC = () => {
                     {new Date(doc.createdAt).toLocaleDateString()} • {(doc.size / 1024).toFixed(1)} KB
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {doc.tags.map(tag => (
+                    {(doc.tags || []).map(tag => (
                       <span key={tag} className="text-[8px] uppercase tracking-tighter bg-[#0A0A0B] border border-[#262626] px-1.5 py-0.5 rounded text-[#A1A1A1]">
                         {tag}
                       </span>
@@ -429,10 +429,10 @@ export const PublicRAGManager: React.FC = () => {
                 </div>
                 <h4 className="font-bold text-sm tracking-tightest mb-1 truncate">{doc.title || 'UNNAMED KNOWLEDGE'}</h4>
                 <p className="text-[10px] text-[#717171] uppercase tracking-widest mb-4">
-                  By {doc.walletAddress.substring(0, 6)}...{doc.walletAddress.substring(38)}
+                  By {doc.walletAddress ? `${doc.walletAddress.substring(0, 6)}...${doc.walletAddress.substring(38)}` : 'Unknown'}
                 </p>
                 <div className="flex flex-wrap gap-1 mb-4">
-                  {doc.tags.map(tag => (
+                  {(doc.tags || []).map(tag => (
                     <span key={tag} className="text-[8px] uppercase tracking-tighter bg-[#0A0A0B] border border-[#262626] px-1.5 py-0.5 rounded text-[#A1A1A1]">
                       {tag}
                     </span>
