@@ -5,7 +5,7 @@ import { useInterviewStore } from '../../../hooks/useInterview';
 import { useKeyboardShortcuts } from '../../../hooks/useKeyboardShortcuts';
 import { ProgressBar, StepIndicator } from './ProgressBar';
 import { Navigation } from './Navigation';
-import { WelcomeStep } from './WelcomeStep';
+import { ConversationalGoalsStep } from './ConversationalGoalsStep';
 import { SkillSelector } from './SkillSelector';
 import { BehaviorStep } from './BehaviorStep';
 import { PrivacyStep } from './PrivacyStep';
@@ -103,11 +103,8 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
     switch (currentStep) {
       case 0:
         return (
-          <WelcomeStep
-            selectedGoals={answers.goals || []}
-            description={answers.description || ''}
-            onGoalsChange={(goals) => updateAnswers({ goals })}
-            onDescriptionChange={(description) => updateAnswers({ description })}
+          <ConversationalGoalsStep
+            onComplete={nextStep}
           />
         );
 
@@ -286,13 +283,13 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
         <div className="space-y-8">
           {renderStep()}
 
-          {/* Navigation */}
-          {currentStep < 6 && (
+          {/* Navigation - Hidden for conversational step (step 0) */}
+          {currentStep > 0 && currentStep < 6 && (
             <Navigation
               onNext={nextStep}
               onPrev={prevStep}
               canProceed={canProceed()}
-              isFirstStep={currentStep === 0}
+              isFirstStep={currentStep === 1}
               isLastStep={currentStep === 5}
               nextLabel={currentStep === 5 ? 'Finish' : 'Continue'}
             />
