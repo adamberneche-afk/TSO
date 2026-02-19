@@ -87,11 +87,10 @@ export class PublicRAGClient {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': this.apiKey!,
       },
       body: JSON.stringify({
+        wallet: this.walletAddress,
         publicKey,
-        walletAddress: this.walletAddress,
       }),
     });
 
@@ -104,20 +103,14 @@ export class PublicRAGClient {
    * Upload a document to Public RAG (E2EE)
    */
   async uploadDocument(request: PublicRAGUploadRequest): Promise<PublicDocument> {
-    if (!this.apiKey) {
+    if (!this.walletAddress) {
       throw new Error('Not authenticated');
     }
 
-    // Chunk the document
     const chunks = chunkText(request.content, 500, 50);
-    
-    // Generate embeddings (for search index)
     const embeddings = await generateEmbeddings(chunks);
-
-    // Encrypt document content
     const encryptedContent = await this.encryptionService.encrypt(request.content);
     
-    // Encrypt metadata
     const metadataStr = JSON.stringify({
       title: request.title,
       type: request.metadata.type,
@@ -126,11 +119,9 @@ export class PublicRAGClient {
     });
     const encryptedMetadata = await this.encryptionService.encrypt(metadataStr);
 
-    // Encrypt chunks
     const encryptedChunks = await Promise.all(
       chunks.map(async (chunk, index) => {
         const encrypted = await this.encryptionService.encrypt(chunk);
-        // Create hash of embedding for search (privacy-preserving)
         const embeddingHash = await this.hashEmbedding(embeddings[index]);
         
         return {
@@ -142,20 +133,18 @@ export class PublicRAGClient {
       })
     );
 
-    // Get public key for sharing
     const publicKey = this.encryptionService.getPublicKey();
     if (!publicKey) {
       throw new Error('Public key not available');
     }
 
-    // Upload to platform
     const response = await fetch(`${API_BASE_URL}/documents`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': this.apiKey,
       },
       body: JSON.stringify({
+        wallet: this.walletAddress,
         encryptedData: encryptedContent.encrypted,
         encryptedMetadata: encryptedMetadata.encrypted,
         iv: encryptedContent.iv,
@@ -199,14 +188,13 @@ export class PublicRAGClient {
     const queryEmbeddings = await generateEmbeddings([request.query]);
     const queryHash = await this.hashEmbedding(queryEmbeddings[0]);
 
-    // Search platform (returns encrypted results)
     const response = await fetch(`${API_BASE_URL}/search`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': this.apiKey,
       },
       body: JSON.stringify({
+        wallet: this.walletAddress,
         queryHash,
         topK: request.topK || 10,
         filters: request.filters,
@@ -245,15 +233,11 @@ export class PublicRAGClient {
    * Get document by ID
    */
   async getDocument(documentId: string): Promise<PublicDocument> {
-    if (!this.apiKey) {
+    if (!this.walletAddress) {
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_BASE_URL}/documents/${documentId}`, {
-      headers: {
-        'X-API-Key': this.apiKey,
-      },
-    });
+    const response = await fetch(`${API_BASE_URL}/documents/${documentId}?wallet=${this.walletAddress}`);
 
     if (!response.ok) {
       throw new Error('Failed to get document');
@@ -272,14 +256,12 @@ export class PublicRAGClient {
   }> {
     const doc = await this.getDocument(documentId);
 
-    // Decrypt main content
     const content = await this.encryptionService.decrypt(
       doc.encryptedData,
       doc.iv,
       doc.salt
     );
 
-    // Decrypt metadata
     const metadataStr = await this.encryptionService.decrypt(
       doc.encryptedMetadata,
       doc.iv,
@@ -287,16 +269,10 @@ export class PublicRAGClient {
     );
     const metadata = JSON.parse(metadataStr);
 
-    // Get chunks
-    const response = await fetch(`${API_BASE_URL}/documents/${documentId}/chunks`, {
-      headers: {
-        'X-API-Key': this.apiKey!,
-      },
-    });
+    const response = await fetch(`${API_BASE_URL}/documents/${documentId}/chunks?wallet=${this.walletAddress}`);
 
     const encryptedChunks = await response.json();
     
-    // Decrypt chunks
     const chunks = await Promise.all(
       encryptedChunks.map(async (chunk: any) => {
         return await this.encryptionService.decrypt(
@@ -314,7 +290,7 @@ export class PublicRAGClient {
    * Share document with another user
    */
   async shareDocument(documentId: string, recipientPublicKey: string): Promise<void> {
-    if (!this.apiKey) {
+    if (!this.walletAddress) {
       throw new Error('Not authenticated');
     }
 
@@ -322,9 +298,9 @@ export class PublicRAGClient {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': this.apiKey,
       },
       body: JSON.stringify({
+        wallet: this.walletAddress,
         recipientPublicKey,
       }),
     });
@@ -338,60 +314,52 @@ export class PublicRAGClient {
    * Get community documents (public/shared)
    */
   async getCommunityDocuments(limit: number = 20, offset: number = 0): Promise<CommunityDocument[]> {
-    if (!this.apiKey) {
-      throw new Error('Not authenticated');
-    }
-
     const response = await fetch(
-      `${API_BASE_URL}/community?limit=${limit}&offset=${offset}`,
-      {
-        headers: {
-          'X-API-Key': this.apiKey,
-        },
-      }
+      `${API_BASE_URL}/community?limit=${limit}&offset=${offset}`
     );
 
     if (!response.ok) {
       throw new Error('Failed to get community documents');
     }
 
-    return await response.json();
+    const data = await response.json();
+    return data.documents || [];
   }
 
   /**
    * Get my documents
    */
   async getMyDocuments(): Promise<PublicDocument[]> {
-    if (!this.apiKey) {
+    if (!this.walletAddress) {
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_BASE_URL}/documents`, {
-      headers: {
-        'X-API-Key': this.apiKey,
-      },
-    });
+    const response = await fetch(`${API_BASE_URL}/documents?wallet=${this.walletAddress}`);
 
     if (!response.ok) {
       throw new Error('Failed to get documents');
     }
 
-    return await response.json();
+    const data = await response.json();
+    return data.documents || [];
   }
 
   /**
    * Delete document
    */
   async deleteDocument(documentId: string): Promise<void> {
-    if (!this.apiKey) {
+    if (!this.walletAddress) {
       throw new Error('Not authenticated');
     }
 
     const response = await fetch(`${API_BASE_URL}/documents/${documentId}`, {
       method: 'DELETE',
       headers: {
-        'X-API-Key': this.apiKey,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        wallet: this.walletAddress,
+      }),
     });
 
     if (!response.ok) {
@@ -403,26 +371,36 @@ export class PublicRAGClient {
    * Get Public RAG stats
    */
   async getStats(): Promise<PublicRAGStats> {
-    if (!this.apiKey) {
+    if (!this.walletAddress) {
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_BASE_URL}/stats`, {
-      headers: {
-        'X-API-Key': this.apiKey,
-      },
-    });
+    const response = await fetch(`${API_BASE_URL}/stats?wallet=${this.walletAddress}`);
 
     if (!response.ok) {
       throw new Error('Failed to get stats');
     }
 
-    return await response.json();
+    const data = await response.json();
+    return {
+      ...data,
+      documentCount: data.myDocuments || 0,
+      storageUsedFormatted: formatBytes(data.storageUsed || 0),
+      storageLimitFormatted: '10 MB',
+    };
   }
 }
 
 // Singleton instance
 let publicRAGClientInstance: PublicRAGClient | null = null;
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
 
 export function getPublicRAGClient(): PublicRAGClient {
   if (!publicRAGClientInstance) {
