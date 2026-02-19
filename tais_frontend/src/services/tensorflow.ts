@@ -3,6 +3,29 @@ import * as use from '@tensorflow-models/universal-sentence-encoder';
 
 let model: use.UniversalSentenceEncoder | null = null;
 let isLoading = false;
+let isBackendReady = false;
+
+async function ensureBackend(): Promise<void> {
+  if (isBackendReady) return;
+  
+  try {
+    await tf.setBackend('webgl');
+    await tf.ready();
+    isBackendReady = true;
+    console.log('TensorFlow.js backend initialized:', tf.getBackend());
+  } catch (error) {
+    console.warn('WebGL backend failed, trying CPU:', error);
+    try {
+      await tf.setBackend('cpu');
+      await tf.ready();
+      isBackendReady = true;
+      console.log('TensorFlow.js using CPU backend');
+    } catch (cpuError) {
+      console.error('Failed to initialize any TensorFlow backend:', cpuError);
+      throw new Error('No TensorFlow backend available');
+    }
+  }
+}
 
 export interface EmbeddingResult {
   embedding: number[];
@@ -18,7 +41,6 @@ export interface SimilarityResult {
 export async function loadUSEModel(): Promise<use.UniversalSentenceEncoder> {
   if (model) return model;
   if (isLoading) {
-    // Wait for loading to complete
     while (isLoading) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -27,7 +49,7 @@ export async function loadUSEModel(): Promise<use.UniversalSentenceEncoder> {
 
   isLoading = true;
   try {
-    // Load the model
+    await ensureBackend();
     model = await use.load();
     console.log('Universal Sentence Encoder loaded successfully');
     return model;
