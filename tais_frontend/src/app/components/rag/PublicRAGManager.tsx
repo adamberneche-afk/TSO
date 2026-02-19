@@ -359,9 +359,9 @@ export const PublicRAGManager: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  <h4 className="font-bold text-sm tracking-tightest mb-1 truncate">{doc.title}</h4>
+                  <h4 className="font-bold text-sm tracking-tightest mb-1 truncate">{doc.title || 'Untitled'}</h4>
                   <p className="text-[10px] text-[#717171] uppercase tracking-widest mb-4">
-                    {new Date(doc.createdAt).toLocaleDateString()} • {(doc.size / 1024).toFixed(1)} KB
+                    {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'Unknown date'} • {doc.size ? (doc.size / 1024).toFixed(1) : 0} KB
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {(doc.tags || []).map(tag => (
@@ -429,7 +429,7 @@ export const PublicRAGManager: React.FC = () => {
                 </div>
                 <h4 className="font-bold text-sm tracking-tightest mb-1 truncate">{doc.title || 'UNNAMED KNOWLEDGE'}</h4>
                 <p className="text-[10px] text-[#717171] uppercase tracking-widest mb-4">
-                  By {doc.walletAddress ? `${doc.walletAddress.substring(0, 6)}...${doc.walletAddress.substring(38)}` : 'Unknown'}
+                  By {doc.author || 'Unknown'}
                 </p>
                 <div className="flex flex-wrap gap-1 mb-4">
                   {(doc.tags || []).map(tag => (

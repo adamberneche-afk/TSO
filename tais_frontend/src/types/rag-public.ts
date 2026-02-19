@@ -6,19 +6,21 @@ import type { DocumentMetadata } from './rag';
 
 export interface PublicDocument {
   id: string;
-  encryptedData: string; // Base64 encrypted content
-  encryptedMetadata: string; // Base64 encrypted metadata
-  iv: string; // Base64 IV
-  salt: string; // Base64 salt for key derivation
-  ownerPublicKey: string; // Owner's public key for sharing
-  createdAt: number;
-  updatedAt: number;
-  chunkCount: number;
-  isPublic: boolean;
-  allowedViewers: string[]; // List of public keys allowed to view
-  tags: string[];
-  popularity: number;
-  downloadCount: number;
+  title?: string;
+  encryptedData?: string;
+  encryptedMetadata?: string;
+  iv?: string;
+  salt?: string;
+  ownerPublicKey?: string;
+  createdAt?: string | number;
+  updatedAt?: string | number;
+  chunkCount?: number;
+  size?: number;
+  isPublic?: boolean;
+  allowedViewers?: string[];
+  tags?: string[];
+  popularity?: number;
+  downloadCount?: number;
 }
 
 export interface EncryptedChunk {
@@ -90,13 +92,13 @@ export interface PublicRAGStats {
 
 export interface CommunityDocument {
   id: string;
-  title: string;
-  author: string;
-  tags: string[];
-  downloadCount: number;
-  createdAt: number;
-  isPublic: boolean;
-  canAccess: boolean;
+  title?: string;
+  author?: string;
+  tags?: string[];
+  downloadCount?: number;
+  createdAt?: string | number;
+  isPublic?: boolean;
+  canAccess?: boolean;
 }
 
 export interface PublicRAGConfig {
