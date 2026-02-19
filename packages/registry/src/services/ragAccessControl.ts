@@ -4,6 +4,8 @@
  * Based on staking tier document specifications
  */
 
+import { verifyNFTOwnership } from './genesisConfigLimits';
+
 // Tier quotas (from staking document)
 export const RAG_TIER_QUOTAS = {
   free: {
@@ -60,16 +62,22 @@ export class RAGAccessControl {
 
   /**
    * Get user's tier from staking contract or database
+   * THINK Genesis NFT holders get gold tier regardless of staked amount
    */
   async getUserTier(walletAddress: string): Promise<RAGTier> {
-    // TODO: In production, query staking contract
-    // For now, default to bronze for all users (beta/testing)
     try {
+      // First check if user holds THINK Genesis NFT - they get gold tier
+      const nftOwnership = await verifyNFTOwnership(walletAddress);
+      if (nftOwnership.isHolder && nftOwnership.tokenCount > 0) {
+        this.logger.info(`[RAG Access] ${walletAddress} has ${nftOwnership.tokenCount} Genesis NFT(s) - GOLD tier`);
+        return 'gold';
+      }
+
+      // Check usage to determine tier based on storage
       const usage = await this.prisma.rAGUserUsage.findUnique({
         where: { walletAddress: walletAddress.toLowerCase() }
       });
       
-      // Check usage to determine tier
       if (usage) {
         if (usage.storageUsed >= RAG_TIER_QUOTAS.silver.platformStorage) {
           return 'gold';
