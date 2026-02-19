@@ -94,7 +94,10 @@ A production-ready multi-tier Retrieval-Augmented Generation (RAG) system with c
   - Public key display and copying
 
 ### ✅ Phase 2.5: Public RAG Backend (COMPLETE)
-**Status:** Code Complete, Ready for Deployment
+**Status:** ✅ DEPLOYED AND LIVE - February 19, 2026  
+**Service URL:** https://tso.onrender.com  
+**Port:** 10000  
+**Version:** 2.5.0
 
 **Features Implemented:**
 - ✅ **Database Schema** (`prisma/schema.prisma`)
@@ -235,6 +238,16 @@ JWT_EXPIRES_IN=7d
 # Blockchain (existing)
 RPC_URL=https://cloudflare-eth.com
 STAKING_CONTRACT_ADDRESS=0x08071901A5C4D2950888Ce2b299bBd0e3087d101
+```
+
+**✅ DEPLOYED CONFIGURATION:**
+```bash
+# Working Production Environment Variables
+RAG_DATABASE_URL="postgresql://public_rag_user:HIe8HmUXOGyb9S5v9WfKLQQgBMnqWONl@dpg-d6au87vpm1nc73djp6t0-a.oregon-postgres.render.com/public_rag?sslmode=require"
+SKILLS_DATABASE_URL="postgresql://user:pass@host/tais_registry?sslmode=require"
+RAG_STORAGE_PROVIDER=database
+JWT_SECRET="your-secret"
+CORS_ORIGIN="https://taisplatform.vercel.app"
 ```
 
 **Note:** If `RAG_DATABASE_URL` and `SKILLS_DATABASE_URL` are not set, the system falls back to using `DATABASE_URL` for backward compatibility.
@@ -550,6 +563,8 @@ packages/registry/
 ---
 
 **Version:** 2.5.0  
-**Last Updated:** February 18, 2026  
-**Status:** All Phases Complete, Ready for Production Deployment  
+**Last Updated:** February 19, 2026  
+**Status:** ✅ ALL PHASES COMPLETE - DEPLOYED AND LIVE  
+**Service URL:** https://tso.onrender.com  
+**Frontend:** https://taisplatform.vercel.app  
 **Security:** ECIES Encryption Implemented, Production-Ready

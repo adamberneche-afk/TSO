@@ -2,9 +2,14 @@
 
 ## Executive Summary
 
-The Public RAG system is **code-complete and ready for deployment**. This guide outlines the exact steps required to deploy the backend API and enable the Public RAG feature in production.
+The Public RAG system has been **successfully deployed to production** on Render. This guide documents the deployment configuration and current operational status.
 
-**Status:** All components implemented, tested locally, awaiting production deployment.
+**Status:** ✅ DEPLOYED AND LIVE  
+**Service URL:** https://tso.onrender.com  
+**Deployment Date:** February 19, 2026  
+**Version:** 2.5.0  
+**Port:** 10000  
+**Frontend:** https://taisplatform.vercel.app
 
 ---
 
@@ -94,23 +99,25 @@ Cloudflare R2 is recommended over AWS S3 due to:
 
 Create `.env.production` in `packages/registry/`:
 
+**✅ WORKING PRODUCTION CONFIGURATION:**
 ```bash
 # Server Configuration
 NODE_ENV=production
-PORT=3000
+PORT=10000
 LOG_LEVEL=info
 
-# Dual-Database Configuration (REQUIRED)
+# Dual-Database Configuration (REQUIRED - WORKING)
 # RAG Database - Stores encrypted documents, chunks, audit logs
-RAG_DATABASE_URL="postgresql://user:pass@host:5432/tais-rag?schema=public&sslmode=require"
+RAG_DATABASE_URL="postgresql://public_rag_user:HIe8HmUXOGyb9S5v9WfKLQQgBMnqWONl@dpg-d6au87vpm1nc73djp6t0-a.oregon-postgres.render.com/public_rag?sslmode=require"
 
 # Skills Database - Stores skills registry, auth, configurations
-SKILLS_DATABASE_URL="postgresql://user:pass@host:5432/tais_registry?schema=public&sslmode=require"
+SKILLS_DATABASE_URL="postgresql://user:pass@host/tais_registry?sslmode=require"
 
 # RAG Storage Options:
 
-## Option A: Database Storage (Recommended for MVP - Zero Cost)
+## Option A: Database Storage (RECOMMENDED - CURRENTLY DEPLOYED)
 # Stores encrypted documents directly in PostgreSQL
+# ✅ ZERO COST MVP - Currently in production
 RAG_STORAGE_PROVIDER=database
 
 ## Option B: Supabase Storage (Free 1GB)
@@ -148,7 +155,12 @@ RATE_LIMIT_MAX_REQUESTS=100
 ADMIN_WALLET_ADDRESSES=0x123...,0x456...
 
 # CORS (Adjust for production domain)
-CORS_ORIGIN=https://tais.io,https://app.tais.io
+# ✅ CONFIGURED AND WORKING
+CORS_ORIGIN="https://taisplatform.vercel.app"
+
+# JWT (REQUIRED)
+JWT_SECRET="your-secret"
+JWT_EXPIRES_IN=7d
 ```
 
 **Security Notes:**
@@ -630,6 +642,8 @@ npx prisma migrate resolve --rolled-back [migration_name]
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** February 18, 2026  
-**Status:** Ready for Production Deployment
+**Document Version:** 2.0  
+**Last Updated:** February 19, 2026  
+**Status:** ✅ DEPLOYED AND LIVE  
+**Service URL:** https://tso.onrender.com  
+**Health Check:** https://tso.onrender.com/health

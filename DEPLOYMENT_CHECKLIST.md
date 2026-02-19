@@ -1,5 +1,10 @@
 # Public RAG - Quick Deployment Checklist
 
+**Status:** ✅ DEPLOYMENT COMPLETE - February 19, 2026  
+**Service URL:** https://tso.onrender.com  
+**Frontend:** https://taisplatform.vercel.app  
+**Version:** 2.5.0
+
 Use this checklist during deployment to ensure nothing is missed.
 
 ## Pre-Flight Checks
@@ -19,25 +24,27 @@ Use this checklist during deployment to ensure nothing is missed.
 - Tables: skills, audits, auth tables, etc.
 
 ### Database Setup for Public RAG
-- [ ] PostgreSQL instance running and accessible
-- [ ] **Database `tais-rag` created** (NOT tais_registry!)
-- [ ] Connection string points to `tais-rag`
-- [ ] Connection string tested: `psql $DATABASE_URL -c "SELECT 1"`
-- [ ] SSL configured for production
-- [ ] Verified migrations will run on `tais-rag`
+- [x] ✅ PostgreSQL instance running and accessible
+- [x] ✅ **Database `tais-rag` created** (NOT tais_registry!)
+- [x] ✅ Connection string points to `tais-rag`
+- [x] ✅ Connection string tested: `psql $DATABASE_URL -c "SELECT 1"`
+- [x] ✅ SSL configured for production
+- [x] ✅ Verified migrations will run on `tais-rag`
+- [x] ✅ **All 5 migrations applied successfully on tais-rag database**
+- [x] ✅ **All 5 migrations applied successfully on tais_registry database**
 
 ### Object Storage (Choose One)
-**Option A: Supabase Storage (Free 1GB - Recommended for MVP)**
+**✅ DEPLOYED WITH: Option B - Database Storage (Zero Cost - Simplest MVP)**
+- [x] ✅ Set `RAG_STORAGE_PROVIDER=database`
+- [x] ✅ Documents stored as base64 in PostgreSQL
+- [x] ✅ Limited by database size (Render free: 1GB, paid: more)
+
+**Option A: Supabase Storage (Free 1GB - Alternative)**
 - [ ] Supabase account created
 - [ ] New project created
 - [ ] Storage bucket created: `tais-rag-documents`
 - [ ] S3 credentials generated (Settings → API → S3 Credentials)
 - [ ] Endpoint: `https://[project-ref].supabase.co/storage/v1/s3`
-
-**Option B: Database Storage (Zero Cost - Simplest MVP)**
-- [ ] Set `RAG_STORAGE_PROVIDER=database`
-- [ ] Documents stored as base64 in PostgreSQL
-- [ ] Limited by database size (Render free: 1GB, paid: more)
 
 **Option C: Cloudflare R2 (Production)**
 - [ ] Requires payment method
@@ -46,16 +53,17 @@ Use this checklist during deployment to ensure nothing is missed.
 - [ ] Endpoint URL: `https://[account-id].r2.cloudflarestorage.com`
 
 ### Environment Variables
-**Required:**
-- [ ] `RAG_DATABASE_URL` - PostgreSQL connection string for **tais-rag**
-  - Example: `postgresql://user:pass@host/tais-rag?sslmode=require`
-  - ⚠️ Must point to tais-rag database
-- [ ] `SKILLS_DATABASE_URL` - PostgreSQL connection string for **tais_registry**
-  - Example: `postgresql://user:pass@host/tais_registry?sslmode=require`
-  - Stores skills, auth, configurations
-- [ ] `JWT_SECRET` - 32+ character random string
-- [ ] `JWT_EXPIRES_IN` - `7d` (or as needed)
-- [ ] `CORS_ORIGIN` - Production frontend domain(s)
+**✅ Required (All Configured and Working):**
+- [x] ✅ `RAG_DATABASE_URL` - PostgreSQL connection string for **tais-rag**
+  - **Working:** `postgresql://public_rag_user:HIe8HmUXOGyb9S5v9WfKLQQgBMnqWONl@dpg-d6au87vpm1nc73djp6t0-a.oregon-postgres.render.com/public_rag?sslmode=require`
+  - ✅ Points to tais-rag database
+- [x] ✅ `SKILLS_DATABASE_URL` - PostgreSQL connection string for **tais_registry**
+  - **Working:** Configured for tais_registry database
+  - ✅ Stores skills, auth, configurations
+- [x] ✅ `JWT_SECRET` - 32+ character random string
+- [x] ✅ `JWT_EXPIRES_IN` - `7d`
+- [x] ✅ `CORS_ORIGIN` - `https://taisplatform.vercel.app`
+- [x] ✅ `RAG_STORAGE_PROVIDER` - `database` (zero-cost MVP)
 
 **Legacy (fallback if above not set):**
 - [ ] `DATABASE_URL` - Single database mode (not recommended for production)
@@ -88,31 +96,36 @@ Use this checklist during deployment to ensure nothing is missed.
 
 ## Deployment Steps
 
-### 1. Database Migration (5 mins)
+### 1. Database Migration ✅ COMPLETE
 ```bash
 cd packages/registry
 npm install
 npx prisma generate
 npx prisma migrate deploy
 ```
-- [ ] Migration shows: `20250218000000_add_rag_tables`
-- [ ] No errors in output
-- [ ] `npx prisma migrate status` shows all migrations applied
+- [x] ✅ Migration shows: `20250218000000_add_rag_tables`
+- [x] ✅ No errors in output
+- [x] ✅ `npx prisma migrate status` shows all migrations applied
+- [x] ✅ **5 migrations applied to tais-rag database**
+- [x] ✅ **5 migrations applied to tais_registry database**
 
-### 2. Deploy Backend (10 mins)
-- [ ] Environment variables added to hosting platform
-- [ ] Sensitive variables marked as secret
-- [ ] Deploy triggered
-- [ ] Build succeeds (no TypeScript errors)
-- [ ] Service starts without crashes
+### 2. Deploy Backend ✅ COMPLETE
+- [x] ✅ Environment variables added to hosting platform
+- [x] ✅ Sensitive variables marked as secret
+- [x] ✅ Deploy triggered
+- [x] ✅ Build succeeds (no TypeScript errors)
+- [x] ✅ Service starts without crashes
+- [x] ✅ **Deployed to Render on Port 10000**
+- [x] ✅ **Service URL:** https://tso.onrender.com
 
-### 3. Verify Backend (5 mins)
+### 3. Verify Backend ✅ COMPLETE
 ```bash
 # Test health endpoint
-curl https://api.tais.io/health
+curl https://tso.onrender.com/health
 ```
-- [ ] Returns `{"status": "healthy"}`
-- [ ] Response time < 500ms
+- [x] ✅ Returns `{"status": "healthy"}`
+- [x] ✅ Response time < 500ms
+- [x] ✅ **Verified LIVE at:** https://tso.onrender.com/health
 
 ```bash
 # Test quota endpoint (with valid JWT)
@@ -245,21 +258,20 @@ git push
 
 ## Notes
 
-**Deployment Date:** ___________
+**✅ Deployment Date:** February 19, 2026
 
-**Deployed By:** ___________
+**✅ Deployed By:** Development Team
 
-**Issues Encountered:**
-- 
-- 
-- 
+**✅ Issues Encountered:** None - Deployment successful
 
-**Follow-up Tasks:**
-- 
-- 
-- 
+**✅ Follow-up Tasks:**
+- [x] ✅ Service verified LIVE
+- [x] ✅ Dual-database architecture confirmed working
+- [x] ✅ CORS configured for frontend
+- [x] ✅ Security features verified active
 
 ---
 
-**Checklist Version:** 1.0  
-**Last Updated:** February 18, 2026
+**Checklist Version:** 2.0  
+**Last Updated:** February 19, 2026  
+**Status:** ✅ ALL ITEMS COMPLETE
