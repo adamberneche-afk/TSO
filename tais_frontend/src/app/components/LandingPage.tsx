@@ -10,9 +10,22 @@ interface LandingPageProps {
   onViewDashboard: () => void;
   onPublishSkill?: () => void;
   onAuditSkill?: () => void;
+  onViewPublicRAG?: () => void;
+  onViewPrivateRAG?: () => void;
+  onViewConversation?: () => void;
+  onViewLLMSettings?: () => void;
 }
 
-export function LandingPage({ onStartInterview, onViewDashboard, onPublishSkill, onAuditSkill }: LandingPageProps) {
+export function LandingPage({ 
+  onStartInterview, 
+  onViewDashboard, 
+  onPublishSkill, 
+  onAuditSkill,
+  onViewPublicRAG,
+  onViewPrivateRAG,
+  onViewConversation,
+  onViewLLMSettings
+}: LandingPageProps) {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
@@ -23,8 +36,8 @@ export function LandingPage({ onStartInterview, onViewDashboard, onPublishSkill,
             <a href="#features" className="text-[#888888] hover:text-white transition-colors">
               Features
             </a>
-            <a href="#how-it-works" className="text-[#888888] hover:text-white transition-colors">
-              How It Works
+            <a href="#rag" className="text-[#888888] hover:text-white transition-colors">
+              RAG
             </a>
             <Button
               variant="ghost"
@@ -150,6 +163,76 @@ export function LandingPage({ onStartInterview, onViewDashboard, onPublishSkill,
               Get Started Now
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* RAG & AI Features Section */}
+      <section id="rag" className="py-20 px-6 bg-[#0a0a0a]">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4">RAG & AI Features</h2>
+            <p className="text-[#888888] text-lg">
+              Privacy-first knowledge management with end-to-end encryption
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Card className="bg-[#111111] border-[#333333] p-6 hover:border-[#3B82F6] transition-colors cursor-pointer"
+                  onClick={onViewPublicRAG}>
+              <div className="flex items-center gap-3 mb-4">
+                <Upload className="w-6 h-6 text-[#3B82F6]" />
+                <h3 className="text-xl font-bold">Public RAG</h3>
+              </div>
+              <p className="text-[#888888] mb-4">
+                End-to-end encrypted document sharing with the community. Server never sees your plaintext.
+              </p>
+              <Button variant="outline" className="w-full border-[#333333] hover:bg-[#1a1a1a]">
+                Access Public RAG
+              </Button>
+            </Card>
+
+            <Card className="bg-[#111111] border-[#333333] p-6 hover:border-[#3B82F6] transition-colors cursor-pointer"
+                  onClick={onViewPrivateRAG}>
+              <div className="flex items-center gap-3 mb-4">
+                <Shield className="w-6 h-6 text-[#10B981]" />
+                <h3 className="text-xl font-bold">Private RAG</h3>
+              </div>
+              <p className="text-[#888888] mb-4">
+                100% local knowledge base. Documents never leave your device. Complete privacy.
+              </p>
+              <Button variant="outline" className="w-full border-[#333333] hover:bg-[#1a1a1a]">
+                Open Private RAG
+              </Button>
+            </Card>
+
+            <Card className="bg-[#111111] border-[#333333] p-6 hover:border-[#3B82F6] transition-colors cursor-pointer"
+                  onClick={onViewConversation}>
+              <div className="flex items-center gap-3 mb-4">
+                <Users className="w-6 h-6 text-[#8B5CF6]" />
+                <h3 className="text-xl font-bold">AI Interview</h3>
+              </div>
+              <p className="text-[#888888] mb-4">
+                Conversational interview with LLM integration. AI-powered question generation.
+              </p>
+              <Button variant="outline" className="w-full border-[#333333] hover:bg-[#1a1a1a]">
+                Start AI Interview
+              </Button>
+            </Card>
+
+            <Card className="bg-[#111111] border-[#333333] p-6 hover:border-[#3B82F6] transition-colors cursor-pointer"
+                  onClick={onViewLLMSettings}>
+              <div className="flex items-center gap-3 mb-4">
+                <Zap className="w-6 h-6 text-[#F59E0B]" />
+                <h3 className="text-xl font-bold">LLM Settings</h3>
+              </div>
+              <p className="text-[#888888] mb-4">
+                Configure OpenAI, Anthropic, or local models. Wallet-encrypted API keys.
+              </p>
+              <Button variant="outline" className="w-full border-[#333333] hover:bg-[#1a1a1a]">
+                Configure LLM
+              </Button>
+            </Card>
           </div>
         </div>
       </section>
