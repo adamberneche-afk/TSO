@@ -11,6 +11,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tais_frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -19,7 +22,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: tais-frontend/package-lock.json
+          cache-dependency-path: tais_frontend/package-lock.json
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
