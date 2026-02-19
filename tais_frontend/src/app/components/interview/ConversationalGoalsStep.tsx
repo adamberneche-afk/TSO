@@ -151,11 +151,13 @@ export function ConversationalGoalsStep({ onComplete }: ConversationalGoalsStepP
           content: m.content
         }));
         
-        const llmResponse = await llmClient.chat([
-          { role: 'system', content: SYSTEM_PROMPT },
-          ...conversationHistory.slice(-6),
-          { role: 'user', content: userMessage }
-        ]);
+        const llmResponse = await llmClient.complete({
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...conversationHistory.slice(-6),
+            { role: 'user', content: userMessage }
+          ]
+        });
         
         response = llmResponse.content;
       } else {
