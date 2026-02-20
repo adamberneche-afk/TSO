@@ -28,6 +28,8 @@ import {
   Database,
   Globe,
   Lock,
+  Code,
+  FileCode,
 } from 'lucide-react';
 import { AgentConfig } from '../../types/agent';
 import { motion, AnimatePresence } from 'motion/react';
@@ -487,13 +489,27 @@ interface AgentDetailModalProps {
 }
 
 function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpdate }: AgentDetailModalProps) {
+  const [activeTab, setActiveTab] = useState<'framework' | 'personality' | 'summary'>('framework');
   const [isEditing, setIsEditing] = useState(false);
   const [editedConfig, setEditedConfig] = useState<AgentConfig>(JSON.parse(JSON.stringify(agent.config)));
   const [isSaving, setIsSaving] = useState(false);
   
-  const configJSON = JSON.stringify(isEditing ? editedConfig : agent.config, null, 2);
-  const naturalSummary = generateConfigSummary(isEditing ? editedConfig : agent.config);
-  const bulletSummary = generateBulletSummary(isEditing ? editedConfig : agent.config);
+  const currentConfig = isEditing ? editedConfig : agent.config;
+  const fullConfigJSON = JSON.stringify(currentConfig, null, 2);
+  
+  const frameworkConfig = {
+    name: currentConfig.agent.name,
+    version: currentConfig.agent.version,
+    skills: currentConfig.agent.skills,
+    constraints: currentConfig.agent.constraints,
+    autonomy: currentConfig.agent.autonomy,
+    knowledge: currentConfig.agent.knowledge,
+  };
+  const frameworkJSON = JSON.stringify(frameworkConfig, null, 2);
+  
+  const personalityMd = currentConfig.agent.personalityMd || '';
+  const naturalSummary = generateConfigSummary(currentConfig);
+  const bulletSummary = generateBulletSummary(currentConfig);
   const formattedDate = new Date(agent.lastModified).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -521,7 +537,19 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
   const handleConfigChange = (value: string) => {
     try {
       const parsed = JSON.parse(value);
-      setEditedConfig(parsed);
+      // Merge framework changes back into full config
+      setEditedConfig(prev => ({
+        ...prev,
+        agent: {
+          ...prev.agent,
+          name: parsed.name || prev.agent.name,
+          version: parsed.version || prev.agent.version,
+          skills: parsed.skills || prev.agent.skills,
+          constraints: parsed.constraints || prev.agent.constraints,
+          autonomy: parsed.autonomy || prev.agent.autonomy,
+          knowledge: parsed.knowledge || prev.agent.knowledge,
+        }
+      }));
     } catch {
       // Invalid JSON, ignore
     }
@@ -680,23 +708,61 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
           </div>
         </div>
 
-        {/* Side-by-Side Content */}
+        {/* Tab Navigation */}
+        <div className="px-6 pt-4">
+          <div className="flex gap-1 bg-[#1a1a1a] p-1 rounded-lg">
+            <button
+              onClick={() => setActiveTab('framework')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'framework'
+                  ? 'bg-[#3B82F6] text-white'
+                  : 'text-[#888888] hover:text-white hover:bg-[#252525]'
+              }`}
+            >
+              <Code className="w-4 h-4" />
+              Framework
+            </button>
+            <button
+              onClick={() => setActiveTab('personality')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'personality'
+                  ? 'bg-[#3B82F6] text-white'
+                  : 'text-[#888888] hover:text-white hover:bg-[#252525]'
+              }`}
+            >
+              <FileCode className="w-4 h-4" />
+              Personality
+            </button>
+            <button
+              onClick={() => setActiveTab('summary')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'summary'
+                  ? 'bg-[#3B82F6] text-white'
+                  : 'text-[#888888] hover:text-white hover:bg-[#252525]'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              Summary
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-full">
-            {/* Left: JSON Editor */}
-            <div className="border border-[#333333] rounded-lg overflow-hidden flex flex-col bg-[#111111] h-[600px] lg:h-auto">
-              <div className="bg-[#252525] px-4 py-3 border-b border-[#333333] flex items-center justify-between flex-shrink-0">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-[#10B981]"></div>
-                  <span className="text-xs text-[#888888] uppercase tracking-wider font-medium">JSON Configuration</span>
+          <div className="border border-[#333333] rounded-lg overflow-hidden h-[600px]">
+            {activeTab === 'framework' && (
+              <>
+                <div className="bg-[#252525] px-4 py-3 border-b border-[#333333] flex items-center justify-between flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-[#10B981]"></div>
+                    <span className="text-xs text-[#888888] uppercase tracking-wider font-medium">framework.json</span>
+                  </div>
+                  <span className="text-xs text-[#666666]">Rigid • Validated • Type-Safe</span>
                 </div>
-                <span className="text-xs text-[#666666]">Technical View</span>
-              </div>
-              <div className="flex-1 min-h-0">
                 <Editor
-                  height="100%"
+                  height="calc(100% - 80px)"
                   defaultLanguage="json"
-                  value={configJSON}
+                  value={frameworkJSON}
                   theme="vs-dark"
                   onChange={isEditing ? handleConfigChange : undefined}
                   options={{
@@ -711,130 +777,172 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
                     wordWrap: 'on',
                   }}
                 />
-              </div>
-              <div className="bg-[#1a1a1a] px-4 py-2 border-t border-[#333333]">
-                <p className="text-xs text-[#666666]">
-                  💡 Tip: Compare this JSON with the natural language description on the right to learn the structure.
-                </p>
-              </div>
-            </div>
-
-            {/* Right: Natural Language Summary */}
-            <div className="border border-[#333333] rounded-lg overflow-hidden flex flex-col bg-[#1a1a1a] h-[600px] lg:h-auto">
-              <div className="bg-[#252525] px-4 py-3 border-b border-[#333333] flex items-center justify-between flex-shrink-0">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-[#3B82F6]" />
-                  <span className="text-xs text-[#888888] uppercase tracking-wider font-medium">Natural Language</span>
-                </div>
-                <span className="text-xs text-[#666666]">Human-Readable View</span>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto p-5 space-y-5">
-                {/* Natural Language Description */}
-                <div className="p-4 bg-[#252525] rounded-lg border-l-4 border-[#3B82F6]">
-                  <h5 className="text-xs text-[#3B82F6] uppercase tracking-wider mb-2 font-semibold">Overview</h5>
-                  <p className="text-sm text-[#e0e0e0] leading-relaxed whitespace-pre-line">
-                    {naturalSummary}
+                <div className="bg-[#1a1a1a] px-4 py-2 border-t border-[#333333]">
+                  <p className="text-xs text-[#666666]">
+                    Contains: name, version, skills, constraints, autonomy, knowledge sources
                   </p>
                 </div>
-                
-                {/* Quick Stats Grid */}
-                <div>
-                  <h5 className="text-xs text-[#888888] uppercase tracking-wider mb-3 font-semibold">Quick Stats</h5>
-                  <div className="grid grid-cols-2 gap-3">
-                    {bulletSummary.slice(0, 4).map((item, index) => (
-                      <div key={index} className="bg-[#252525] rounded p-3 border border-[#333333]">
-                        <dt className="text-xs text-[#888888] mb-1">{item.label}</dt>
-                        <dd className="text-sm text-white font-medium truncate">{item.value}</dd>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Detailed Breakdown */}
-                <div className="bg-[#252525] rounded-lg border border-[#333333]">
-                  <h5 className="text-xs text-[#888888] uppercase tracking-wider px-4 py-3 border-b border-[#333333] font-semibold">
-                    Detailed Breakdown
-                  </h5>
-                  <dl className="divide-y divide-[#333333]">
-                    {bulletSummary.map((item, index) => (
-                      <div key={index} className="flex justify-between px-4 py-3 text-sm">
-                        <dt className="text-[#888888]">{item.label}</dt>
-                        <dd className="text-white font-medium text-right">{item.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
+              </>
+            )}
 
-                {/* Knowledge Sources */}
-                <div className="bg-[#252525] rounded-lg border border-[#333333]">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-[#333333]">
-                    <h5 className="text-xs text-[#888888] uppercase tracking-wider font-semibold flex items-center gap-2">
-                      <Database className="w-4 h-4" />
-                      Knowledge Sources
-                    </h5>
-                    {knowledgeSources.length > 0 && (
-                      <span className="text-xs text-[#3B82F6]">{knowledgeSources.length} sources</span>
-                    )}
+            {activeTab === 'personality' && (
+              <>
+                <div className="bg-[#252525] px-4 py-3 border-b border-[#333333] flex items-center justify-between flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-[#8B5CF6]"></div>
+                    <span className="text-xs text-[#888888] uppercase tracking-wider font-medium">personality.md</span>
+                  </div>
+                  <span className="text-xs text-[#666666]">Flexible • LLM-Friendly</span>
+                </div>
+                {personalityMd ? (
+                  <Editor
+                    height="calc(100% - 80px)"
+                    defaultLanguage="markdown"
+                    value={personalityMd}
+                    theme="vs-dark"
+                    options={{
+                      readOnly: true,
+                      minimap: { enabled: false },
+                      fontSize: 12,
+                      fontFamily: 'JetBrains Mono, monospace',
+                      lineNumbers: 'on',
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      wordWrap: 'on',
+                    }}
+                  />
+                ) : (
+                  <div className="h-[calc(100%-80px)] flex items-center justify-center bg-[#111111]">
+                    <div className="text-center space-y-4">
+                      <FileCode className="w-12 h-12 text-[#666666] mx-auto" />
+                      <div>
+                        <p className="text-[#888888]">No personality markdown configured</p>
+                        <p className="text-sm text-[#666666] mt-1">
+                          Using: {currentConfig.agent.personality.tone}, {currentConfig.agent.personality.verbosity}, {currentConfig.agent.personality.formality}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="bg-[#1a1a1a] px-4 py-2 border-t border-[#333333]">
+                  <p className="text-xs text-[#666666]">
+                    Contains: identity, communication style, response guidelines, examples
+                  </p>
+                </div>
+              </>
+            )}
+
+            {activeTab === 'summary' && (
+              <div className="h-full overflow-y-auto bg-[#1a1a1a]">
+                <div className="p-5 space-y-5">
+                  <div className="p-4 bg-[#252525] rounded-lg border-l-4 border-[#3B82F6]">
+                    <h5 className="text-xs text-[#3B82F6] uppercase tracking-wider mb-2 font-semibold">Overview</h5>
+                    <p className="text-sm text-[#e0e0e0] leading-relaxed whitespace-pre-line">
+                      {naturalSummary}
+                    </p>
                   </div>
                   
-                  {knowledgeSources.length === 0 ? (
-                    <div className="px-4 py-6 text-center">
-                      <Database className="w-8 h-8 text-[#555555] mx-auto mb-2" />
-                      <p className="text-sm text-[#888888]">No knowledge sources configured</p>
-                      {isEditing && (
-                        <p className="text-xs text-[#666666] mt-1">Add documents from the JSON editor or wizard</p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-[#333333]">
-                      {knowledgeSources.map((source: any) => (
-                        <div key={source.id} className="px-4 py-3 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {source.type === 'public-rag' ? (
-                              <Globe className="w-4 h-4 text-[#3B82F6]" />
-                            ) : source.type === 'private-rag' ? (
-                              <Lock className="w-4 h-4 text-[#10B981]" />
-                            ) : (
-                              <Database className="w-4 h-4 text-[#888888]" />
-                            )}
-                            <div>
-                              <p className="text-sm text-white">{source.title || source.documentId}</p>
-                              <p className="text-xs text-[#666666]">Priority: {source.priority}</p>
-                            </div>
-                          </div>
-                          {isEditing && (
-                            <div className="flex items-center gap-2">
-                              <select
-                                value={source.priority}
-                                onChange={(e) => updateKnowledgeSource(source.id, { priority: Number(e.target.value) })}
-                                className="bg-[#1a1a1a] border border-[#333333] rounded text-xs text-[#888888] px-2 py-1"
-                              >
-                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(p => (
-                                  <option key={p} value={p}>P{p}</option>
-                                ))}
-                              </select>
-                              <button
-                                onClick={() => removeKnowledgeSource(source.id)}
-                                className="text-[#888888] hover:text-red-400 p-1"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          )}
+                  <div>
+                    <h5 className="text-xs text-[#888888] uppercase tracking-wider mb-3 font-semibold">Quick Stats</h5>
+                    <div className="grid grid-cols-2 gap-3">
+                      {bulletSummary.slice(0, 4).map((item, index) => (
+                        <div key={index} className="bg-[#252525] rounded p-3 border border-[#333333]">
+                          <dt className="text-xs text-[#888888] mb-1">{item.label}</dt>
+                          <dd className="text-sm text-white font-medium truncate">{item.value}</dd>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-[#252525] rounded-lg border border-[#333333]">
+                    <h5 className="text-xs text-[#888888] uppercase tracking-wider px-4 py-3 border-b border-[#333333] font-semibold">
+                      Detailed Breakdown
+                    </h5>
+                    <dl className="divide-y divide-[#333333]">
+                      {bulletSummary.map((item, index) => (
+                        <div key={index} className="flex justify-between px-4 py-3 text-sm">
+                          <dt className="text-[#888888]">{item.label}</dt>
+                          <dd className="text-white font-medium text-right">{item.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+
+                  {/* Knowledge Sources */}
+                  <div className="bg-[#252525] rounded-lg border border-[#333333]">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-[#333333]">
+                      <h5 className="text-xs text-[#888888] uppercase tracking-wider font-semibold flex items-center gap-2">
+                        <Database className="w-4 h-4" />
+                        Knowledge Sources
+                      </h5>
+                      {knowledgeSources.length > 0 && (
+                        <span className="text-xs text-[#3B82F6]">{knowledgeSources.length} sources</span>
+                      )}
+                    </div>
+                    
+                    {knowledgeSources.length === 0 ? (
+                      <div className="px-4 py-6 text-center">
+                        <Database className="w-8 h-8 text-[#555555] mx-auto mb-2" />
+                        <p className="text-sm text-[#888888]">No knowledge sources configured</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-[#333333]">
+                        {knowledgeSources.map((source: any) => (
+                          <div key={source.id} className="px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              {source.type === 'public-rag' ? (
+                                <Globe className="w-4 h-4 text-[#3B82F6]" />
+                              ) : source.type === 'private-rag' ? (
+                                <Lock className="w-4 h-4 text-[#10B981]" />
+                              ) : (
+                                <Database className="w-4 h-4 text-[#888888]" />
+                              )}
+                              <div>
+                                <p className="text-sm text-white">{source.title || source.documentId}</p>
+                                <p className="text-xs text-[#666666]">Priority: {source.priority}</p>
+                              </div>
+                            </div>
+                            {isEditing && (
+                              <div className="flex items-center gap-2">
+                                <select
+                                  value={source.priority}
+                                  onChange={(e) => updateKnowledgeSource(source.id, { priority: Number(e.target.value) })}
+                                  className="bg-[#1a1a1a] border border-[#333333] rounded text-xs text-[#888888] px-2 py-1"
+                                >
+                                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(p => (
+                                    <option key={p} value={p}>P{p}</option>
+                                  ))}
+                                </select>
+                                <button
+                                  onClick={() => removeKnowledgeSource(source.id)}
+                                  className="text-[#888888] hover:text-red-400 p-1"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {personalityMd && (
+                    <div className="bg-[#252525] rounded-lg border border-[#333333]">
+                      <h5 className="text-xs text-[#888888] uppercase tracking-wider px-4 py-3 border-b border-[#333333] font-semibold">
+                        Personality Markdown Preview
+                      </h5>
+                      <div className="p-4">
+                        <pre className="text-xs text-[#e0e0e0] whitespace-pre-wrap font-mono">
+                          {personalityMd.slice(0, 500)}
+                          {personalityMd.length > 500 && '...'}
+                        </pre>
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
-              
-              <div className="bg-[#1a1a1a] px-4 py-2 border-t border-[#333333]">
-                <p className="text-xs text-[#666666]">
-                  📝 This description is generated from the JSON configuration on the left.
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </motion.div>

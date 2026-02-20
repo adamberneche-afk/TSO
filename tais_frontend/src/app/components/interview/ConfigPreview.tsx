@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import { AgentConfig } from '../../../types/agent';
 import { Button } from '../ui/button';
-import { Download, Copy, Check, Save, Loader2, FileText } from 'lucide-react';
+import { Download, Copy, Check, Save, Loader2, FileText, Code, FileCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { configApi } from '../../../services/configApi';
 import { generateConfigSummary, generateBulletSummary } from '../../../lib/config-summary';
@@ -16,7 +16,10 @@ interface ConfigPreviewProps {
   onSaveSuccess?: () => void;
 }
 
+type PreviewTab = 'framework' | 'personality' | 'summary';
+
 export function ConfigPreview({ config, onUpdate, editable = false, onSaveSuccess }: ConfigPreviewProps) {
+  const [activeTab, setActiveTab] = useState<PreviewTab>('framework');
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -28,7 +31,20 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
     remaining: number;
     isHolder: boolean;
   } | null>(null);
-  const configJSON = JSON.stringify(config, null, 2);
+
+  const fullConfigJSON = JSON.stringify(config, null, 2);
+  
+  const frameworkConfig = {
+    name: config.agent.name,
+    version: config.agent.version,
+    skills: config.agent.skills,
+    constraints: config.agent.constraints,
+    autonomy: config.agent.autonomy,
+    knowledge: config.agent.knowledge,
+  };
+  const frameworkJSON = JSON.stringify(frameworkConfig, null, 2);
+  
+  const personalityMd = config.agent.personalityMd || '';
   const naturalSummary = generateConfigSummary(config);
   const bulletSummary = generateBulletSummary(config);
 
@@ -54,26 +70,33 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
   };
 
   const handleDownload = () => {
-    const blob = new Blob([configJSON], { type: 'application/json' });
+    const content = activeTab === 'personality' ? personalityMd : fullConfigJSON;
+    const filename = activeTab === 'personality' 
+      ? `${config.agent.name}-personality.md`
+      : `${config.agent.name}-config.json`;
+    const type = activeTab === 'personality' ? 'text/markdown' : 'application/json';
+    
+    const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${config.agent.name}-config.json`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success('Configuration downloaded');
+    toast.success(`${activeTab === 'personality' ? 'Personality' : 'Configuration'} downloaded`);
   };
 
   const handleCopy = async () => {
+    const content = activeTab === 'personality' ? personalityMd : fullConfigJSON;
     try {
-      await navigator.clipboard.writeText(configJSON);
+      await navigator.clipboard.writeText(content);
       setCopied(true);
-      toast.success('Configuration copied to clipboard');
+      toast.success('Copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      toast.error('Failed to copy configuration');
+      toast.error('Failed to copy');
     }
   };
 
@@ -114,7 +137,6 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
         description: `You have ${result.remaining} of ${result.limit} saves remaining.`,
       });
 
-      // Refresh status
       await checkSaveEligibility();
 
       if (onSaveSuccess) {
@@ -128,6 +150,12 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
       setIsSaving(false);
     }
   };
+
+  const tabs: { id: PreviewTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'framework', label: 'Framework', icon: <Code className="w-4 h-4" /> },
+    { id: 'personality', label: 'Personality', icon: <FileCode className="w-4 h-4" /> },
+    { id: 'summary', label: 'Summary', icon: <FileText className="w-4 h-4" /> },
+  ];
 
   return (
     <div className="space-y-4">
@@ -153,14 +181,14 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
               </span>
             </Button>
           )}
-          {editable && (
+          {editable && activeTab !== 'summary' && (
             <Button
               onClick={() => setIsEditing(!isEditing)}
               variant="outline"
               size="sm"
               className="border-[#333333] text-[#888888] hover:text-white"
             >
-              {isEditing ? 'View Only' : 'Edit JSON'}
+              {isEditing ? 'View Only' : 'Edit'}
             </Button>
           )}
           <Button
@@ -182,22 +210,39 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
         </div>
       </div>
 
-      {/* Side-by-Side Layout: JSON + Natural Language */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Left: JSON Editor */}
-        <div className="border border-[#333333] rounded-lg overflow-hidden flex flex-col">
-          <div className="bg-[#252525] px-4 py-2 border-b border-[#333333] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#10B981]"></div>
-              <span className="text-xs text-[#888888] uppercase tracking-wider">JSON Configuration</span>
+      {/* Tab Navigation */}
+      <div className="flex gap-1 bg-[#1a1a1a] p-1 rounded-lg">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === tab.id
+                ? 'bg-[#3B82F6] text-white'
+                : 'text-[#888888] hover:text-white hover:bg-[#252525]'
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="border border-[#333333] rounded-lg overflow-hidden">
+        {activeTab === 'framework' && (
+          <>
+            <div className="bg-[#252525] px-4 py-2 border-b border-[#333333] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-[#10B981]"></div>
+                <span className="text-xs text-[#888888] uppercase tracking-wider">framework.json</span>
+              </div>
+              <span className="text-xs text-[#666666]">Rigid • Validated • Type-Safe</span>
             </div>
-            <span className="text-xs text-[#666666]">Technical View</span>
-          </div>
-          <div className="flex-1">
             <Editor
               height="500px"
               defaultLanguage="json"
-              value={configJSON}
+              value={frameworkJSON}
               onChange={handleEditorChange}
               theme="vs-dark"
               options={{
@@ -212,68 +257,113 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
                 wordWrap: 'on',
               }}
             />
-          </div>
-          <div className="bg-[#1a1a1a] px-4 py-2 border-t border-[#333333]">
-            <p className="text-xs text-[#666666]">
-              💡 Tip: Compare this JSON with the natural language description on the right to learn the structure.
-            </p>
-          </div>
-        </div>
-
-        {/* Right: Natural Language Summary */}
-        <div className="border border-[#333333] rounded-lg overflow-hidden flex flex-col bg-[#1a1a1a]">
-          <div className="bg-[#252525] px-4 py-2 border-b border-[#333333] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[#3B82F6]" />
-              <span className="text-xs text-[#888888] uppercase tracking-wider">Natural Language</span>
-            </div>
-            <span className="text-xs text-[#666666]">Human-Readable View</span>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* Natural Language Description */}
-            <div className="p-4 bg-[#252525] rounded-lg border-l-4 border-[#3B82F6]">
-              <h5 className="text-xs text-[#3B82F6] uppercase tracking-wider mb-2">Overview</h5>
-              <p className="text-sm text-[#e0e0e0] leading-relaxed whitespace-pre-line">
-                {naturalSummary}
+            <div className="bg-[#1a1a1a] px-4 py-2 border-t border-[#333333]">
+              <p className="text-xs text-[#666666]">
+                Contains: name, version, skills, constraints, autonomy, knowledge sources
               </p>
             </div>
-            
-            {/* Quick Stats Grid */}
-            <div>
-              <h5 className="text-xs text-[#888888] uppercase tracking-wider mb-2">Quick Stats</h5>
-              <div className="grid grid-cols-2 gap-2">
-                {bulletSummary.slice(0, 4).map((item, index) => (
-                  <div key={index} className="bg-[#252525] rounded p-3 border border-[#333333]">
-                    <dt className="text-xs text-[#888888] mb-1">{item.label}</dt>
-                    <dd className="text-sm text-white font-medium truncate">{item.value}</dd>
-                  </div>
-                ))}
+          </>
+        )}
+
+        {activeTab === 'personality' && (
+          <>
+            <div className="bg-[#252525] px-4 py-2 border-b border-[#333333] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-[#8B5CF6]"></div>
+                <span className="text-xs text-[#888888] uppercase tracking-wider">personality.md</span>
               </div>
+              <span className="text-xs text-[#666666]">Flexible • LLM-Friendly • Human-Readable</span>
             </div>
-            
-            {/* Detailed Breakdown */}
-            <div className="bg-[#252525] rounded-lg border border-[#333333]">
-              <h5 className="text-xs text-[#888888] uppercase tracking-wider px-3 py-2 border-b border-[#333333]">
-                Detailed Breakdown
-              </h5>
-              <dl className="divide-y divide-[#333333]">
-                {bulletSummary.map((item, index) => (
-                  <div key={index} className="flex justify-between px-3 py-2 text-sm">
-                    <dt className="text-[#888888]">{item.label}</dt>
-                    <dd className="text-white font-medium text-right">{item.value}</dd>
+            {personalityMd ? (
+              <Editor
+                height="500px"
+                defaultLanguage="markdown"
+                value={personalityMd}
+                theme="vs-dark"
+                options={{
+                  readOnly: !isEditing,
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  fontFamily: 'JetBrains Mono, monospace',
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  wordWrap: 'on',
+                }}
+              />
+            ) : (
+              <div className="h-[500px] flex items-center justify-center bg-[#1a1a1a]">
+                <div className="text-center space-y-4">
+                  <FileCode className="w-12 h-12 text-[#666666] mx-auto" />
+                  <div>
+                    <p className="text-[#888888]">No personality markdown configured</p>
+                    <p className="text-sm text-[#666666] mt-1">
+                      Using slider-based personality: {config.agent.personality.tone}, {config.agent.personality.verbosity}, {config.agent.personality.formality}
+                    </p>
                   </div>
-                ))}
-              </dl>
+                </div>
+              </div>
+            )}
+            <div className="bg-[#1a1a1a] px-4 py-2 border-t border-[#333333]">
+              <p className="text-xs text-[#666666]">
+                Contains: identity, communication style, response guidelines, examples
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'summary' && (
+          <div className="h-[500px] overflow-y-auto bg-[#1a1a1a]">
+            <div className="p-4 space-y-4">
+              <div className="p-4 bg-[#252525] rounded-lg border-l-4 border-[#3B82F6]">
+                <h5 className="text-xs text-[#3B82F6] uppercase tracking-wider mb-2">Overview</h5>
+                <p className="text-sm text-[#e0e0e0] leading-relaxed whitespace-pre-line">
+                  {naturalSummary}
+                </p>
+              </div>
+              
+              <div>
+                <h5 className="text-xs text-[#888888] uppercase tracking-wider mb-2">Quick Stats</h5>
+                <div className="grid grid-cols-2 gap-2">
+                  {bulletSummary.slice(0, 4).map((item, index) => (
+                    <div key={index} className="bg-[#252525] rounded p-3 border border-[#333333]">
+                      <dt className="text-xs text-[#888888] mb-1">{item.label}</dt>
+                      <dd className="text-sm text-white font-medium truncate">{item.value}</dd>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="bg-[#252525] rounded-lg border border-[#333333]">
+                <h5 className="text-xs text-[#888888] uppercase tracking-wider px-3 py-2 border-b border-[#333333]">
+                  Detailed Breakdown
+                </h5>
+                <dl className="divide-y divide-[#333333]">
+                  {bulletSummary.map((item, index) => (
+                    <div key={index} className="flex justify-between px-3 py-2 text-sm">
+                      <dt className="text-[#888888]">{item.label}</dt>
+                      <dd className="text-white font-medium text-right">{item.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+
+              {config.agent.personalityMd && (
+                <div className="bg-[#252525] rounded-lg border border-[#333333]">
+                  <h5 className="text-xs text-[#888888] uppercase tracking-wider px-3 py-2 border-b border-[#333333]">
+                    Personality Markdown Preview
+                  </h5>
+                  <div className="p-3">
+                    <pre className="text-xs text-[#e0e0e0] whitespace-pre-wrap font-mono">
+                      {config.agent.personalityMd.slice(0, 500)}
+                      {config.agent.personalityMd.length > 500 && '...'}
+                    </pre>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-          
-          <div className="bg-[#1a1a1a] px-4 py-2 border-t border-[#333333]">
-            <p className="text-xs text-[#666666]">
-              📝 This description is generated from the JSON configuration on the left.
-            </p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Genesis Holder Info */}
