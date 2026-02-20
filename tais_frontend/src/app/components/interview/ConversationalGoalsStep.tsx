@@ -144,23 +144,31 @@ export function ConversationalGoalsStep({ onComplete }: ConversationalGoalsStepP
 
     try {
       let response: string;
+      let usedLLM = false;
 
       if (llmClient) {
-        const conversationHistory = messages.map(m => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content
-        }));
-        
-        const llmResponse = await llmClient.complete({
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            ...conversationHistory.slice(-6),
-            { role: 'user', content: userMessage }
-          ]
-        });
-        
-        response = llmResponse.content;
-      } else {
+        try {
+          const conversationHistory = messages.map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content
+          }));
+          
+          const llmResponse = await llmClient.complete({
+            messages: [
+              { role: 'system', content: SYSTEM_PROMPT },
+              ...conversationHistory.slice(-6),
+              { role: 'user', content: userMessage }
+            ]
+          });
+          
+          response = llmResponse.content;
+          usedLLM = true;
+        } catch (llmError) {
+          console.warn('LLM call failed, falling back to pattern matching:', llmError);
+        }
+      }
+      
+      if (!usedLLM) {
         const entities = extractEntities(userMessage);
         const lowerInput = userMessage.toLowerCase();
         
@@ -317,6 +325,14 @@ export function ConversationalGoalsStep({ onComplete }: ConversationalGoalsStepP
         <div className="bg-[#FEF3C7]/10 border border-[#FEF3C7]/20 rounded-lg p-4 text-center">
           <p className="text-sm text-[#FEF3C7]">
             Configure an LLM provider in settings for AI-powered conversations, or continue with basic mode.
+          </p>
+        </div>
+      )}
+
+      {selectedProvider === 'local' && typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && (
+        <div className="bg-[#FEF3C7]/10 border border-[#FEF3C7]/20 rounded-lg p-4 text-center">
+          <p className="text-sm text-[#FEF3C7]">
+            Local Ollama cannot be accessed from deployed apps. Configure a cloud provider (OpenAI, Anthropic) for AI-powered conversations, or continue with basic mode.
           </p>
         </div>
       )}
