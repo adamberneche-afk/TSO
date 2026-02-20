@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance baseline establishment
 - Alert configuration
 
-## [2.6.0] - 2026-02-19
+## [2.6.0] - 2026-02-20
 
 ### Added
 - **ThinkAgents/Obsidian Dark Design System** - Comprehensive dark theme overhaul
@@ -60,6 +60,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 100GB storage, 2M embeddings/month
   - 100K queries/day, unlimited app connections
 
+- **Multi-Backend YARA Scanner** - Cross-platform security scanning
+  - **Native YARA** (Linux/Mac when @automattic/yara available)
+  - **YARA CLI** (cross-platform when yara binary installed)
+  - **Enhanced Pattern Scanner** (always available, no dependencies)
+  - **7 Threat Categories**: Credential theft, exfiltration, injection, network, obfuscation, imports, crypto mining
+  - **30+ Detection Patterns**: AWS keys, webhook.site, child_process, eval(atob), hex strings
+
 ### Changed
 - **Interview Wizard**: Increased from 7 to 8 steps (added Knowledge step)
 - **RAG Authentication**: Changed from X-API-Key header to wallet query params
@@ -67,12 +74,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Default Tier**: New users now get bronze tier (was free with 0 quota)
 
 ### Fixed
+- **Jest Test Suite**: All 10 tests passing (was failing for 6 weeks)
+  - Fixed moduleNameMapper typo, import paths, simplified tests
 - **TensorFlow.js Backend**: Initialize WebGL before loading USE model
 - **RAG API Auth**: Use wallet query params matching backend expectations
 - **Badge Import**: Added missing Badge import to ConversationContainer
 - **Document Fields**: Handle null/undefined tags and walletAddress in RAG docs
 - **Deploy Workflow**: Fixed path from `tais-frontend` to `tais_frontend`
 - **LLM Fallback**: Graceful fallback when LLM fails (e.g., CORS for local Ollama)
+- **Import Paths**: Removed .js extensions from TypeScript imports
 
 ### Testing
 - **E2E Test Suite**: 21/21 tests passed
@@ -83,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Authentication enforcement verified
   - RAG document storage/retrieval tested
   - Test report: `docs/E2E_TEST_REPORT.md`
+- **Jest Unit Tests**: 10/10 tests passing
 
 ## [2.4.0] - 2026-02-18
 
