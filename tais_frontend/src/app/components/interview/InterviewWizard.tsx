@@ -6,9 +6,11 @@ import { useKeyboardShortcuts } from '../../../hooks/useKeyboardShortcuts';
 import { ProgressBar, StepIndicator } from './ProgressBar';
 import { Navigation } from './Navigation';
 import { ConversationalGoalsStep } from './ConversationalGoalsStep';
+import { WelcomeStep } from './WelcomeStep';
 import { SkillSelector } from './SkillSelector';
 import { BehaviorStep } from './BehaviorStep';
 import { PrivacyStep } from './PrivacyStep';
+import { KnowledgeStep } from './KnowledgeStep';
 import { IdentityStep } from './IdentityStep';
 import { ConfigPreview } from './ConfigPreview';
 import { KeyboardShortcutsHelp } from '../KeyboardShortcutsHelp';
@@ -20,6 +22,7 @@ import { motion, AnimatePresence } from 'motion/react';
 const STEP_LABELS = [
   'Goals',
   'Skills',
+  'Knowledge',
   'Behavior',
   'Privacy',
   'Identity',
@@ -70,7 +73,7 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
 
   // Generate config when reaching review step
   useEffect(() => {
-    if (currentStep === 5 && !config) {
+    if (currentStep === 6 && !config) {
       generateConfig();
     }
   }, [currentStep, config, generateConfig]);
@@ -126,6 +129,9 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
         );
 
       case 2:
+        return <KnowledgeStep />;
+
+      case 3:
         return (
           <BehaviorStep
             personality={answers.personality || { tone: 50, verbosity: 50, formality: 50 }}
@@ -135,7 +141,7 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
           />
         );
 
-      case 3:
+      case 4:
         return (
           <PrivacyStep
             privacy={answers.privacy || 'balanced'}
@@ -147,7 +153,7 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
           />
         );
 
-      case 4:
+      case 5:
         return (
           <IdentityStep
             name={answers.name || ''}
@@ -157,7 +163,7 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
           />
         );
 
-      case 5:
+      case 6:
         return (
           <div className="space-y-6">
             <div className="space-y-2">
@@ -177,7 +183,7 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
           </div>
         );
 
-      case 6:
+      case 7:
         return (
           <div className="space-y-6">
             <div className="text-center space-y-4 py-8">
@@ -270,7 +276,7 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
       </header>
 
       {/* Progress Bar */}
-      {currentStep > 0 && currentStep < 6 && (
+      {currentStep > 0 && currentStep < 7 && (
         <div className="bg-[#111111] border-b border-[#333333]">
           <div className="max-w-7xl mx-auto px-6 py-2">
             <ProgressBar progress={getProgress()} />
@@ -284,14 +290,14 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
           {renderStep()}
 
           {/* Navigation - Hidden for conversational step (step 0) */}
-          {currentStep > 0 && currentStep < 6 && (
+          {currentStep > 0 && currentStep < 7 && (
             <Navigation
               onNext={nextStep}
               onPrev={prevStep}
               canProceed={canProceed()}
               isFirstStep={currentStep === 1}
-              isLastStep={currentStep === 5}
-              nextLabel={currentStep === 5 ? 'Finish' : 'Continue'}
+              isLastStep={currentStep === 6}
+              nextLabel={currentStep === 6 ? 'Finish' : 'Continue'}
             />
           )}
         </div>

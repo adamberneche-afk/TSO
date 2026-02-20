@@ -34,6 +34,27 @@ export const ConstraintsSchema = z.object({
   maxFileSize: z.number().default(1048576),
 });
 
+// Knowledge source reference
+export const KnowledgeSourceSchema = z.object({
+  id: z.string(),
+  type: z.enum(['public-rag', 'private-rag', 'url', 'file']),
+  documentId: z.string(),
+  title: z.string().optional(),
+  enabled: z.boolean().default(true),
+  priority: z.number().min(1).max(10).default(5),
+});
+
+// Knowledge configuration
+export const KnowledgeSchema = z.object({
+  sources: z.array(KnowledgeSourceSchema).default([]),
+  retrievalConfig: z.object({
+    topK: z.number().min(1).max(20).default(5),
+    similarityThreshold: z.number().min(0).max(1).default(0.7),
+    reranking: z.boolean().default(false),
+    citationStyle: z.enum(['inline', 'footnote', 'none']).default('inline'),
+  }).default({}),
+});
+
 // Owner information
 export const OwnerSchema = z.object({
   walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
@@ -51,6 +72,7 @@ export const AgentConfigSchema = z.object({
     personality: PersonalitySchema,
     autonomy: AutonomySchema,
     constraints: ConstraintsSchema,
+    knowledge: KnowledgeSchema.optional(),
     createdAt: z.string().datetime().optional(),
     updatedAt: z.string().datetime().optional(),
   }),

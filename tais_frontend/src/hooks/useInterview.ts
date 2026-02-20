@@ -22,10 +22,19 @@ interface InterviewStore extends InterviewState {
 
 const initialState: InterviewState = {
   currentStep: 0,
-  totalSteps: 7,
+  totalSteps: 8,
   answers: {
     goals: [],
     skills: [],
+    knowledge: {
+      sources: [],
+      retrievalConfig: {
+        topK: 5,
+        similarityThreshold: 0.7,
+        reranking: false,
+        citationStyle: 'inline'
+      }
+    },
     personality: {
       tone: 50,
       verbosity: 50,
@@ -105,19 +114,21 @@ export const useInterviewStore = create<InterviewStore>()(
         const { currentStep, answers } = get();
         
         switch (currentStep) {
-          case 0: // Welcome & Goals
+          case 0: // Goals (Conversational)
             return (answers.goals?.length ?? 0) > 0;
           case 1: // Skill Selection
             return (answers.skills?.length ?? 0) > 0;
-          case 2: // Behavior Configuration
+          case 2: // Knowledge Sources
+            return true; // Optional step
+          case 3: // Behavior Configuration
             return true; // Always valid (has defaults)
-          case 3: // Privacy & Constraints
+          case 4: // Privacy & Constraints
             return true; // Always valid (has defaults)
-          case 4: // Identity & Naming
+          case 5: // Identity & Naming
             return (answers.name?.length ?? 0) > 0;
-          case 5: // Review Configuration
+          case 6: // Review Configuration
             return true;
-          case 6: // Deployment Options
+          case 7: // Deployment Options
             return true;
           default:
             return false;

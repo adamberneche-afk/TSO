@@ -51,6 +51,7 @@ export function generateAgentConfig(answers: InterviewAnswers): AgentConfig {
         blockedModules: ['child_process'],
         maxFileSize: 1048576,
       },
+      knowledge: answers.knowledge,
       owner: answers.walletAddress
         ? { walletAddress: answers.walletAddress }
         : undefined,

@@ -33,6 +33,25 @@ export interface Owner {
   email?: string;
 }
 
+export interface KnowledgeConfig {
+  sources: KnowledgeSource[];
+  retrievalConfig: {
+    topK: number;
+    similarityThreshold: number;
+    reranking: boolean;
+    citationStyle: 'inline' | 'footnote' | 'none';
+  };
+}
+
+export interface KnowledgeSource {
+  id: string;
+  type: 'public-rag' | 'private-rag' | 'url' | 'file';
+  documentId: string;
+  title?: string;
+  enabled: boolean;
+  priority: number;
+}
+
 export interface AgentConfig {
   agent: {
     name: string;
@@ -43,6 +62,7 @@ export interface AgentConfig {
     personality: Personality;
     autonomy: Autonomy;
     constraints: Constraints;
+    knowledge?: KnowledgeConfig;
     createdAt?: string;
     updatedAt?: string;
   };
@@ -68,6 +88,7 @@ export interface InterviewAnswers {
   goals: string[];
   description?: string;
   skills: SelectedSkill[];
+  knowledge?: KnowledgeConfig;
   personality: {
     tone: number;
     verbosity: number;
