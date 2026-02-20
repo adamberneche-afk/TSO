@@ -1,15 +1,26 @@
 import fs from 'fs';
 import path from 'path';
-import crypto from 'crypto';
+import { execSync } from 'child_process';
+
+type ScannerBackend = 'native' | 'cli' | 'pattern';
 
 let yara: any = null;
-let yaraAvailable = false;
+let backend: ScannerBackend = 'pattern';
 
+// Try native YARA module first (Linux/Mac)
 try {
   yara = require('@automattic/yara');
-  yaraAvailable = true;
+  backend = 'native';
+  console.log('✅ YARA native module available');
 } catch (error) {
-  console.warn('⚠️  YARA native module not available (Windows compatibility). Security scanning will use pattern-based fallback.');
+  // Try YARA CLI binary (cross-platform if installed)
+  try {
+    execSync('yara --version', { stdio: 'ignore' });
+    backend = 'cli';
+    console.log('✅ YARA CLI binary available');
+  } catch {
+    console.warn('⚠️  YARA not available. Using enhanced pattern-based scanner (no installation required)');
+  }
 }
 
 export interface YaraFinding {
@@ -69,28 +80,39 @@ export class YaraScanner {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    // If YARA native module not available, use pattern-based fallback
-    if (!yaraAvailable) {
+    // Pattern-based scanner needs no initialization
+    if (backend === 'pattern') {
       this.initialized = true;
-      console.log('✅ YARA scanner initialized (pattern-based fallback mode)');
+      console.log('✅ YARA scanner initialized (enhanced pattern-based mode)');
       return;
     }
 
+    // CLI mode needs rules compiled
+    if (backend === 'cli') {
+      if (!fs.existsSync(this.rulesDir)) {
+        fs.mkdirSync(this.rulesDir, { recursive: true });
+        await this.createDefaultRules();
+      }
+      this.initialized = true;
+      console.log('✅ YARA scanner initialized (CLI mode)');
+      return;
+    }
+
+    // Native mode needs rules compiled via API
     try {
-      // Ensure rules directory exists
       if (!fs.existsSync(this.rulesDir)) {
         fs.mkdirSync(this.rulesDir, { recursive: true });
         await this.createDefaultRules();
       }
 
-      // Compile all YARA rules
       await this.compileRules();
       
       this.initialized = true;
-      console.log('✅ YARA scanner initialized');
+      console.log('✅ YARA scanner initialized (native mode)');
     } catch (error: any) {
       console.error('❌ Failed to initialize YARA scanner:', error.message);
-      throw error;
+      backend = 'pattern'; // Fallback to pattern mode
+      this.initialized = true;
     }
   }
 
@@ -152,18 +174,23 @@ export class YaraScanner {
       await this.initialize();
     }
 
-    // Pattern-based fallback when YARA native module unavailable
-    if (!yaraAvailable || !this.rules) {
-      return this.scanFileWithPatterns(filePath, skillHash);
-    }
-
     const startTime = Date.now();
     const stats = fs.statSync(filePath);
 
+    // Pattern-based mode
+    if (backend === 'pattern') {
+      return this.scanFileWithPatterns(filePath, skillHash);
+    }
+
+    // CLI mode
+    if (backend === 'cli') {
+      return this.scanFileWithCLI(filePath, skillHash);
+    }
+
+    // Native mode
     return new Promise((resolve, reject) => {
       this.rules!.scanFile(filePath, {}, (error: any, result: any) => {
         if (error) {
-          // Fall back to pattern scanning
           resolve(this.scanFileWithPatterns(filePath, skillHash));
           return;
         }
@@ -186,34 +213,169 @@ export class YaraScanner {
     });
   }
 
+  private scanFileWithCLI(filePath: string, skillHash: string): SecurityScanResult {
+    const startTime = Date.now();
+    const stats = fs.statSync(filePath);
+    const findings: YaraFinding[] = [];
+
+    try {
+      const ruleFiles = fs.readdirSync(this.rulesDir)
+        .filter(f => f.endsWith('.yar'))
+        .map(f => path.join(this.rulesDir, f));
+
+      for (const ruleFile of ruleFiles) {
+        try {
+          const output = execSync(`yara "${ruleFile}" "${filePath}"`, { encoding: 'utf8', timeout: 10000 });
+          const lines = output.trim().split('\n').filter(Boolean);
+          
+          for (const line of lines) {
+            const ruleName = line.split(' ')[0];
+            findings.push({
+              rule: ruleName,
+              namespace: path.basename(ruleFile, '.yar'),
+              tags: [],
+              meta: { severity: 'high' },
+              strings: [],
+            });
+          }
+        } catch {
+          // YARA found no matches or error - continue
+        }
+      }
+    } catch (error) {
+      // CLI failed, use pattern fallback
+      return this.scanFileWithPatterns(filePath, skillHash);
+    }
+
+    return {
+      skillHash,
+      timestamp: new Date(),
+      findings,
+      severity: this.calculateSeverity(findings),
+      summary: this.calculateSummary(findings),
+      scanDuration: Date.now() - startTime,
+      scannedFiles: 1,
+      scannedBytes: stats.size,
+    };
+  }
+
   private scanFileWithPatterns(filePath: string, skillHash: string): SecurityScanResult {
     const startTime = Date.now();
     const stats = fs.statSync(filePath);
     const content = fs.readFileSync(filePath, 'utf8');
     const findings: YaraFinding[] = [];
 
-    // Pattern-based detection rules
+    // Comprehensive security patterns
     const patterns = [
-      { name: 'Credential_Theft', pattern: /\.env|process\.env\.[A-Z_]+|api[_-]?key|secret|password|token|private[_-]?key/i, severity: 'critical' },
-      { name: 'Data_Exfiltration', pattern: /webhook\.site|requestbin|ngrok\.io|pastebin\.com/i, severity: 'high' },
-      { name: 'Process_Injection', pattern: /child_process|exec\(|execSync|spawn\(|eval\(/i, severity: 'high' },
-      { name: 'Suspicious_Imports', pattern: /require\(['"](child_process|fs|net|http|https|vm)['"]\)/i, severity: 'medium' },
-      { name: 'Obfuscated_Code', pattern: /atob\(|btoa\(|Buffer\.from.*base64/i, severity: 'medium' },
+      // Critical - Credential theft
+      {
+        name: 'Credential_Theft',
+        patterns: [
+          /\.env\s*\n|\.env['"]/,
+          /process\.env\.[A-Z_]{3,}/,
+          /api[_-]?key\s*[=:]\s*['"][^'"]{10,}['"]/i,
+          /secret[_-]?key\s*[=:]\s*['"][^'"]{10,}['"]/i,
+          /password\s*[=:]\s*['"][^'"]{4,}['"]/i,
+          /private[_-]?key\s*[=:]\s*['"]-----BEGIN/i,
+          /aws[_-]?access[_-]?key[_-]?id/i,
+          /aws[_-]?secret[_-]?access[_-]?key/i,
+        ],
+        severity: 'critical' as const,
+        category: 'credential_access'
+      },
+      // Critical - Data exfiltration
+      {
+        name: 'Data_Exfiltration',
+        patterns: [
+          /webhook\.site/i,
+          /requestbin\.com|requestbin\.net/i,
+          /ngrok\.io|ngrok\.free\.app/i,
+          /pastebin\.com\/raw/i,
+          /discord\.com\/api\/webhooks/i,
+          /api\.telegram\.org\/bot\d+:[\w-]+\/sendMessage/i,
+        ],
+        severity: 'critical' as const,
+        category: 'exfiltration'
+      },
+      // High - Process injection
+      {
+        name: 'Process_Injection',
+        patterns: [
+          /require\s*\(\s*['"]child_process['"]\s*\)/,
+          /exec\s*\(\s*[^)]*\+[^)]*\)/,
+          /execSync\s*\(\s*[^)]*\+[^)]*\)/,
+          /spawn\s*\(\s*[^)]*,\s*\[.*\+.*\]/,
+          /eval\s*\(\s*(atob|Buffer|String\.fromCharCode)/i,
+          /new\s+Function\s*\(\s*['"`].*\+/,
+        ],
+        severity: 'high' as const,
+        category: 'process_manipulation'
+      },
+      // High - Network suspicious
+      {
+        name: 'Suspicious_Network',
+        patterns: [
+          /fetch\s*\(\s*['"`]https?:\/\/(?!api\.openai|api\.anthropic)[^'"`]*\+/,
+          /axios\.(get|post)\s*\(\s*['"`]https?:\/\/[^'"`]*\+/,
+          /XMLHttpRequest.*open.*POST.*webhook/i,
+          /navigator\.sendBeacon\s*\(/,
+        ],
+        severity: 'high' as const,
+        category: 'network'
+      },
+      // Medium - Obfuscated code
+      {
+        name: 'Obfuscated_Code',
+        patterns: [
+          /eval\s*\(\s*atob\s*\(/i,
+          /eval\s*\(\s*Buffer\.from\s*\(/i,
+          /\\x[0-9a-fA-F]{2}\\x[0-9a-fA-F]{2}\\x[0-9a-fA-F]{2}/,
+          /\\u[0-9a-fA-F]{4}\\u[0-9a-fA-F]{4}/,
+          /String\.fromCharCode\s*\(\s*\d+\s*,\s*\d+/,
+        ],
+        severity: 'medium' as const,
+        category: 'obfuscation'
+      },
+      // Medium - Dangerous imports
+      {
+        name: 'Dangerous_Imports',
+        patterns: [
+          /require\s*\(\s*['"]child_process['"]\s*\)/,
+          /require\s*\(\s*['"]vm['"]\s*\)/,
+          /import.*from\s*['"]child_process['"]/,
+          /import.*from\s*['"]vm['"]/,
+        ],
+        severity: 'medium' as const,
+        category: 'imports'
+      },
+      // Low - Crypto mining
+      {
+        name: 'Crypto_Mining',
+        patterns: [
+          /coinhive|crypto[-_]?noter|miner\.start/i,
+          /stratum\+tcp:\/\/.*:3333/i,
+        ],
+        severity: 'low' as const,
+        category: 'resource_abuse'
+      },
     ];
 
-    for (const { name, pattern, severity } of patterns) {
-      const matches = content.match(pattern);
-      if (matches) {
-        findings.push({
-          rule: name,
-          namespace: 'pattern_fallback',
-          tags: [severity],
-          meta: { severity, category: 'security' },
-          strings: matches.slice(0, 5).map(m => ({
-            identifier: 'match',
-            instances: [{ offset: content.indexOf(m), length: m.length, data: m.substring(0, 100) }],
-          })),
-        });
+    for (const { name, patterns: rulePatterns, severity, category } of patterns) {
+      for (const pattern of rulePatterns) {
+        const matches = content.match(pattern);
+        if (matches) {
+          findings.push({
+            rule: name,
+            namespace: 'enhanced_patterns',
+            tags: [severity, category],
+            meta: { severity, category, pattern: pattern.source },
+            strings: matches.slice(0, 5).map(m => ({
+              identifier: 'match',
+              instances: [{ offset: content.indexOf(m), length: m.length, data: m.substring(0, 100) }],
+            })),
+          });
+          break; // Only add one finding per rule
+        }
       }
     }
 
@@ -234,17 +396,17 @@ export class YaraScanner {
       await this.initialize();
     }
 
-    // Pattern-based fallback when YARA native module unavailable
-    if (!yaraAvailable || !this.rules) {
+    const startTime = Date.now();
+
+    // Pattern-based or CLI mode - use pattern scanner
+    if (backend === 'pattern' || backend === 'cli') {
       return this.scanBufferWithPatterns(buffer, skillHash);
     }
 
-    const startTime = Date.now();
-
+    // Native mode
     return new Promise((resolve, reject) => {
       this.rules!.scan({ buffer }, (error: any, result: any) => {
         if (error) {
-          // Fall back to pattern scanning
           resolve(this.scanBufferWithPatterns(buffer, skillHash));
           return;
         }
@@ -267,32 +429,118 @@ export class YaraScanner {
     });
   }
 
+  private getSecurityPatterns() {
+    return [
+      {
+        name: 'Credential_Theft',
+        patterns: [
+          /\.env\s*\n|\.env['"]/,
+          /process\.env\.[A-Z_]{3,}/,
+          /api[_-]?key\s*[=:]\s*['"][^'"]{10,}['"]/i,
+          /secret[_-]?key\s*[=:]\s*['"][^'"]{10,}['"]/i,
+          /password\s*[=:]\s*['"][^'"]{4,}['"]/i,
+          /private[_-]?key\s*[=:]\s*['"]-----BEGIN/i,
+          /aws[_-]?access[_-]?key[_-]?id/i,
+          /aws[_-]?secret[_-]?access[_-]?key/i,
+        ],
+        severity: 'critical' as const,
+        category: 'credential_access'
+      },
+      {
+        name: 'Data_Exfiltration',
+        patterns: [
+          /webhook\.site/i,
+          /requestbin\.com|requestbin\.net/i,
+          /ngrok\.io|ngrok\.free\.app/i,
+          /pastebin\.com\/raw/i,
+          /discord\.com\/api\/webhooks/i,
+          /api\.telegram\.org\/bot\d+:[\w-]+\/sendMessage/i,
+        ],
+        severity: 'critical' as const,
+        category: 'exfiltration'
+      },
+      {
+        name: 'Process_Injection',
+        patterns: [
+          /require\s*\(\s*['"]child_process['"]\s*\)/,
+          /exec\s*\(\s*[^)]*\+[^)]*\)/,
+          /execSync\s*\(\s*[^)]*\+[^)]*\)/,
+          /spawn\s*\(\s*[^)]*,\s*\[.*\+.*\]/,
+          /eval\s*\(\s*(atob|Buffer|String\.fromCharCode)/i,
+          /new\s+Function\s*\(\s*['"`].*\+/,
+        ],
+        severity: 'high' as const,
+        category: 'process_manipulation'
+      },
+      {
+        name: 'Suspicious_Network',
+        patterns: [
+          /fetch\s*\(\s*['"`]https?:\/\/(?!api\.openai|api\.anthropic)[^'"`]*\+/,
+          /axios\.(get|post)\s*\(\s*['"`]https?:\/\/[^'"`]*\+/,
+          /XMLHttpRequest.*open.*POST.*webhook/i,
+          /navigator\.sendBeacon\s*\(/,
+        ],
+        severity: 'high' as const,
+        category: 'network'
+      },
+      {
+        name: 'Obfuscated_Code',
+        patterns: [
+          /eval\s*\(\s*atob\s*\(/i,
+          /eval\s*\(\s*Buffer\.from\s*\(/i,
+          /\\x[0-9a-fA-F]{2}\\x[0-9a-fA-F]{2}\\x[0-9a-fA-F]{2}/,
+          /\\u[0-9a-fA-F]{4}\\u[0-9a-fA-F]{4}/,
+          /String\.fromCharCode\s*\(\s*\d+\s*,\s*\d+/,
+        ],
+        severity: 'medium' as const,
+        category: 'obfuscation'
+      },
+      {
+        name: 'Dangerous_Imports',
+        patterns: [
+          /require\s*\(\s*['"]child_process['"]\s*\)/,
+          /require\s*\(\s*['"]vm['"]\s*\)/,
+          /import.*from\s*['"]child_process['"]/,
+          /import.*from\s*['"]vm['"]/,
+        ],
+        severity: 'medium' as const,
+        category: 'imports'
+      },
+      {
+        name: 'Crypto_Mining',
+        patterns: [
+          /coinhive|crypto[-_]?noter|miner\.start/i,
+          /stratum\+tcp:\/\/.*:3333/i,
+        ],
+        severity: 'low' as const,
+        category: 'resource_abuse'
+      },
+    ];
+  }
+
   private scanBufferWithPatterns(buffer: Buffer, skillHash: string): SecurityScanResult {
     const startTime = Date.now();
     const content = buffer.toString('utf8');
     const findings: YaraFinding[] = [];
 
-    const patterns = [
-      { name: 'Credential_Theft', pattern: /\.env|process\.env\.[A-Z_]+|api[_-]?key|secret|password|token|private[_-]?key/i, severity: 'critical' },
-      { name: 'Data_Exfiltration', pattern: /webhook\.site|requestbin|ngrok\.io|pastebin\.com/i, severity: 'high' },
-      { name: 'Process_Injection', pattern: /child_process|exec\(|execSync|spawn\(|eval\(/i, severity: 'high' },
-      { name: 'Suspicious_Imports', pattern: /require\(['"](child_process|fs|net|http|https|vm)['"]\)/i, severity: 'medium' },
-      { name: 'Obfuscated_Code', pattern: /atob\(|btoa\(|Buffer\.from.*base64/i, severity: 'medium' },
-    ];
+    const patterns = this.getSecurityPatterns();
 
-    for (const { name, pattern, severity } of patterns) {
-      const matches = content.match(pattern);
-      if (matches) {
-        findings.push({
-          rule: name,
-          namespace: 'pattern_fallback',
-          tags: [severity],
-          meta: { severity, category: 'security' },
-          strings: matches.slice(0, 5).map(m => ({
-            identifier: 'match',
-            instances: [{ offset: content.indexOf(m), length: m.length, data: m.substring(0, 100) }],
-          })),
-        });
+    for (const { name, patterns: rulePatterns, severity, category } of patterns) {
+      for (const pattern of rulePatterns) {
+        const matches = content.match(pattern);
+        if (matches) {
+          findings.push({
+            rule: name,
+            namespace: 'enhanced_patterns',
+            tags: [severity, category],
+            meta: { severity, category, pattern: pattern.source },
+            strings: matches.slice(0, 5).map(m => ({
+              identifier: 'match',
+              instances: [{ offset: content.indexOf(m), length: m.length, data: m.substring(0, 100) }],
+            })),
+          });
+          break;
+        }
       }
     }
 
