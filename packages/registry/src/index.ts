@@ -243,6 +243,13 @@ apiV1Router.use('/configurations',
   configurationRoutes
 );
 
+// Admin-only migration endpoint for v2.7.0 hybrid config
+import migrateRoutes from './routes/migrate';
+apiV1Router.use('/admin/migrate',
+  adminMiddleware,
+  migrateRoutes
+);
+
 // ============================================
 // RAG (Retrieval-Augmented Generation) Routes
 // Three-tier RAG: Private, Platform, App
