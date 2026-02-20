@@ -22,7 +22,7 @@ interface InterviewStore extends InterviewState {
 
 const initialState: InterviewState = {
   currentStep: 0,
-  totalSteps: 8,
+  totalSteps: 9,
   answers: {
     goals: [],
     skills: [],
@@ -120,15 +120,17 @@ export const useInterviewStore = create<InterviewStore>()(
             return (answers.skills?.length ?? 0) > 0;
           case 2: // Knowledge Sources
             return true; // Optional step
-          case 3: // Behavior Configuration
+          case 3: // Personality Configuration
             return true; // Always valid (has defaults)
-          case 4: // Privacy & Constraints
+          case 4: // Behavior Configuration
             return true; // Always valid (has defaults)
-          case 5: // Identity & Naming
+          case 5: // Privacy & Constraints
+            return true; // Always valid (has defaults)
+          case 6: // Identity & Naming
             return (answers.name?.length ?? 0) > 0;
-          case 6: // Review Configuration
+          case 7: // Review Configuration
             return true;
-          case 7: // Deployment Options
+          case 8: // Deployment Options
             return true;
           default:
             return false;

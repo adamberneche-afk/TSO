@@ -60,6 +60,8 @@ export interface AgentConfig {
     goals: string[];
     skills: SkillReference[];
     personality: Personality;
+    personalityMd?: string;
+    personalityVersion?: number;
     autonomy: Autonomy;
     constraints: Constraints;
     knowledge?: KnowledgeConfig;
@@ -94,6 +96,8 @@ export interface InterviewAnswers {
     verbosity: number;
     formality: number;
   };
+  personalityMd?: string;
+  usePersonalityMd?: boolean;
   autonomy: 'confirm' | 'suggest' | 'independent';
   privacy: 'local' | 'balanced' | 'cloud';
   maxCost: number;

@@ -220,6 +220,10 @@ model AgentConfiguration {
   description String?
   configData  Json     @map("config_data") // The full agent configuration JSON
   
+  // Hybrid personality system (v2.7.0)
+  personalityMd      String?  @map("personality_md")       // Markdown personality (flexible, LLM-friendly)
+  personalityVersion Int      @default(1) @map("personality_version") // Version for cache invalidation
+  
   // Metadata
   version     Int      @default(1)
   isActive    Boolean  @default(true) @map("is_active")

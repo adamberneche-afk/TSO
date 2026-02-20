@@ -70,6 +70,8 @@ export const AgentConfigSchema = z.object({
     goals: z.array(z.string()),
     skills: z.array(SkillReferenceSchema),
     personality: PersonalitySchema,
+    personalityMd: z.string().max(51200).optional(),
+    personalityVersion: z.number().int().min(1).default(1),
     autonomy: AutonomySchema,
     constraints: ConstraintsSchema,
     knowledge: KnowledgeSchema.optional(),

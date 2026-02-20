@@ -2,6 +2,7 @@
 
 import { AgentConfig, InterviewAnswers, Personality } from '../types/agent';
 import { AgentConfigSchema } from './config-schema';
+import { generateDefaultPersonality } from '../services/personalityCompiler';
 
 // Helper functions to map slider values (0-100) to enums
 function mapSliderToTone(value: number): Personality['tone'] {
@@ -23,6 +24,16 @@ function mapSliderToFormality(value: number): Personality['formality'] {
 }
 
 export function generateAgentConfig(answers: InterviewAnswers): AgentConfig {
+  const personality: Personality = {
+    tone: mapSliderToTone(answers.personality.tone),
+    verbosity: mapSliderToVerbosity(answers.personality.verbosity),
+    formality: mapSliderToFormality(answers.personality.formality),
+  };
+
+  const personalityMd = answers.usePersonalityMd && answers.personalityMd
+    ? answers.personalityMd
+    : generateDefaultPersonality(answers.name, personality, answers.goals);
+
   const config: AgentConfig = {
     agent: {
       name: answers.name,
@@ -37,11 +48,9 @@ export function generateAgentConfig(answers: InterviewAnswers): AgentConfig {
         permissions: Object.keys(skill.permissions || {}),
         trustScore: skill.trustScore,
       })),
-      personality: {
-        tone: mapSliderToTone(answers.personality.tone),
-        verbosity: mapSliderToVerbosity(answers.personality.verbosity),
-        formality: mapSliderToFormality(answers.personality.formality),
-      },
+      personality,
+      personalityMd,
+      personalityVersion: 1,
       autonomy: {
         level: answers.autonomy,
       },
@@ -52,9 +61,6 @@ export function generateAgentConfig(answers: InterviewAnswers): AgentConfig {
         maxFileSize: 1048576,
       },
       knowledge: answers.knowledge,
-      owner: answers.walletAddress
-        ? { walletAddress: answers.walletAddress }
-        : undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },

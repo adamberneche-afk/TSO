@@ -12,6 +12,7 @@ import { BehaviorStep } from './BehaviorStep';
 import { PrivacyStep } from './PrivacyStep';
 import { KnowledgeStep } from './KnowledgeStep';
 import { IdentityStep } from './IdentityStep';
+import { PersonalityStep } from './PersonalityStep';
 import { ConfigPreview } from './ConfigPreview';
 import { KeyboardShortcutsHelp } from '../KeyboardShortcutsHelp';
 import { SelectedSkill } from '../../../types/agent';
@@ -23,6 +24,7 @@ const STEP_LABELS = [
   'Goals',
   'Skills',
   'Knowledge',
+  'Personality',
   'Behavior',
   'Privacy',
   'Identity',
@@ -50,14 +52,14 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
-    onNext: canProceed() && currentStep < 6 ? nextStep : undefined,
+    onNext: canProceed() && currentStep < 7 ? nextStep : undefined,
     onPrev: currentStep > 0 ? prevStep : undefined,
     onEscape: () => {
       if (confirm('Are you sure you want to exit? Your progress will be saved.')) {
         window.location.href = '/';
       }
     },
-    onSave: config && currentStep === 5 ? () => {
+    onSave: config && currentStep === 6 ? () => {
       const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -73,7 +75,7 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
 
   // Generate config when reaching review step
   useEffect(() => {
-    if (currentStep === 6 && !config) {
+    if (currentStep === 7 && !config) {
       generateConfig();
     }
   }, [currentStep, config, generateConfig]);
@@ -132,6 +134,9 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
         return <KnowledgeStep />;
 
       case 3:
+        return <PersonalityStep />;
+
+      case 4:
         return (
           <BehaviorStep
             personality={answers.personality || { tone: 50, verbosity: 50, formality: 50 }}
@@ -141,7 +146,7 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
           />
         );
 
-      case 4:
+      case 5:
         return (
           <PrivacyStep
             privacy={answers.privacy || 'balanced'}
@@ -153,7 +158,7 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
           />
         );
 
-      case 5:
+      case 6:
         return (
           <IdentityStep
             name={answers.name || ''}
@@ -163,7 +168,7 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
           />
         );
 
-      case 6:
+      case 7:
         return (
           <div className="space-y-6">
             <div className="space-y-2">
@@ -183,7 +188,7 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
           </div>
         );
 
-      case 7:
+      case 8:
         return (
           <div className="space-y-6">
             <div className="text-center space-y-4 py-8">
@@ -254,7 +259,7 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <h1 className="text-2xl font-bold text-white">TAIS</h1>
-            {currentStep > 0 && currentStep < 6 && (
+            {currentStep > 0 && currentStep < 7 && (
               <div className="hidden md:block">
                 <StepIndicator
                   currentStep={currentStep}
@@ -276,7 +281,7 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
       </header>
 
       {/* Progress Bar */}
-      {currentStep > 0 && currentStep < 7 && (
+      {currentStep > 0 && currentStep < 8 && (
         <div className="bg-[#111111] border-b border-[#333333]">
           <div className="max-w-7xl mx-auto px-6 py-2">
             <ProgressBar progress={getProgress()} />
@@ -290,14 +295,14 @@ export function InterviewWizard({ onExit }: InterviewWizardProps) {
           {renderStep()}
 
           {/* Navigation - Hidden for conversational step (step 0) */}
-          {currentStep > 0 && currentStep < 7 && (
+          {currentStep > 0 && currentStep < 8 && (
             <Navigation
               onNext={nextStep}
               onPrev={prevStep}
               canProceed={canProceed()}
               isFirstStep={currentStep === 1}
-              isLastStep={currentStep === 6}
-              nextLabel={currentStep === 6 ? 'Finish' : 'Continue'}
+              isLastStep={currentStep === 7}
+              nextLabel={currentStep === 7 ? 'Finish' : 'Continue'}
             />
           )}
         </div>
