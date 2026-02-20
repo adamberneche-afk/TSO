@@ -1,4 +1,4 @@
-export type LLMProvider = 'openai' | 'anthropic' | 'local' | 'custom';
+export type LLMProvider = 'openai' | 'anthropic' | 'gemini' | 'local' | 'custom';
 
 export interface ProviderConfig {
   name: string;
@@ -38,6 +38,18 @@ export const LLM_PROVIDERS: Record<LLMProvider, ProviderConfig> = {
     },
     description: 'Claude 3 models with strong reasoning capabilities',
     docsUrl: 'https://console.anthropic.com/settings/keys'
+  },
+  gemini: {
+    name: 'Google Gemini',
+    id: 'gemini',
+    models: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'],
+    defaultModel: 'gemini-1.5-flash',
+    costPer1KTokens: {
+      input: 0.00025,
+      output: 0.0005
+    },
+    description: 'Google\'s Gemini models with multimodal capabilities',
+    docsUrl: 'https://aistudio.google.com/apikey'
   },
   local: {
     name: 'Local (Ollama)',

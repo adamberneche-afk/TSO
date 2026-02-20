@@ -42,6 +42,8 @@ export class LLMClient {
         return this.callOpenAI(request);
       case 'anthropic':
         return this.callAnthropic(request);
+      case 'gemini':
+        return this.callGemini(request);
       case 'local':
         return this.callLocal(request);
       case 'custom':
@@ -156,6 +158,64 @@ export class LLMClient {
         data.usage?.output_tokens || 0
       ),
       model: data.model
+    };
+  }
+
+  /**
+   * Call Google Gemini API
+   */
+  private async callGemini(request: LLMRequest): Promise<LLMResponse> {
+    const model = request.model || this.config.defaultModel;
+    
+    // Convert messages to Gemini format
+    const contents = request.messages
+      .filter(msg => msg.role !== 'system')
+      .map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.content }]
+      }));
+    
+    // Extract system instruction
+    const systemMessage = request.messages.find(msg => msg.role === 'system');
+    
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents,
+          systemInstruction: systemMessage ? { parts: [{ text: systemMessage.content }] } : undefined,
+          generationConfig: {
+            temperature: request.temperature ?? 0.7,
+            maxOutputTokens: request.maxTokens ?? 1000
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Gemini API error');
+    }
+
+    const data = await response.json();
+    
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const inputTokens = data.usageMetadata?.promptTokenCount || 0;
+    const outputTokens = data.usageMetadata?.candidatesTokenCount || 0;
+    
+    return {
+      content: text,
+      usage: {
+        promptTokens: inputTokens,
+        completionTokens: outputTokens,
+        totalTokens: inputTokens + outputTokens
+      },
+      cost: this.calculateCost(inputTokens, outputTokens),
+      model: model
     };
   }
 
