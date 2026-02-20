@@ -11,10 +11,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configuration templates gallery
 - Version history for configurations
 - $THINK token integration (migrating from Genesis NFT)
-- Tier system (Free/Bronze/Silver/Gold)
 - Multi-device sync with Supabase
 - App RAG SDK for third-party developers
 - Enterprise RAG with SSO integration
+
+## [2.6.0] - 2026-02-19
+
+### Added
+- **ThinkAgents/Obsidian Dark Design System** - Comprehensive dark theme overhaul
+  - **Color Palette**: #0A0A0B background, #141415 cards, #262626 borders
+  - **Typography**: Inter/Geist Sans, uppercase tracking-widest labels
+  - **Button Styles**: White primary, outlined secondary with hover effects
+  - **Components**: All conversation, RAG, and interview components updated
+  
+- **Google Gemini LLM Provider** - New AI provider option
+  - Models: gemini-1.5-pro, gemini-1.5-flash, gemini-pro
+  - Competitive pricing: $0.25/1M input tokens
+  - Proper Gemini API message format conversion
+  - System instruction support
+  
+- **RAG-Agent Configuration Integration** - Knowledge sources in agent configs
+  - **KnowledgeConfig Schema**: Sources array with type, documentId, priority
+  - **KnowledgeStep Component**: Select documents during agent creation
+  - **Document Selection**: My Docs and Community tabs
+  - **Priority System**: P1-P10 ranking for knowledge sources
+  - **Retrieval Settings**: topK, similarity threshold, citation style
+  
+- **My Agents Edit Mode** - Post-creation configuration editing
+  - **Edit Button**: Toggle edit mode in agent detail modal
+  - **Monaco Editor**: Writable JSON editor when editing
+  - **Knowledge Sources Panel**: View, add, remove, prioritize sources
+  - **Save/Cancel**: Backend persistence with optimistic updates
+  
+- **Conversational Goals Step** - AI-powered goal discovery
+  - **LLM Integration**: Dynamic conversation about goals
+  - **Entity Extraction**: Real-time skill/technology detection
+  - **Pattern Fallback**: Works without LLM configured
+  - **Auto-Advance**: Moves to next step after conversation complete
+
+- **Genesis NFT Gold Tier** - Premium RAG access for holders
+  - Automatic gold tier detection via NFT ownership
+  - 100GB storage, 2M embeddings/month
+  - 100K queries/day, unlimited app connections
+
+### Changed
+- **Interview Wizard**: Increased from 7 to 8 steps (added Knowledge step)
+- **RAG Authentication**: Changed from X-API-Key header to wallet query params
+- **TensorFlow.js**: Added WebGL backend with CPU fallback
+- **Default Tier**: New users now get bronze tier (was free with 0 quota)
+
+### Fixed
+- **TensorFlow.js Backend**: Initialize WebGL before loading USE model
+- **RAG API Auth**: Use wallet query params matching backend expectations
+- **Badge Import**: Added missing Badge import to ConversationContainer
+- **Document Fields**: Handle null/undefined tags and walletAddress in RAG docs
+- **Deploy Workflow**: Fixed path from `tais-frontend` to `tais_frontend`
+- **LLM Fallback**: Graceful fallback when LLM fails (e.g., CORS for local Ollama)
 
 ## [2.4.0] - 2026-02-18
 

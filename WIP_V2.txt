@@ -2,7 +2,7 @@
 **Created:** February 13, 2026  
 **Last Updated:** February 19, 2026  
 **Status:** Phase 2 - COMPLETE ✅ DEPLOYED TO PRODUCTION  
-**Version:** 2.5.0
+**Version:** 2.6.0
 
 ---
 
@@ -97,6 +97,42 @@
 - ✅ Conversations persist to localStorage
 - ✅ Sessions can be resumed or deleted
 - ✅ Users can export conversations as JSON
+
+### Sprint 5: Design System & LLM Enhancements (Feb 19, 2026) ✅ COMPLETED
+**Goal:** Implement ThinkAgents/Obsidian Dark design system and add Gemini provider
+
+**Tasks:**
+- [x] Implement Obsidian Dark color palette (#0A0A0B background, #141415 cards)
+- [x] Update typography (Inter/Geist Sans, uppercase tracking-widest labels)
+- [x] Redesign buttons (white primary, outlined secondary)
+- [x] Add Google Gemini as LLM provider
+- [x] Fix TensorFlow.js backend initialization
+- [x] Fix RAG API authentication (wallet query params)
+- [x] Implement tier system (Genesis holders get gold tier)
+
+**Acceptance Criteria:**
+- ✅ Consistent dark theme across all components
+- ✅ Gemini API integration with proper message format
+- ✅ TensorFlow.js WebGL backend with CPU fallback
+- ✅ RAG documents accessible via wallet authentication
+- ✅ Genesis NFT holders receive gold tier RAG access
+
+### Sprint 6: RAG-Agent Integration (Feb 19, 2026) ✅ COMPLETED
+**Goal:** Integrate RAG knowledge sources into agent configurations
+
+**Tasks:**
+- [x] Add KnowledgeConfig to agent config schema
+- [x] Create KnowledgeStep component for wizard
+- [x] Build knowledge source selection UI
+- [x] Implement knowledge source editing in My Agents
+- [x] Add document priority and retrieval settings
+
+**Acceptance Criteria:**
+- ✅ Users can select RAG documents during agent creation
+- ✅ Knowledge sources linked in agent config JSON
+- ✅ My Agents allows editing knowledge sources post-creation
+- ✅ Priority system for knowledge source ranking
+- ✅ Retrieval settings (topK, similarity threshold) configurable
 
 ---
 
@@ -204,11 +240,17 @@ GET  /api/v1/configurations/nft/verify
 **Completed:** February 18, 2026
 
 **Features Implemented:**
-- ✅ Multi-provider support (OpenAI, Anthropic, Local/Ollama, Custom)
+- ✅ Multi-provider support (OpenAI, Anthropic, Gemini, Local/Ollama, Custom)
 - ✅ Wallet-signature encrypted API key storage
 - ✅ Real-time cost tracking with budget controls
 - ✅ Dynamic question generation based on conversation context
 - ✅ Cost display with progress indicator
+
+**Google Gemini Integration (v2.6.0):**
+- ✅ Added Gemini as LLM provider option
+- ✅ Models: gemini-1.5-pro, gemini-1.5-flash, gemini-pro
+- ✅ Competitive pricing ($0.25/1M input tokens)
+- ✅ Proper Gemini API message format conversion
 
 **Security:**
 - ✅ AES-256-GCM encryption using wallet signature as key
@@ -241,8 +283,102 @@ GET  /api/v1/configurations/nft/verify
 |----------|--------|----------------|-------------|
 | OpenAI | GPT-4, GPT-3.5 | $0.0015-$0.03 | ❌ |
 | Anthropic | Claude 3 | $0.003-$0.015 | ❌ |
+| Gemini | 1.5-pro, 1.5-flash | $0.00025-$0.0005 | ❌ |
 | Local | Llama2, Mistral | Free | ✅ |
 | Custom | OpenAI-compatible | Varies | - |
+
+### Design System: ThinkAgents/Obsidian Dark (v2.6.0)
+**Priority:** HIGH  
+**Status:** ✅ COMPLETE  
+**Owner:** Frontend Team
+**Completed:** February 19, 2026
+
+**Color Palette:**
+- Primary Background: #0A0A0B
+- Sidebar/Cards: #141415
+- Borders: #262626
+- Text Primary: #EDEDED
+- Text Muted: #A1A1A1
+- Accent (Active Blue): #3B82F6
+- Code String: #93C5FD
+- Code Keyword: #4ADE80
+
+**Typography:**
+- Sans Stack: Inter, Geist Sans, system-ui
+- Mono Stack: JetBrains Mono, Fira Code
+- Display: 4xl (36px), Bold, tracking-tighter
+- Labels: xs (12px), Uppercase, tracking-widest (0.2em)
+
+**Components Updated:**
+- ✅ LandingPage.tsx
+- ✅ PublicRAGManager.tsx
+- ✅ PrivateRAGManager.tsx
+- ✅ LLMSettings.tsx
+- ✅ ConversationContainer.tsx
+- ✅ MessageBubble.tsx
+- ✅ InputArea.tsx
+- ✅ FixedQuestions.tsx
+- ✅ DynamicConversationContainer.tsx
+
+**Button Styles:**
+- Primary: Solid White with Black text, uppercase tracking-widest
+- Secondary: Outlined with #262626 border, hover:bg-white/5
+
+### RAG-Agent Configuration Integration (v2.6.0)
+**Priority:** HIGH  
+**Status:** ✅ COMPLETE  
+**Owner:** Frontend Team
+**Completed:** February 19, 2026
+
+**Config Schema Updates:**
+```json
+{
+  "knowledge": {
+    "sources": [
+      { "id": "public-rag-uuid", "type": "public-rag", "documentId": "...", "priority": 5 }
+    ],
+    "retrievalConfig": {
+      "topK": 5,
+      "similarityThreshold": 0.7,
+      "reranking": false,
+      "citationStyle": "inline"
+    }
+  }
+}
+```
+
+**Features:**
+- ✅ KnowledgeStep component in interview wizard (step 3)
+- ✅ Select from uploaded documents (My Docs tab)
+- ✅ Select from community documents (Community tab)
+- ✅ Priority ranking for knowledge sources (P1-P10)
+- ✅ Retrieval configuration (topK, similarity threshold)
+- ✅ Documents linked in final agent config JSON
+
+**Navigation Flow:**
+1. Goals (ConversationalGoalsStep with LLM)
+2. Skills (SkillSelector)
+3. **Knowledge (KnowledgeStep)** ← NEW
+4. Behavior
+5. Privacy
+6. Identity
+7. Review
+8. Deploy
+
+### My Agents Edit Mode (v2.6.0)
+**Priority:** HIGH  
+**Status:** ✅ COMPLETE  
+**Owner:** Frontend Team
+**Completed:** February 19, 2026
+
+**Features:**
+- ✅ Edit button in agent detail modal
+- ✅ Monaco editor becomes writable in edit mode
+- ✅ Knowledge Sources panel with source management
+- ✅ Priority editing for each knowledge source
+- ✅ Remove knowledge sources
+- ✅ Save/Cancel actions with backend persistence
+- ✅ Real-time config preview updates
 
 ### UI/UX Enhancements (February 15, 2026)
 **Priority:** HIGH  

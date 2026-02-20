@@ -1,4 +1,4 @@
-# TAIS Platform v2.5 🚀
+# TAIS Platform v2.6 🚀
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -11,7 +11,7 @@
 [![RAG](https://img.shields.io/badge/RAG-Multi--Tier-orange.svg)]()
 [![Deployment](https://img.shields.io/badge/Deployment-Render-success.svg)]()
 
-**Production-Ready • Enterprise Security • NFT-Verified • E2EE Multi-RAG • Decentralized Storage**
+**Production-Ready • Enterprise Security • NFT-Verified • E2EE Multi-RAG • Knowledge-Integrated Agents**
 
 TAIS (Think Agent Interview System) is a comprehensive platform for AI agent configuration, skill management, and privacy-first knowledge retrieval. Features a three-tier RAG (Retrieval-Augmented Generation) system with end-to-end encryption, dual-database architecture, and blockchain verification via THINK Genesis Bundle NFTs.
 
@@ -283,13 +283,14 @@ function App() {
 
 **Location:** `tais_frontend/src/app/components/conversation/`
 
-### 🧠 LLM Provider Integration (v2.2.0)
+### 🧠 LLM Provider Integration (v2.2.0 - v2.6.0)
 
 Multi-provider AI support with secure API key management and cost tracking:
 
 **Supported Providers:**
 - **OpenAI** - GPT-4, GPT-4-turbo, GPT-3.5-turbo
 - **Anthropic** - Claude 3 Opus, Sonnet, Haiku
+- **Google Gemini** - Gemini 1.5 Pro, 1.5 Flash, Gemini Pro ✨ NEW
 - **Local** - Ollama (Llama2, Mistral, CodeLlama) - FREE
 - **Custom** - Any OpenAI-compatible API
 
@@ -335,6 +336,62 @@ import { LLMSettingsPanel } from './app/components/llm';
 ```
 
 **Location:** `tais_frontend/src/app/components/llm/`
+
+### 📚 RAG-Agent Integration (v2.6.0)
+
+Knowledge sources integrated directly into agent configurations:
+
+**How It Works:**
+1. Upload documents to RAG (Public or Private)
+2. During agent creation, select knowledge sources
+3. Configure retrieval settings (topK, similarity threshold)
+4. Knowledge sources linked in agent config JSON
+5. Edit knowledge sources anytime in My Agents
+
+**Config Schema:**
+```json
+{
+  "knowledge": {
+    "sources": [
+      { "type": "public-rag", "documentId": "...", "priority": 5 }
+    ],
+    "retrievalConfig": {
+      "topK": 5,
+      "similarityThreshold": 0.7,
+      "citationStyle": "inline"
+    }
+  }
+}
+```
+
+**My Agents Edit Mode:**
+- Edit configurations after initial creation
+- Add/remove knowledge sources
+- Adjust source priorities (P1-P10)
+- Modify retrieval settings
+- Real-time JSON preview
+
+### 🎨 ThinkAgents/Obsidian Dark Design System (v2.6.0)
+
+Premium dark theme with high-density, utility-first interface:
+
+**Color Palette:**
+- Background: #0A0A0B
+- Cards: #141415
+- Borders: #262626
+- Text: #EDEDED / #A1A1A1
+- Accent: #3B82F6
+
+**Typography:**
+- Labels: uppercase tracking-widest
+- Code: JetBrains Mono
+- Display: tracking-tighter
+
+**Components:**
+- White primary buttons
+- Outlined secondary buttons
+- Border-radius: 6px
+- Animate-in transitions
 
 ## 🚀 Deployment
 
