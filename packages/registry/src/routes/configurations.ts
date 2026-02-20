@@ -107,8 +107,8 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
     
-    const { name, configData, description } = req.body;
-    console.log('[SAVE CONFIG] Request body:', { name, hasConfigData: !!configData, description });
+    const { name, configData, description, personalityMd } = req.body;
+    console.log('[SAVE CONFIG] Request body:', { name, hasConfigData: !!configData, description, hasPersonalityMd: !!personalityMd });
     
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -135,6 +135,17 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
     
+    // Validate personality markdown size (50KB max for gold tier)
+    if (personalityMd && typeof personalityMd === 'string') {
+      const personalitySize = Buffer.byteLength(personalityMd, 'utf8');
+      const maxPersonalitySize = 50 * 1024; // 50KB
+      if (personalitySize > maxPersonalitySize) {
+        return res.status(400).json({
+          error: `Personality markdown exceeds maximum size of 50KB (current: ${(personalitySize / 1024).toFixed(1)}KB)`
+        });
+      }
+    }
+    
     // Check limits
     console.log('[SAVE CONFIG] Checking configuration limits...');
     const check = await canCreateConfiguration(walletAddress);
@@ -156,7 +167,8 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       walletAddress,
       name.trim(),
       configData,
-      description?.trim()
+      description?.trim(),
+      personalityMd
     );
     
     console.log('Configuration saved', {
@@ -195,7 +207,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
     
-    const { name, description, configData } = req.body;
+    const { name, description, configData, personalityMd } = req.body;
     
     // Validation
     const updates: any = {};
@@ -232,13 +244,33 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
       updates.configData = configData;
     }
     
+    if (personalityMd !== undefined) {
+      if (personalityMd !== null && typeof personalityMd !== 'string') {
+        return res.status(400).json({
+          error: 'Personality markdown must be a string or null'
+        });
+      }
+      // Validate personality markdown size (50KB max for gold tier)
+      if (personalityMd) {
+        const personalitySize = Buffer.byteLength(personalityMd, 'utf8');
+        const maxPersonalitySize = 50 * 1024; // 50KB
+        if (personalitySize > maxPersonalitySize) {
+          return res.status(400).json({
+            error: `Personality markdown exceeds maximum size of 50KB (current: ${(personalitySize / 1024).toFixed(1)}KB)`
+          });
+        }
+      }
+      updates.personalityMd = personalityMd;
+    }
+    
     // Update configuration
     const config = await updateConfiguration(id, walletAddress, updates);
     
     console.log('Configuration updated', {
       walletAddress,
       configId: id,
-      name: config.name
+      name: config.name,
+      personalityVersion: config.personalityVersion
     });
     
     res.json({

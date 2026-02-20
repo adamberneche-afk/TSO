@@ -184,7 +184,8 @@ export async function saveConfiguration(
   walletAddress: string,
   name: string,
   configData: any,
-  description?: string
+  description?: string,
+  personalityMd?: string
 ) {
   // Check limits first
   const check = await canCreateConfiguration(walletAddress);
@@ -214,6 +215,8 @@ export async function saveConfiguration(
       name,
       description,
       configData,
+      personalityMd: personalityMd || null,
+      personalityVersion: personalityMd ? 1 : 1,
       isActive: true
     }
   });
@@ -235,6 +238,7 @@ export async function updateConfiguration(
     name?: string;
     description?: string;
     configData?: any;
+    personalityMd?: string | null;
   }
 ) {
   // Verify ownership
@@ -250,11 +254,18 @@ export async function updateConfiguration(
     throw new Error('Configuration not found or access denied');
   }
   
+  // Check if personality changed and increment version if so
+  const personalityChanged = updates.personalityMd !== undefined && 
+    updates.personalityMd !== existing.personalityMd;
+  
   // Update
   const config = await prisma.agentConfiguration.update({
     where: { id: configId },
     data: {
       ...updates,
+      personalityVersion: personalityChanged 
+        ? { increment: 1 } 
+        : existing.personalityVersion,
       version: { increment: 1 },
       updatedAt: new Date()
     }
