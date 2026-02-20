@@ -1,4 +1,4 @@
-# TAIS Platform v2.6 🚀
+# TAIS Platform v2.7 🚀
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -11,9 +11,9 @@
 [![RAG](https://img.shields.io/badge/RAG-Multi--Tier-orange.svg)]()
 [![Deployment](https://img.shields.io/badge/Deployment-Render-success.svg)]()
 
-**Production-Ready • Enterprise Security • NFT-Verified • E2EE Multi-RAG • Knowledge-Integrated Agents**
+**Production-Ready • Enterprise Security • NFT-Verified • E2EE Multi-RAG • Hybrid Config Architecture**
 
-TAIS (Think Agent Interview System) is a comprehensive platform for AI agent configuration, skill management, and privacy-first knowledge retrieval. Features a three-tier RAG (Retrieval-Augmented Generation) system with end-to-end encryption, dual-database architecture, and blockchain verification via THINK Genesis Bundle NFTs.
+TAIS (Think Agent Interview System) is a comprehensive platform for AI agent configuration, skill management, and privacy-first knowledge retrieval. Features a three-tier RAG (Retrieval-Augmented Generation) system with end-to-end encryption, dual-database architecture, blockchain verification via THINK Genesis Bundle NFTs, and a hybrid JSON + Markdown personality configuration system.
 
 ## 🔒 Security Status: A Grade (94%)
 
@@ -23,6 +23,7 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 ✅ **10 Engineering Squads**  
 ✅ **Production Approved**
 ✅ **E2E Tests: 21/21 Passed**
+✅ **Hybrid Config Tests: 18/18 Passed**
 
 🌐 **Live API:** https://tso.onrender.com  
 📚 **Documentation:** https://tso.onrender.com/api/docs  
@@ -394,6 +395,57 @@ Premium dark theme with high-density, utility-first interface:
 - Border-radius: 6px
 - Animate-in transitions
 
+### 🔄 Hybrid JSON + Markdown Configuration (v2.7.0)
+
+Flexible agent personality configuration with dual-mode editing:
+
+**Architecture:**
+- **JSON Framework** - Rigid, validated, type-safe (permissions, quotas, skills, constraints)
+- **Markdown Personality** - Flexible, LLM-friendly, human-readable (prompts, examples, communication style)
+
+**How It Works:**
+1. Use quick sliders for simple personality setup
+2. Switch to markdown for advanced customization
+3. AI-assisted personality generation with LLM
+4. Personality versioning for cache invalidation
+
+**Example Output:**
+```json
+// framework.json
+{
+  "name": "dev-assistant",
+  "constraints": { "privacy": "local", "maxCostPerAction": 0.05 },
+  "skills": [{ "id": "code-review", "trustScore": 0.95 }]
+}
+```
+
+```markdown
+# personality.md
+## Communication Style
+- **Tone:** Direct but constructive
+- **Detail Level:** Comprehensive when explaining concepts
+
+## Response Guidelines
+1. Always explain the "why" behind suggestions
+2. Provide code examples in the user's preferred language
+```
+
+**Tier-Based Size Limits:**
+| Tier | Max Personality Size | Basis |
+|------|---------------------|-------|
+| Free | 5KB | Default |
+| Bronze | 10KB | ~$10 value |
+| Silver | 20KB | ~$50 value |
+| Gold | 50KB | Genesis NFT |
+
+**Components:**
+- `PersonalityEditor` - Monaco editor with markdown preview
+- `PersonalityStep` - Interview wizard step with sliders/markdown toggle
+- `personalityCompiler` - Compiles markdown → system prompt
+- `personalityValidator` - Size limits, sanitization, security checks
+
+**Tests:** 18/18 E2E tests passing
+
 ## 🚀 Deployment
 
 ### Frontend (Vercel)
@@ -560,7 +612,13 @@ ADMIN_WALLET_ADDRESSES=0x...
 - [x] ✅ Performance optimization
 - [x] ✅ Analytics dashboard
 
-### Phase 5 ⏳ Planned
+### Phase 5 ✅ COMPLETE (v2.7.0)
+- [x] ✅ Hybrid JSON + Markdown personality configuration
+- [x] ✅ AI-assisted personality generation
+- [x] ✅ Personality versioning system
+- [x] ✅ Tier-based storage limits
+
+### Phase 6 ⏳ Planned
 - [ ] Custom Publisher NFT contract
 - [ ] $THINK token staking
 - [ ] Fiat on-ramp (Stripe)

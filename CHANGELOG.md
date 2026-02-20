@@ -21,6 +21,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance baseline establishment
 - Alert configuration
 
+## [2.7.0] - 2026-02-20
+
+### Added
+- **Hybrid JSON + Markdown Configuration System** - Flexible personality configuration
+  - **JSON Framework**: Rigid, validated, type-safe (permissions, quotas, skills, constraints)
+  - **Markdown Personality**: Flexible, LLM-friendly, human-readable (prompts, examples, communication style)
+  - **Dual-Mode Editing**: Quick sliders OR advanced markdown editor
+  - **AI-Assisted Generation**: LLM generates personality markdown from slider values
+
+- **PersonalityEditor Component** - Monaco-based markdown editor
+  - Real-time validation with tier-based size limits
+  - Markdown preview tab with HTML rendering
+  - Token count estimation
+  - Dangerous pattern detection (script tags, javascript:, etc.)
+
+- **PersonalityStep Component** - New interview wizard step
+  - Toggle between sliders and markdown modes
+  - AI-assisted personality generation button
+  - Automatic markdown generation from slider values
+
+- **Personality Compiler Service** - Runtime markdown processing
+  - Extracts sections from markdown (# headers)
+  - Generates optimized system prompts
+  - Token count estimation for LLM context
+
+- **Personality Validator Service** - Security and limits
+  - Tier-based size limits: Free (5KB), Bronze (10KB), Silver (20KB), Gold (50KB)
+  - DOMPurify sanitization for XSS prevention
+  - Pattern-based dangerous content detection
+
+- **Personality Versioning** - Cache invalidation system
+  - Auto-increment `personalityVersion` on personality changes
+  - Version string format: `v{number}-{timestamp}`
+  - Backend API support for version tracking
+
+- **E2E Test Suite** - 18 tests for hybrid config
+  - Validator tests (6 tests)
+  - Compiler tests (4 tests)
+  - Generator tests (2 tests)
+  - HTML conversion tests (2 tests)
+  - Tier limit tests (4 tests)
+
+### Changed
+- **Interview Wizard**: Increased from 8 to 9 steps (added Personality step after Knowledge)
+- **Agent Config Schema**: Added `personalityMd` and `personalityVersion` fields
+- **Backend API**: Updated configuration routes to accept and store personality markdown
+- **DOMPurify**: Switched to `isomorphic-dompurify` for Node.js/browser compatibility
+
+### Fixed
+- **DOMPurify in Node.js**: Changed import to isomorphic-dompurify for test environment
+
+### Technical
+- **Prisma Migration**: `20260220000000_add_personality_fields`
+- **New Dependencies**: `marked`, `isomorphic-dompurify`, `@types/dompurify`
+- **New Files**:
+  - `tais_frontend/src/services/personalityCompiler.ts`
+  - `tais_frontend/src/services/personalityValidator.ts`
+  - `tais_frontend/src/app/components/interview/PersonalityEditor.tsx`
+  - `tais_frontend/src/app/components/interview/PersonalityStep.tsx`
+  - `tests/e2e-hybrid-config.ts`
+
 ## [2.6.0] - 2026-02-20
 
 ### Added
