@@ -307,42 +307,44 @@ app.use((req: Request, res: Response) => {
   });
 });
 
-// Start server
+// Start server only when run directly (not when imported for tests)
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, async () => {
-  logger.info('==========================================');
-  logger.info('🚀 TAIS Platform API Server Started');
-  logger.info('==========================================');
-  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`Port: ${PORT}`);
-  logger.info(`API Version: v1`);
-  logger.info(`CORS Origins: ${corsConfig.origin.join(', ')}`);
-  logger.info(`Trust Proxy: ${trustedProxies || 'disabled'}`);
-  
-  // Database configuration info
-  const usingDualDb = process.env.RAG_DATABASE_URL && process.env.SKILLS_DATABASE_URL;
-  logger.info('==========================================');
-  if (usingDualDb) {
-    logger.info('Database Configuration: Dual-Database Mode');
-    logger.info('  📁 RAG Database: tais-rag (Public RAG documents)');
-    logger.info('  📁 Skills Database: tais_registry (Skills & auth)');
-  } else {
-    logger.info('Database Configuration: Single-Database Mode');
-    logger.info(`  📁 Database: ${process.env.DATABASE_URL?.includes('tais-rag') ? 'tais-rag' : 'tais_registry'}`);
-  }
-  
-  logger.info('==========================================');
-  logger.info('Security Status:');
-  logger.info('  ✅ JWT Authentication: Active');
-  logger.info('  ✅ NFT Verification: Active (Fail-Closed)');
-  logger.info('  ✅ Rate Limiting: Active');
-  logger.info('  ✅ CORS Protection: Active');
-  logger.info('  ✅ Security Headers: Active');
-  logger.info('  ✅ Input Validation: Active');
-  logger.info('  ✅ Trust Proxy: Configured');
-  logger.info('==========================================');
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, async () => {
+    logger.info('==========================================');
+    logger.info('🚀 TAIS Platform API Server Started');
+    logger.info('==========================================');
+    logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`Port: ${PORT}`);
+    logger.info(`API Version: v1`);
+    logger.info(`CORS Origins: ${corsConfig.origin.join(', ')}`);
+    logger.info(`Trust Proxy: ${trustedProxies || 'disabled'}`);
+    
+    // Database configuration info
+    const usingDualDb = process.env.RAG_DATABASE_URL && process.env.SKILLS_DATABASE_URL;
+    logger.info('==========================================');
+    if (usingDualDb) {
+      logger.info('Database Configuration: Dual-Database Mode');
+      logger.info('  📁 RAG Database: tais-rag (Public RAG documents)');
+      logger.info('  📁 Skills Database: tais_registry (Skills & auth)');
+    } else {
+      logger.info('Database Configuration: Single-Database Mode');
+      logger.info(`  📁 Database: ${process.env.DATABASE_URL?.includes('tais-rag') ? 'tais-rag' : 'tais_registry'}`);
+    }
+    
+    logger.info('==========================================');
+    logger.info('Security Status:');
+    logger.info('  ✅ JWT Authentication: Active');
+    logger.info('  ✅ NFT Verification: Active (Fail-Closed)');
+    logger.info('  ✅ Rate Limiting: Active');
+    logger.info('  ✅ CORS Protection: Active');
+    logger.info('  ✅ Security Headers: Active');
+    logger.info('  ✅ Input Validation: Active');
+    logger.info('  ✅ Trust Proxy: Configured');
+    logger.info('==========================================');
+  });
+}
 
 // Squad Gamma: Graceful shutdown
 process.on('SIGTERM', async () => {

@@ -16,9 +16,12 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   testTimeout: 30000,
   verbose: true,
+  maxWorkers: 1,
+  forceExit: true,
+  detectOpenHandles: true,
 };

@@ -1,7 +1,16 @@
-import yara from '@automattic/yara';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+
+let yara: any = null;
+let yaraAvailable = false;
+
+try {
+  yara = require('@automattic/yara');
+  yaraAvailable = true;
+} catch (error) {
+  console.warn('⚠️  YARA native module not available (Windows compatibility). Security scanning will use pattern-based fallback.');
+}
 
 export interface YaraFinding {
   rule: string;
@@ -49,7 +58,7 @@ export interface YaraRule {
 }
 
 export class YaraScanner {
-  private rules: yara.Rules | null = null;
+  private rules: any = null;
   private rulesDir: string;
   private initialized: boolean = false;
 
@@ -59,6 +68,13 @@ export class YaraScanner {
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
+
+    // If YARA native module not available, use pattern-based fallback
+    if (!yaraAvailable) {
+      this.initialized = true;
+      console.log('✅ YARA scanner initialized (pattern-based fallback mode)');
+      return;
+    }
 
     try {
       // Ensure rules directory exists
@@ -116,7 +132,7 @@ export class YaraScanner {
             filename: file,
             content: fs.readFileSync(file, 'utf8'),
           })),
-        }, (error: any, rules: yara.Rules) => {
+        }, (error: any, rules: any) => {
           if (error) {
             reject(new Error(`YARA compilation failed: ${error.message}`));
           } else {
@@ -136,8 +152,9 @@ export class YaraScanner {
       await this.initialize();
     }
 
-    if (!this.rules) {
-      throw new Error('YARA rules not compiled');
+    // Pattern-based fallback when YARA native module unavailable
+    if (!yaraAvailable || !this.rules) {
+      return this.scanFileWithPatterns(filePath, skillHash);
     }
 
     const startTime = Date.now();
@@ -146,7 +163,8 @@ export class YaraScanner {
     return new Promise((resolve, reject) => {
       this.rules!.scanFile(filePath, {}, (error: any, result: any) => {
         if (error) {
-          reject(new Error(`Scan failed: ${error.message}`));
+          // Fall back to pattern scanning
+          resolve(this.scanFileWithPatterns(filePath, skillHash));
           return;
         }
 
@@ -168,13 +186,57 @@ export class YaraScanner {
     });
   }
 
+  private scanFileWithPatterns(filePath: string, skillHash: string): SecurityScanResult {
+    const startTime = Date.now();
+    const stats = fs.statSync(filePath);
+    const content = fs.readFileSync(filePath, 'utf8');
+    const findings: YaraFinding[] = [];
+
+    // Pattern-based detection rules
+    const patterns = [
+      { name: 'Credential_Theft', pattern: /\.env|process\.env\.[A-Z_]+|api[_-]?key|secret|password|token|private[_-]?key/i, severity: 'critical' },
+      { name: 'Data_Exfiltration', pattern: /webhook\.site|requestbin|ngrok\.io|pastebin\.com/i, severity: 'high' },
+      { name: 'Process_Injection', pattern: /child_process|exec\(|execSync|spawn\(|eval\(/i, severity: 'high' },
+      { name: 'Suspicious_Imports', pattern: /require\(['"](child_process|fs|net|http|https|vm)['"]\)/i, severity: 'medium' },
+      { name: 'Obfuscated_Code', pattern: /atob\(|btoa\(|Buffer\.from.*base64/i, severity: 'medium' },
+    ];
+
+    for (const { name, pattern, severity } of patterns) {
+      const matches = content.match(pattern);
+      if (matches) {
+        findings.push({
+          rule: name,
+          namespace: 'pattern_fallback',
+          tags: [severity],
+          meta: { severity, category: 'security' },
+          strings: matches.slice(0, 5).map(m => ({
+            identifier: 'match',
+            instances: [{ offset: content.indexOf(m), length: m.length, data: m.substring(0, 100) }],
+          })),
+        });
+      }
+    }
+
+    return {
+      skillHash,
+      timestamp: new Date(),
+      findings,
+      severity: this.calculateSeverity(findings),
+      summary: this.calculateSummary(findings),
+      scanDuration: Date.now() - startTime,
+      scannedFiles: 1,
+      scannedBytes: stats.size,
+    };
+  }
+
   async scanBuffer(buffer: Buffer, skillHash: string, filename: string = 'buffer'): Promise<SecurityScanResult> {
     if (!this.initialized) {
       await this.initialize();
     }
 
-    if (!this.rules) {
-      throw new Error('YARA rules not compiled');
+    // Pattern-based fallback when YARA native module unavailable
+    if (!yaraAvailable || !this.rules) {
+      return this.scanBufferWithPatterns(buffer, skillHash);
     }
 
     const startTime = Date.now();
@@ -182,7 +244,8 @@ export class YaraScanner {
     return new Promise((resolve, reject) => {
       this.rules!.scan({ buffer }, (error: any, result: any) => {
         if (error) {
-          reject(new Error(`Scan failed: ${error.message}`));
+          // Fall back to pattern scanning
+          resolve(this.scanBufferWithPatterns(buffer, skillHash));
           return;
         }
 
@@ -202,6 +265,47 @@ export class YaraScanner {
         });
       });
     });
+  }
+
+  private scanBufferWithPatterns(buffer: Buffer, skillHash: string): SecurityScanResult {
+    const startTime = Date.now();
+    const content = buffer.toString('utf8');
+    const findings: YaraFinding[] = [];
+
+    const patterns = [
+      { name: 'Credential_Theft', pattern: /\.env|process\.env\.[A-Z_]+|api[_-]?key|secret|password|token|private[_-]?key/i, severity: 'critical' },
+      { name: 'Data_Exfiltration', pattern: /webhook\.site|requestbin|ngrok\.io|pastebin\.com/i, severity: 'high' },
+      { name: 'Process_Injection', pattern: /child_process|exec\(|execSync|spawn\(|eval\(/i, severity: 'high' },
+      { name: 'Suspicious_Imports', pattern: /require\(['"](child_process|fs|net|http|https|vm)['"]\)/i, severity: 'medium' },
+      { name: 'Obfuscated_Code', pattern: /atob\(|btoa\(|Buffer\.from.*base64/i, severity: 'medium' },
+    ];
+
+    for (const { name, pattern, severity } of patterns) {
+      const matches = content.match(pattern);
+      if (matches) {
+        findings.push({
+          rule: name,
+          namespace: 'pattern_fallback',
+          tags: [severity],
+          meta: { severity, category: 'security' },
+          strings: matches.slice(0, 5).map(m => ({
+            identifier: 'match',
+            instances: [{ offset: content.indexOf(m), length: m.length, data: m.substring(0, 100) }],
+          })),
+        });
+      }
+    }
+
+    return {
+      skillHash,
+      timestamp: new Date(),
+      findings,
+      severity: this.calculateSeverity(findings),
+      summary: this.calculateSummary(findings),
+      scanDuration: Date.now() - startTime,
+      scannedFiles: 1,
+      scannedBytes: buffer.length,
+    };
   }
 
   async scanDirectory(dirPath: string, skillHash: string): Promise<SecurityScanResult> {

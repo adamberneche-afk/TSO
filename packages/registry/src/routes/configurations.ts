@@ -9,7 +9,7 @@ import {
   updateConfiguration,
   deleteConfiguration,
   verifyNFTOwnership
-} from '../services/genesisConfigLimits.js';
+} from '../services/genesisConfigLimits';
 
 // Extend Express Request type to include user
 interface AuthenticatedRequest extends Request {
