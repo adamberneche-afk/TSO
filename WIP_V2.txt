@@ -447,7 +447,7 @@ GET  /api/v1/configurations/nft/verify
 **Service URL:** https://tso.onrender.com  
 **Status:** 🟢 LIVE AND OPERATIONAL  
 **Port:** 10000  
-**Version:** 2.5.0  
+**Version:** 2.6.0  
 **Frontend:** https://taisplatform.vercel.app  
 
 ### Infrastructure
@@ -479,6 +479,11 @@ GET  /api/v1/configurations/nft/verify
 | **LLM Provider Integration** | **🟢 Operational** | **100% (v2.2.0)** | API key encryption |
 | **RAG Router** | **🟢 Operational** | **100% (v2.3.0)** | Multi-source aggregation |
 | **Platform Detection** | **🟢 Operational** | **100% (v2.3.0)** | Auto platform select |
+| **Design System** | **🟢 LIVE** | **100% (v2.6.0)** | Obsidian Dark theme |
+| **Gemini Provider** | **🟢 LIVE** | **100% (v2.6.0)** | LLM Settings |
+| **Knowledge Integration** | **🟢 LIVE** | **100% (v2.6.0)** | Interview Wizard Step 3 |
+| **My Agents Edit Mode** | **🟢 LIVE** | **100% (v2.6.0)** | Agent detail modal |
+| **Genesis Gold Tier** | **🟢 LIVE** | **100% (v2.6.0)** | NFT holder RAG access |
 
 ---
 
@@ -812,5 +817,5 @@ GET  /api/v1/configurations/nft/verify
 
 **Last Updated:** February 19, 2026  
 **Status:** ✅ PRODUCTION DEPLOYED  
-**Version:** 2.5.0  
+**Version:** 2.6.0  
 **Document Owner:** Development Team
