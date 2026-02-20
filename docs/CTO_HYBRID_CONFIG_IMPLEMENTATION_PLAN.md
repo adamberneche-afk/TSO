@@ -1,8 +1,8 @@
 # CTO Implementation Plan: Hybrid JSON + Markdown Agent Configuration System
 
-**Document Version:** 1.0  
+**Document Version:** 1.1  
 **Date:** February 20, 2026  
-**Status:** Pending CTO Approval  
+**Status:** ✅ CTO APPROVED  
 **Proposed Implementation:** Release 2.7.0
 
 ---
@@ -14,6 +14,60 @@ This plan proposes a hybrid architecture that separates agent configuration into
 2. **Markdown Personality** (flexible, LLM-friendly, human-readable) - prompts, examples, communication style
 
 This builds upon the existing v2.6.0 architecture while enabling community sharing, LLM-optimized prompts, and better developer experience.
+
+---
+
+## CTO Decisions (February 20, 2026)
+
+### Decision 1: Team Structure
+**Approved:** Alpha/Beta/Gamma naming convention for team rotation and fresh perspectives.
+
+| Team | Focus | Engineers |
+|------|-------|-----------|
+| Alpha | Backend | 3 |
+| Beta | Frontend | 3 |
+| Gamma | Runtime | 3 |
+
+**Note:** Teams remain intact (no engineer swapping) to maximize domain expertise during implementation.
+
+### Decision 2: Architecture
+**Approved:** JSON + Markdown split approach.
+
+| Parameter | Decision |
+|-----------|----------|
+| Storage | Database (accessible across all hardware) |
+| Size Limit | 10KB base, scaled by access tier |
+| Tier Scaling | Limits pegged to dollar value of user's NFT/access tier |
+
+### Decision 3: Timeline
+**Approved:** Minimize downtime during database migration.
+
+### Decision 4: Feature Scope
+| Feature | Status |
+|---------|--------|
+| Community templates | ❌ DEFERRED (doesn't align with North Star) |
+| AI-assisted personality generation | ✅ PRIORITY |
+| Personality versioning | ✅ REQUIRED |
+
+### Decision 5: Resource Allocation
+**Approved:** Keep engineers in their assigned teams throughout implementation.
+
+### Decision 6: Markdown Parser
+**Approved:** `marked` + `DOMPurify`
+
+Rationale:
+- Smaller bundle size (~40KB vs ~200KB)
+- Faster compilation for frequent personality loads
+- Simpler for markdown → text + HTML preview use case
+- We already sanitize inputs via YARA scanner
+
+### Decision 7: Backward Compatibility
+**Approved:** Support both sliders AND markdown personality configurations.
+
+Users can:
+- Use quick sliders for simple setup
+- Switch to markdown for advanced customization
+- Switch back and forth without data loss
 
 ---
 
@@ -203,44 +257,25 @@ You: I've identified 3 issues in this function:
 ```prisma
 model AgentConfiguration {
   // ... existing fields
-  personalityMd  String?  @map("personality_md") // Markdown personality
-  templateId     String?  @map("template_id")    // Optional community template
+  personalityMd    String?  @map("personality_md")    // Markdown personality
+  personalityVersion Int    @default(1) @map("personality_version") // Version tracking
 }
 
-model PersonalityTemplate {
-  id          String   @id @default(uuid())
-  name        String
-  description String
-  content     String   // Markdown content
-  author      String   @map("author") // Wallet address
-  
-  // Metrics
-  downloadCount Int    @default(0) @map("download_count")
-  ratingSum     Int    @default(0) @map("rating_sum")
-  ratingCount   Int    @default(0) @map("rating_count")
-  
-  // Tags for discovery
-  tags        String[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([author])
-  @@index([tags])
-  @@map("personality_templates")
-}
+// DEFERRED: PersonalityTemplate model for community sharing
+// Will be added in future release if aligned with North Star
 ```
 
 ### Phase 2: Frontend Components (Week 1-2)
 **Team:** Beta (Frontend)  
-**Effort:** 4-5 days
+**Effort:** 4-5 days  
+**Engineers:** 3
 
 **Tasks:**
 1. Create `PersonalityEditor` component (Monaco with markdown preview)
 2. Add `PersonalityStep` to Interview Wizard (after BehaviorStep)
 3. Update `ConfigPreview` to show framework.json + personality.md tabs
-4. Create personality template gallery UI
-5. Add AI-assisted personality generation (uses existing LLM integration)
+4. **PRIORITY:** AI-assisted personality generation (uses existing LLM integration)
+5. Implement personality versioning UI
 
 **New Components:**
 ```
@@ -252,17 +287,21 @@ tais_frontend/src/app/components/interview/
 
 ### Phase 3: Runtime Integration (Week 2)
 **Team:** Gamma (Runtime)  
-**Effort:** 3-4 days
+**Effort:** 3-4 days  
+**Engineers:** 3
 
 **Tasks:**
-1. Create personality compiler (markdown → system prompt)
-2. Add personality versioning for cache invalidation
+1. Create personality compiler (markdown → system prompt) using `marked` + `DOMPurify`
+2. **REQUIRED:** Implement personality versioning for cache invalidation
 3. Integrate with existing LLM client
 4. Add personality metrics tracking (token usage, effectiveness)
 
 **New Service:**
 ```typescript
 // tais_frontend/src/services/personalityCompiler.ts
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+
 interface CompiledPersonality {
   systemPrompt: string;
   tokenCount: number;
@@ -276,15 +315,23 @@ export function compilePersonality(markdown: string): CompiledPersonality {
 }
 ```
 
-### Phase 4: Community Features (Week 3)
-**Team:** All Teams  
-**Effort:** 3-4 days
+### Phase 4: Tier-Based Storage Limits (Week 3)
+**Team:** Alpha (Backend)  
+**Effort:** 1-2 days  
+**Engineers:** 3
 
 **Tasks:**
-1. Backend: Template API endpoints (CRUD, search, ratings)
-2. Frontend: Template gallery with search/filter
-3. Frontend: One-click template import
-4. Backend: Template usage analytics
+1. Implement tier-based personality size limits
+2. Add storage quota enforcement
+3. Create upgrade prompts for tier limits
+
+**Tier Limits (Pegged to Dollar Value):**
+| Tier | Max Personality Size | Basis |
+|------|---------------------|-------|
+| Free | 5KB | Default |
+| Bronze | 10KB | ~$10 value |
+| Silver | 20KB | ~$50 value |
+| Gold (Genesis) | 50KB | NFT holder |
 
 ---
 
@@ -350,36 +397,35 @@ function migratePersonality(personality: Personality): string {
 ## Resource Requirements
 
 **Engineering:**
-- Alpha (Backend): 3 engineers, 1 week
-- Beta (Frontend): 2 engineers, 1.5 weeks
-- Gamma (Runtime): 2 engineers, 1 week
+- Alpha (Backend): 3 engineers, 1 week + 2 days for tier limits
+- Beta (Frontend): 3 engineers, 1.5 weeks
+- Gamma (Runtime): 3 engineers, 1 week
 
 **Infrastructure:**
-- Database migration: 30 minutes downtime window
-- Storage increase: ~2KB per config (negligible)
+- Database migration: Minimal downtime (blue-green or rolling migration)
+- Storage increase: ~2-10KB per config (tier-dependent)
 
 **Dependencies:**
 - Existing LLM integration (complete)
 - Monaco editor (already in use)
-- Markdown parser: `marked` or `remark`
+- `marked` + `dompurify` (to be installed)
 
 ---
 
-## Approval Request
+## Approval Status
 
-**Decision Required:**
-1. Proceed with hybrid architecture?
-2. Prioritize for Release 2.7.0 (March 2026)?
-3. Allocate engineering resources as specified?
+**CTO Approval:** ✅ APPROVED (February 20, 2026)
 
-**Recommendation:** Approve and schedule for Release 2.7.0. This architecture positions the platform for:
-- Community-driven personality marketplace
-- Better LLM prompt optimization
-- Git-friendly configuration versioning
-- Developer-friendly customization
+**Decisions Made:**
+1. ✅ Team structure: Alpha/Beta/Gamma with 3 engineers each
+2. ✅ Architecture: JSON + Markdown split approved
+3. ✅ Timeline: Minimize downtime
+4. ✅ Scope: AI-assisted generation priority, versioning required, community templates deferred
+5. ✅ Resources: Engineers remain in assigned teams
+6. ✅ Parser: `marked` + `DOMPurify`
+7. ✅ Compatibility: Support both sliders and markdown
 
 ---
 
-**Prepared by:** Engineering Teams  
-**Review Date:** February 20, 2026  
-**Target Decision:** February 21, 2026
+**Document Status:** READY FOR IMPLEMENTATION  
+**Target Release:** 2.7.0 (March 2026)
