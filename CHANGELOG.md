@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-device sync with Supabase
 - App RAG SDK for third-party developers
 - Enterprise RAG with SSO integration
+- Cloudflare R2 storage (when revenue positive)
+
+### In Progress
+- Monitoring & observability setup (Sprint 3)
+- Performance baseline establishment
+- Alert configuration
 
 ## [2.6.0] - 2026-02-19
 
@@ -67,6 +73,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Document Fields**: Handle null/undefined tags and walletAddress in RAG docs
 - **Deploy Workflow**: Fixed path from `tais-frontend` to `tais_frontend`
 - **LLM Fallback**: Graceful fallback when LLM fails (e.g., CORS for local Ollama)
+
+### Testing
+- **E2E Test Suite**: 21/21 tests passed
+  - Backend health check verified
+  - Frontend accessibility confirmed
+  - All API endpoints tested (skills, RAG, configurations)
+  - CORS configuration validated
+  - Authentication enforcement verified
+  - RAG document storage/retrieval tested
+  - Test report: `docs/E2E_TEST_REPORT.md`
 
 ## [2.4.0] - 2026-02-18
 
