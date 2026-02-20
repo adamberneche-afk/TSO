@@ -23,6 +23,11 @@ import {
   Eye,
   AlertTriangle,
   Wallet,
+  Edit,
+  Save,
+  Database,
+  Globe,
+  Lock,
 } from 'lucide-react';
 import { AgentConfig } from '../../types/agent';
 import { motion, AnimatePresence } from 'motion/react';
@@ -327,6 +332,10 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
               deleteAgent(selectedAgent.id);
               setSelectedAgent(null);
             }}
+            onUpdate={(updatedAgent) => {
+              setAgents(prev => prev.map(a => a.id === updatedAgent.id ? updatedAgent : a));
+              setSelectedAgent(updatedAgent);
+            }}
           />
         )}
       </AnimatePresence>
@@ -474,18 +483,101 @@ interface AgentDetailModalProps {
   onDownload: () => void;
   onCopy: () => void;
   onDelete: () => void;
+  onUpdate: (agent: SavedAgent) => void;
 }
 
-function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete }: AgentDetailModalProps) {
-  const { config } = agent;
-  const configJSON = JSON.stringify(config, null, 2);
-  const naturalSummary = generateConfigSummary(config);
-  const bulletSummary = generateBulletSummary(config);
+function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpdate }: AgentDetailModalProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedConfig, setEditedConfig] = useState<AgentConfig>(JSON.parse(JSON.stringify(agent.config)));
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const configJSON = JSON.stringify(isEditing ? editedConfig : agent.config, null, 2);
+  const naturalSummary = generateConfigSummary(isEditing ? editedConfig : agent.config);
+  const bulletSummary = generateBulletSummary(isEditing ? editedConfig : agent.config);
   const formattedDate = new Date(agent.lastModified).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await configApi.updateConfiguration(agent.id, {
+        name: editedConfig.agent.name,
+        description: editedConfig.agent.description,
+        configData: editedConfig
+      });
+      onUpdate({ ...agent, config: editedConfig, lastModified: new Date().toISOString() });
+      setIsEditing(false);
+      toast.success('Configuration updated!');
+    } catch (error) {
+      toast.error('Failed to save changes');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleConfigChange = (value: string) => {
+    try {
+      const parsed = JSON.parse(value);
+      setEditedConfig(parsed);
+    } catch {
+      // Invalid JSON, ignore
+    }
+  };
+
+  const addKnowledgeSource = (source: any) => {
+    const newSource = {
+      id: `source-${Date.now()}`,
+      type: 'public-rag' as const,
+      documentId: source.id,
+      title: source.title || 'Untitled',
+      enabled: true,
+      priority: 5
+    };
+    
+    setEditedConfig(prev => ({
+      ...prev,
+      agent: {
+        ...prev.agent,
+        knowledge: {
+          ...prev.agent.knowledge,
+          sources: [...(prev.agent.knowledge?.sources || []), newSource]
+        }
+      }
+    }));
+  };
+
+  const removeKnowledgeSource = (sourceId: string) => {
+    setEditedConfig(prev => ({
+      ...prev,
+      agent: {
+        ...prev.agent,
+        knowledge: {
+          ...prev.agent.knowledge,
+          sources: (prev.agent.knowledge?.sources || []).filter(s => s.id !== sourceId)
+        }
+      }
+    }));
+  };
+
+  const updateKnowledgeSource = (sourceId: string, updates: any) => {
+    setEditedConfig(prev => ({
+      ...prev,
+      agent: {
+        ...prev.agent,
+        knowledge: {
+          ...prev.agent.knowledge,
+          sources: (prev.agent.knowledge?.sources || []).map(s => 
+            s.id === sourceId ? { ...s, ...updates } : s
+          )
+        }
+      }
+    }));
+  };
+
+  const knowledgeSources = (isEditing ? editedConfig : agent.config).agent.knowledge?.sources || [];
 
   return (
     <motion.div
@@ -505,39 +597,78 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete }: Agen
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#333333] bg-[#1a1a1a]">
           <div>
-            <h2 className="text-xl font-bold text-white">{config.agent.name}</h2>
+            <h2 className="text-xl font-bold text-white">
+              {isEditing ? 'Edit: ' : ''}{(isEditing ? editedConfig : agent.config).agent.name}
+            </h2>
             <p className="text-sm text-[#888888]">
-              Last modified: {formattedDate} • {config.agent.skills.length} skills
+              Last modified: {formattedDate} • {(isEditing ? editedConfig : agent.config).agent.skills.length} skills
+              {knowledgeSources.length > 0 && ` • ${knowledgeSources.length} knowledge sources`}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onDownload}
-              className="border-[#333333] text-[#888888] hover:text-white"
-            >
-              <Download className="w-4 h-4 mr-1" />
-              Export
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onCopy}
-              className="border-[#333333] text-[#888888] hover:text-white"
-            >
-              <Copy className="w-4 h-4 mr-1" />
-              Copy
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onDelete}
-              className="border-[#EF4444] text-[#EF4444] hover:bg-[rgba(239,68,68,0.1)]"
-            >
-              <Trash2 className="w-4 h-4 mr-1" />
-              Delete
-            </Button>
+            {isEditing ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditedConfig(JSON.parse(JSON.stringify(agent.config)));
+                  }}
+                  className="border-[#333333] text-[#888888] hover:text-white"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="bg-[#10B981] hover:bg-[#059669] text-white"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
+                  Save Changes
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                  className="border-[#3B82F6] text-[#3B82F6] hover:bg-[rgba(59,130,246,0.1)]"
+                >
+                  <Edit className="w-4 h-4 mr-1" />
+                  Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onDownload}
+                  className="border-[#333333] text-[#888888] hover:text-white"
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Export
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onCopy}
+                  className="border-[#333333] text-[#888888] hover:text-white"
+                >
+                  <Copy className="w-4 h-4 mr-1" />
+                  Copy
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onDelete}
+                  className="border-[#EF4444] text-[#EF4444] hover:bg-[rgba(239,68,68,0.1)]"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Delete
+                </Button>
+              </>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -567,8 +698,9 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete }: Agen
                   defaultLanguage="json"
                   value={configJSON}
                   theme="vs-dark"
+                  onChange={isEditing ? handleConfigChange : undefined}
                   options={{
-                    readOnly: true,
+                    readOnly: !isEditing,
                     minimap: { enabled: false },
                     fontSize: 12,
                     fontFamily: 'JetBrains Mono, monospace',
@@ -632,6 +764,68 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete }: Agen
                       </div>
                     ))}
                   </dl>
+                </div>
+
+                {/* Knowledge Sources */}
+                <div className="bg-[#252525] rounded-lg border border-[#333333]">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-[#333333]">
+                    <h5 className="text-xs text-[#888888] uppercase tracking-wider font-semibold flex items-center gap-2">
+                      <Database className="w-4 h-4" />
+                      Knowledge Sources
+                    </h5>
+                    {knowledgeSources.length > 0 && (
+                      <span className="text-xs text-[#3B82F6]">{knowledgeSources.length} sources</span>
+                    )}
+                  </div>
+                  
+                  {knowledgeSources.length === 0 ? (
+                    <div className="px-4 py-6 text-center">
+                      <Database className="w-8 h-8 text-[#555555] mx-auto mb-2" />
+                      <p className="text-sm text-[#888888]">No knowledge sources configured</p>
+                      {isEditing && (
+                        <p className="text-xs text-[#666666] mt-1">Add documents from the JSON editor or wizard</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-[#333333]">
+                      {knowledgeSources.map((source: any) => (
+                        <div key={source.id} className="px-4 py-3 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {source.type === 'public-rag' ? (
+                              <Globe className="w-4 h-4 text-[#3B82F6]" />
+                            ) : source.type === 'private-rag' ? (
+                              <Lock className="w-4 h-4 text-[#10B981]" />
+                            ) : (
+                              <Database className="w-4 h-4 text-[#888888]" />
+                            )}
+                            <div>
+                              <p className="text-sm text-white">{source.title || source.documentId}</p>
+                              <p className="text-xs text-[#666666]">Priority: {source.priority}</p>
+                            </div>
+                          </div>
+                          {isEditing && (
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={source.priority}
+                                onChange={(e) => updateKnowledgeSource(source.id, { priority: Number(e.target.value) })}
+                                className="bg-[#1a1a1a] border border-[#333333] rounded text-xs text-[#888888] px-2 py-1"
+                              >
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(p => (
+                                  <option key={p} value={p}>P{p}</option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => removeKnowledgeSource(source.id)}
+                                className="text-[#888888] hover:text-red-400 p-1"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               
