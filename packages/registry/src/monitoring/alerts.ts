@@ -193,7 +193,7 @@ class AlertManager {
                 subject: `[TAIS ${alert.severity.toUpperCase()}] ${alert.name}`,
               },
             ],
-            from: { email: 'alerts@taisplatform.vercel.app', name: 'TAIS Alerts' },
+            from: { email: alertEmail, name: 'TAIS Alerts' },
             content: [
               {
                 type: 'text/plain',

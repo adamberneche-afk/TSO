@@ -138,6 +138,18 @@ router.post('/alerts/evaluate', async (req: Request, res: Response) => {
 // Test email alert
 router.post('/alerts/test', async (req: Request, res: Response) => {
   try {
+    const sendgridKey = process.env.SENDGRID_API_KEY;
+    const alertEmail = process.env.ALERT_EMAIL_TO || 'taisplatform@gmail.com';
+    
+    if (!sendgridKey) {
+      return res.json({ 
+        message: 'SendGrid not configured - email logged only',
+        email: alertEmail,
+        configured: false,
+        hint: 'Set SENDGRID_API_KEY in Render environment variables'
+      });
+    }
+
     const testAlert = {
       id: `test_${Date.now()}`,
       name: 'test_alert',
@@ -148,16 +160,52 @@ router.post('/alerts/test', async (req: Request, res: Response) => {
       details: { test: true, triggeredBy: 'manual' },
     };
 
-    // Use the AlertManager's private method via any cast for testing
-    const alertManagerAny = alertManager as any;
-    await alertManagerAny.sendEmail(testAlert);
-    
-    res.json({ 
-      message: 'Test alert sent',
-      email: process.env.ALERT_EMAIL_TO || 'taisplatform@gmail.com'
+    // Send via SendGrid
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${sendgridKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        personalizations: [
+          {
+            to: [{ email: alertEmail }],
+            subject: `[TAIS INFO] test_alert`,
+          },
+        ],
+        from: { email: alertEmail, name: 'TAIS Alerts' },
+        content: [
+          {
+            type: 'text/plain',
+            value: `TAIS Test Alert\n\nThis is a test alert from TAIS monitoring.\n\nTime: ${new Date().toISOString()}\n\nIf you received this, email alerts are working!`,
+          },
+        ],
+      }),
     });
+
+    if (response.ok) {
+      res.json({ 
+        message: 'Test alert sent successfully',
+        email: alertEmail,
+        configured: true,
+        status: 'sent'
+      });
+    } else {
+      const error = await response.text();
+      res.status(500).json({ 
+        message: 'SendGrid error',
+        email: alertEmail,
+        configured: true,
+        status: 'failed',
+        error: error
+      });
+    }
   } catch (error) {
-    res.status(500).json({ error: 'Failed to send test alert' });
+    res.status(500).json({ 
+      error: 'Failed to send test alert',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 });
 
