@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { getMetrics, getContentType } from '../monitoring/metrics';
 import { AlertManager } from '../monitoring/alerts';
+import { getNFTCacheStats } from '../services/genesisConfigLimits';
+import { getRedisStatus, getRedisStats } from '../services/redis';
 import * as winston from 'winston';
 
 const router = Router();
@@ -40,14 +42,35 @@ router.get('/dashboard', async (req: Request, res: Response) => {
     // Get alert status
     const alerts = alertManager.getActiveAlerts();
     
+    // Get cache stats
+    const cacheStats = getNFTCacheStats();
+    const redisStatus = getRedisStatus();
+    const redisStats = await getRedisStats();
+    
     res.json({
       timestamp: new Date().toISOString(),
       health: {
         database: dbHealth,
         system: systemHealth,
+        redis: redisStatus,
         overall: dbHealth && systemHealth.status === 'healthy' ? 'healthy' : 'degraded',
       },
       performance: performanceStats,
+      cache: {
+        provider: cacheStats.provider,
+        nft: {
+          size: cacheStats.size,
+          maxSize: cacheStats.maxSize,
+          ttl: cacheStats.ttl,
+          memoryBytes: cacheStats.memoryBytes,
+          utilizationPercent: cacheStats.size > 0 ? Math.round((cacheStats.size / cacheStats.maxSize) * 100) : 0
+        },
+        redis: redisStats ? {
+          usedMemory: redisStats.usedMemory,
+          connectedClients: redisStats.connectedClients,
+          uptime: redisStats.uptime
+        } : null
+      },
       alerts: {
         active: alerts.length,
         critical: alerts.filter(a => a.severity === 'critical').length,

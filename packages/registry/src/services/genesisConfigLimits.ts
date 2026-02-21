@@ -3,6 +3,7 @@
 
 import { ethers } from 'ethers';
 import { PrismaClient } from '@prisma/client';
+import { cacheGet, cacheSet, cacheDelete, isRedisAvailable } from './redis';
 
 const prisma = new PrismaClient();
 
@@ -16,8 +17,11 @@ const RPC_PROVIDERS = [
   'https://ethereum.publicnode.com'
 ].filter(Boolean) as string[];
 
-// Cache expiration time (1 hour)
-const CACHE_TTL_MS = 60 * 60 * 1000;
+// Cache expiration time (15 minutes - reduced from 1 hour for memory efficiency)
+const CACHE_TTL_MS = 15 * 60 * 1000;
+
+// Maximum cache entries (prevent unbounded memory growth)
+const MAX_CACHE_SIZE = 500;
 
 // ERC721 ABI for balanceOf and tokenOfOwnerByIndex
 const ERC721_ABI = [
@@ -26,8 +30,94 @@ const ERC721_ABI = [
   'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
 ];
 
-// Simple in-memory cache
-const nftCache = new Map<string, { result: NFTOwnershipResult; timestamp: number }>();
+interface CacheEntry {
+  result: NFTOwnershipResult;
+  timestamp: number;
+  lastAccessed: number;
+}
+
+/**
+ * LRU Cache with TTL and size limits
+ */
+class LRUCache {
+  private cache = new Map<string, CacheEntry>();
+  private maxSize: number;
+  private ttl: number;
+
+  constructor(maxSize: number = MAX_CACHE_SIZE, ttl: number = CACHE_TTL_MS) {
+    this.maxSize = maxSize;
+    this.ttl = ttl;
+  }
+
+  get(key: string): NFTOwnershipResult | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+
+    // Check if expired
+    if (Date.now() - entry.timestamp > this.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    // Update last accessed for LRU
+    entry.lastAccessed = Date.now();
+    // Move to end (most recently used)
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+
+    return entry.result;
+  }
+
+  set(key: string, value: NFTOwnershipResult): void {
+    // Evict oldest entries if at capacity
+    while (this.cache.size >= this.maxSize) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey) {
+        this.cache.delete(oldestKey);
+        console.log(`[LRU Cache] Evicted oldest entry: ${oldestKey}`);
+      }
+    }
+
+    this.cache.set(key, {
+      result: value,
+      timestamp: Date.now(),
+      lastAccessed: Date.now()
+    });
+  }
+
+  delete(key: string): void {
+    this.cache.delete(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  size(): number {
+    return this.cache.size;
+  }
+
+  // Clean up expired entries
+  cleanup(): number {
+    const now = Date.now();
+    let cleaned = 0;
+    for (const [key, entry] of this.cache.entries()) {
+      if (now - entry.timestamp > this.ttl) {
+        this.cache.delete(key);
+        cleaned++;
+      }
+    }
+    return cleaned;
+  }
+
+  // Get memory usage estimate (bytes)
+  getMemoryUsage(): number {
+    return JSON.stringify([...this.cache.entries()]).length;
+  }
+}
+
+// Replace simple Map with LRU cache
+const nftCache = new LRUCache(MAX_CACHE_SIZE, CACHE_TTL_MS);
 
 interface NFTOwnershipResult {
   isHolder: boolean;
@@ -310,15 +400,42 @@ export { GENESIS_CONTRACT };
 export type { NFTOwnershipResult, ConfigCheckResult };
 
 /**
- * Cache NFT verification result
+ * Get cache statistics for monitoring
+ */
+export function getNFTCacheStats(): { 
+  size: number; 
+  maxSize: number; 
+  ttl: number; 
+  memoryBytes: number;
+  provider: 'redis' | 'memory';
+} {
+  const redisAvailable = isRedisAvailable();
+  
+  return {
+    size: redisAvailable ? -1 : nftCache.size(), // -1 indicates Redis (can't easily get count)
+    maxSize: MAX_CACHE_SIZE,
+    ttl: CACHE_TTL_MS,
+    memoryBytes: redisAvailable ? 0 : nftCache.getMemoryUsage(),
+    provider: redisAvailable ? 'redis' : 'memory'
+  };
+}
+
+/**
+ * Cache NFT verification result (Redis with in-memory fallback)
  */
 async function cacheNFTResult(walletAddress: string, result: NFTOwnershipResult): Promise<void> {
   const cacheKey = walletAddress.toLowerCase();
-  nftCache.set(cacheKey, {
-    result,
-    timestamp: Date.now()
-  });
-  console.log(`[NFT Cache] Cached result for ${walletAddress}`);
+  
+  // Try Redis first
+  const redisAvailable = isRedisAvailable();
+  if (redisAvailable) {
+    await cacheSet(cacheKey, result, { prefix: 'nft', ttl: 900 });
+    console.log(`[NFT Cache] Redis: Cached result for ${walletAddress}`);
+  } else {
+    // Fallback to in-memory
+    nftCache.set(cacheKey, result);
+    console.log(`[NFT Cache] Memory: Cached result for ${walletAddress}, cache size: ${nftCache.size()}`);
+  }
 }
 
 /**
@@ -326,19 +443,24 @@ async function cacheNFTResult(walletAddress: string, result: NFTOwnershipResult)
  */
 async function getCachedNFTStatus(walletAddress: string): Promise<NFTOwnershipResult | null> {
   const cacheKey = walletAddress.toLowerCase();
-  const cached = nftCache.get(cacheKey);
   
-  if (!cached) return null;
-  
-  // Check if cache is expired
-  if (Date.now() - cached.timestamp > CACHE_TTL_MS) {
-    console.log(`[NFT Cache] Cache expired for ${walletAddress}`);
-    nftCache.delete(cacheKey);
+  // Try Redis first
+  const redisAvailable = isRedisAvailable();
+  if (redisAvailable) {
+    const cached = await cacheGet<NFTOwnershipResult>(cacheKey, { prefix: 'nft' });
+    if (cached) {
+      console.log(`[NFT Cache] Redis: Using cached result for ${walletAddress}`);
+      return cached;
+    }
     return null;
   }
   
-  console.log(`[NFT Cache] Using cached result for ${walletAddress}`);
-  return cached.result;
+  // Fallback to in-memory
+  const cached = nftCache.get(cacheKey);
+  if (!cached) return null;
+  
+  console.log(`[NFT Cache] Memory: Using cached result for ${walletAddress}`);
+  return cached;
 }
 
 /**
@@ -346,8 +468,15 @@ async function getCachedNFTStatus(walletAddress: string): Promise<NFTOwnershipRe
  */
 export function clearNFTCache(walletAddress: string): void {
   const cacheKey = walletAddress.toLowerCase();
-  nftCache.delete(cacheKey);
-  console.log(`[NFT Cache] Cleared cache for ${walletAddress}`);
+  
+  const redisAvailable = isRedisAvailable();
+  if (redisAvailable) {
+    cacheDelete(cacheKey, { prefix: 'nft' });
+    console.log(`[NFT Cache] Redis: Cleared cache for ${walletAddress}`);
+  } else {
+    nftCache.delete(cacheKey);
+    console.log(`[NFT Cache] Memory: Cleared cache for ${walletAddress}`);
+  }
 }
 
 /**

@@ -7,7 +7,8 @@ TAIS Registry includes comprehensive monitoring and observability features:
 - **Error Tracking** - Sentry integration for error monitoring
 - **Metrics Collection** - Prometheus-compatible metrics
 - **Health Monitoring** - Real-time system health dashboard
-- **Alerting** - Automated alerts for critical issues
+- **Alerting** - Automated email alerts for critical issues
+- **Caching** - Redis for distributed caching (optional)
 - **Performance Monitoring** - Response times, throughput, resource usage
 - **Business Metrics** - Skills registered, audits submitted, downloads
 
@@ -80,36 +81,44 @@ GET /monitoring/dashboard
 **Response:**
 ```json
 {
-  "timestamp": "2024-02-05T20:00:00Z",
+  "timestamp": "2026-02-21T12:00:00Z",
   "health": {
     "database": true,
     "system": {
       "status": "healthy",
-      "uptime": 86400,
-      "load": [0.5, 0.3, 0.2]
+      "uptime": 3600,
+      "load": [0.1, 0.05, 0.02]
+    },
+    "redis": {
+      "available": true,
+      "provider": "upstash",
+      "connectionStatus": "Connected"
     },
     "overall": "healthy"
   },
-  "stats": {
-    "skills": {
-      "total": 150,
-      "approved": 140,
-      "blocked": 5,
-      "downloads": 10000
-    },
-    "audits": {
-      "total": 300,
-      "safe": 280,
-      "suspicious": 15,
-      "malicious": 5
-    }
-  },
   "performance": {
     "memory": {
-      "used": 128,
-      "total": 512,
+      "used": 64,
+      "total": 256,
       "percentage": 25
     }
+  },
+  "cache": {
+    "provider": "redis",
+    "nft": {
+      "ttl": 900,
+      "utilizationPercent": 0
+    },
+    "redis": {
+      "usedMemory": "1.02M",
+      "connectedClients": 1,
+      "uptime": 7
+    }
+  },
+  "alerts": {
+    "active": 0,
+    "critical": 0,
+    "warning": 0
   }
 }
 ```
@@ -134,27 +143,33 @@ Alerts are configured automatically based on thresholds:
 
 | Alert | Condition | Severity | Channels |
 |-------|-----------|----------|----------|
-| High Error Rate | Error rate > 10% | Critical | Email, Slack, PagerDuty |
-| High Latency | Avg response > 2s | Warning | Slack, Email |
-| DB Connection Failures | > 5 failures | Critical | All channels |
-| High CPU | Usage > 80% | Warning | Slack |
-| High Memory | Usage > 85% | Warning | Slack |
-| Low Disk Space | Usage > 90% | Critical | All channels |
+| High Error Rate | Error rate > 5% | Critical | Email |
+| High Latency | Avg response > 1s | Warning | Email |
+| DB Connection Failures | > 3 failures | Critical | Email |
+| High Memory | Usage > 90% | Warning | Email |
+| NFT Verification Failures | > 10 failures | Warning | Email |
+| Config Save Failures | > 5 failures | Warning | Email |
+| RAG Upload Failures | > 5 failures | Warning | Email |
+| Rate Limit Abuse | > 100 hits | Warning | Email |
+| Wallet Auth Failures | > 20 failures | Warning | Email |
 
-**Configure Channels:**
+**Configure Alert Channels:**
 
 ```bash
-# Slack
+# Email via SendGrid (recommended)
+SENDGRID_API_KEY=SG.xxxxxxxx
+ALERT_EMAIL_TO=alerts@example.com
+
+# Slack (optional)
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
 
-# Email (SMTP)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=alerts@example.com
-SMTP_PASS=password
+# Webhook (optional)
+ALERT_WEBHOOK_URL=https://your-webhook.com/alerts
+```
 
-# PagerDuty
-PAGERDUTY_KEY=your-integration-key
+**Test Alerts:**
+```
+POST /monitoring/alerts/test
 ```
 
 **View Alerts:**
@@ -174,16 +189,17 @@ POST /monitoring/alerts/:id/acknowledge
 **For MVP (Free):**
 ```
 Sentry (free tier) - Error tracking
-Railway Dashboard - Basic metrics
+Render Dashboard - Basic metrics
 Custom dashboard - /monitoring/dashboard
+Upstash Redis (free tier) - Distributed caching
 ```
 
 **For Production:**
 ```
 Sentry - Error tracking
+Upstash Redis - Caching (scaling from free)
 Prometheus + Grafana - Metrics visualization
-PagerDuty - Alerting
-DataDog/NewRelic - APM (optional)
+SendGrid - Email alerting
 ```
 
 ### Docker Compose Setup
@@ -394,14 +410,58 @@ Adjust thresholds:
 }
 ```
 
+### Redis Connection Issues
+
+Check Redis status:
+```bash
+curl http://localhost:3000/monitoring/dashboard
+# Look for: health.redis.connectionStatus
+```
+
+Verify environment variable:
+```bash
+# Make sure REDIS_URL is set in Render dashboard
+echo $REDIS_URL
+```
+
+Redis fallback: If Redis is unavailable, the system automatically falls back to in-memory caching.
+
+## Redis Caching
+
+### Setup
+
+1. Create free account at [upstash.com](https://upstash.com)
+2. Create a new Redis database (free tier)
+3. Copy the REST API URL
+4. Add to Render environment variables:
+   ```
+   REDIS_URL=<your-upstash-url>
+   ```
+
+### Features
+
+- **NFT Verification Cache** - 15-minute TTL
+- **Automatic Fallback** - In-memory cache if Redis unavailable
+- **Connection Monitoring** - Status shown in dashboard
+
+### Cost Scaling
+
+| Plan | Price | Commands/Mo | Storage |
+|------|-------|-------------|---------|
+| Free | $0 | 500K | 256MB |
+| Fixed 250MB | $10/mo | Unlimited | 250MB |
+| Fixed 1GB | $20/mo | Unlimited | 1GB |
+
 ## References
 
 - [Sentry Documentation](https://docs.sentry.io/)
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Grafana Documentation](https://grafana.com/docs/)
 - [Winston Logger](https://github.com/winstonjs/winston)
+- [Upstash Redis](https://upstash.com/docs/)
+- [SendGrid Documentation](https://docs.sendgrid.com/)
 
 ---
 
-**Last Updated:** February 5, 2026
-**Version:** 1.0.0
+**Last Updated:** February 21, 2026
+**Version:** 1.1.0
