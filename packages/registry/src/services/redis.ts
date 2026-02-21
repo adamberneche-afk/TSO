@@ -10,12 +10,15 @@ let isRedisConnected = false;
 // Initialize Redis connection if URL is provided
 if (REDIS_URL) {
   try {
+    // Decode URL if it's URL-encoded
+    let connectionUrl = decodeURIComponent(REDIS_URL);
+    
     // For Upstash, construct URL with token if provided separately
-    let connectionUrl = REDIS_URL;
-    if (REDIS_TOKEN && !REDIS_URL.includes('@')) {
-      // If using Upstash REST URL without embedded token
-      connectionUrl = REDIS_URL.replace('https://', `https://default:${REDIS_TOKEN}@`);
+    if (REDIS_TOKEN && !connectionUrl.includes('@')) {
+      connectionUrl = connectionUrl.replace('https://', `https://default:${REDIS_TOKEN}@`);
     }
+    
+    console.log('[Redis] Connecting to:', connectionUrl.replace(/:[^:@]+@/, ':***@'));
     
     redis = new Redis(connectionUrl, {
       maxRetriesPerRequest: 3,
