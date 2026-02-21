@@ -70,26 +70,36 @@
 
 #### 3. Alert Configuration
 **Goal:** Proactive notification of system issues
-**Status:** ⏸️ Blocked by Sprint 3
+**Status:** 🔄 IN PROGRESS
 
 **Tasks:**
-- [ ] Define alert rules
-- [ ] Configure notification channels (email, Slack, Discord)
-- [ ] Set up escalation policies
-- [ ] Test alert delivery
-- [ ] Document runbooks for each alert
+- [x] Define alert rules
+- [x] Configure email notifications (taisplatform@gmail.com)
+- [ ] Add TAIS-specific alerts (NFT, config, RAG failures)
+- [ ] Implement SendGrid email sending
+- [ ] Add test alert endpoint
+- [ ] Document runbooks for- [ ] Test alert delivery
 
-**Alert Rules:**
-| Condition | Severity | Channel |
+**Alert Rules Configured:**
+| Alert Name | Condition | Severity |
 |-----------|----------|---------|
-| Error rate > 5% | Critical | Slack + Email |
-| Response time p95 > 500ms | Warning | Slack |
-| Database connections > 80% | Warning | Slack |
-| Rate limit hits > 100/min | Info | Dashboard |
-| NFT verification failures > 10% | Warning | Slack |
+| high_error_rate | Error rate > 5% | Critical |
+| high_latency | Response time > 1s | Warning |
+| database_connection_failures | DB failures > 3 | Critical |
+| high_memory_usage | Memory > 90% | Warning |
+| nft_verification_failures | NFT failures > 10 | Warning |
+| config_save_failures | Config saves fail > 5 | Warning |
+| rag_upload_failures | RAG uploads fail > 5 | Warning |
+| rate_limit_abuse | Rate limits > 100 | Warning |
+| wallet_auth_failures | Auth failures > 20 | Warning |
 
-**Dependencies:** Prometheus Metrics
-**Estimated Effort:** 1-2 days
+**Email Configuration:**
+- From: alerts@taisplatform.vercel.app
+- To: taisplatform@gmail.com
+- Provider: SendGrid (optional, mock mode available)
+
+**Dependencies:** None
+**Estimated Effort:** 1 day
 **Team:** Gamma (Runtime)
 
 ---

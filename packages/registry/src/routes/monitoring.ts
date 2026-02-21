@@ -114,6 +114,53 @@ router.get('/performance', async (req: Request, res: Response) => {
   }
 });
 
+// Alert configurations endpoint
+router.get('/alerts/configs', async (req: Request, res: Response) => {
+  res.json({
+    configs: alertManager.getAlertConfigs(),
+  });
+});
+
+// Evaluate alerts manually
+router.post('/alerts/evaluate', async (req: Request, res: Response) => {
+  try {
+    const metrics = req.body;
+    alertManager.evaluateMetrics(metrics);
+    res.json({ 
+      message: 'Alerts evaluated',
+      activeAlerts: alertManager.getActiveAlerts().length 
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to evaluate alerts' });
+  }
+});
+
+// Test email alert
+router.post('/alerts/test', async (req: Request, res: Response) => {
+  try {
+    const testAlert = {
+      id: `test_${Date.now()}`,
+      name: 'test_alert',
+      severity: 'info' as const,
+      message: 'This is a test alert from TAIS monitoring',
+      timestamp: new Date(),
+      acknowledged: false,
+      details: { test: true, triggeredBy: 'manual' },
+    };
+
+    // Use the AlertManager's private method via any cast for testing
+    const alertManagerAny = alertManager as any;
+    await alertManagerAny.sendEmail(testAlert);
+    
+    res.json({ 
+      message: 'Test alert sent',
+      email: process.env.ALERT_EMAIL_TO || 'taisplatform@gmail.com'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to send test alert' });
+  }
+});
+
 // Helper functions
 async function checkDatabaseHealth(): Promise<boolean> {
   try {
