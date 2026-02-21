@@ -88,6 +88,9 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "overrides": {
-    "fast-xml-parser": "^5.3.7"
+    "fast-xml-parser": "^5.3.7",
+    "tar": "^7.5.9",
+    "minimatch": "^10.2.1",
+    "parse-duration": "^2.1.3"
   }
 }
