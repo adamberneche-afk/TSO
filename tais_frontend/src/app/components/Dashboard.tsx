@@ -522,7 +522,8 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
       await configApi.updateConfiguration(agent.id, {
         name: editedConfig.agent.name,
         description: editedConfig.agent.description,
-        configData: editedConfig
+        configData: editedConfig,
+        personalityMd: editedConfig.agent.personalityMd,
       });
       onUpdate({ ...agent, config: editedConfig, lastModified: new Date().toISOString() });
       setIsEditing(false);
@@ -553,6 +554,17 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
     } catch {
       // Invalid JSON, ignore
     }
+  };
+
+  const handlePersonalityChange = (value: string | undefined) => {
+    if (!value) return;
+    setEditedConfig(prev => ({
+      ...prev,
+      agent: {
+        ...prev.agent,
+        personalityMd: value,
+      }
+    }));
   };
 
   const addKnowledgeSource = (source: any) => {
@@ -792,16 +804,17 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
                     <div className="w-3 h-3 rounded-full bg-[#8B5CF6]"></div>
                     <span className="text-xs text-[#888888] uppercase tracking-wider font-medium">personality.md</span>
                   </div>
-                  <span className="text-xs text-[#666666]">Flexible • LLM-Friendly</span>
+                  <span className="text-xs text-[#666666]">{isEditing ? 'Editing' : 'Flexible'} • LLM-Friendly</span>
                 </div>
                 {personalityMd ? (
                   <Editor
                     height="calc(100% - 80px)"
                     defaultLanguage="markdown"
                     value={personalityMd}
+                    onChange={isEditing ? handlePersonalityChange : undefined}
                     theme="vs-dark"
                     options={{
-                      readOnly: true,
+                      readOnly: !isEditing,
                       minimap: { enabled: false },
                       fontSize: 12,
                       fontFamily: 'JetBrains Mono, monospace',
