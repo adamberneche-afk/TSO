@@ -277,6 +277,10 @@ apiV1Router.use(metricsMiddleware);
 // Monitoring routes (unversioned, accessible at /monitoring)
 app.use('/monitoring', monitoringRoutes);
 
+// Admin migration fix endpoint (run once to fix failed migrations)
+import { migrationFixRoutes } from './routes/migrationFix';
+app.use('/admin/migration', adminMiddleware, migrationFixRoutes);
+
 // Mount API v1 router
 app.use('/api/v1', apiV1Router);
 
