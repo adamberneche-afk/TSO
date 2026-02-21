@@ -264,6 +264,19 @@ apiV1Router.use('/rag',
   createRAGRoutes(ragPrisma, logger)
 );
 
+// ============================================
+// Monitoring & Observability Routes
+// Prometheus metrics, health dashboard, alerts
+// ============================================
+import { monitoringRoutes } from './routes/monitoring';
+import { metricsMiddleware } from './monitoring/metrics';
+
+// Apply metrics middleware to all API routes
+apiV1Router.use(metricsMiddleware);
+
+// Monitoring routes (unversioned, accessible at /monitoring)
+app.use('/monitoring', monitoringRoutes);
+
 // Mount API v1 router
 app.use('/api/v1', apiV1Router);
 
