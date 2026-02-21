@@ -7,6 +7,12 @@ const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 let redis: Redis | null = null;
 let isRedisConnected = false;
 
+console.log('[Redis] Checking env vars:', { 
+  REDIS_URL: REDIS_URL ? 'set' : 'not set',
+  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL ? 'set' : 'not set', 
+  UPSTASH_REDIS_REST_TOKEN: REDIS_TOKEN ? 'set' : 'not set'
+});
+
 // Initialize Redis connection if URL is provided
 if (REDIS_URL) {
   try {
