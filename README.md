@@ -1,4 +1,4 @@
-# TAIS Platform v2.7 🚀
+# TAIS Platform v2.7.1 🚀
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -9,11 +9,12 @@
 [![Audits](https://img.shields.io/badge/Audits-3%20Passed-success.svg)]()
 [![Frontend](https://img.shields.io/badge/Frontend-Vercel%20Live-black.svg)]()
 [![RAG](https://img.shields.io/badge/RAG-Multi--Tier-orange.svg)]()
+[![Monitoring](https://img.shields.io/badge/Monitoring-Prometheus-blue.svg)]()
 [![Deployment](https://img.shields.io/badge/Deployment-Render-success.svg)]()
 
-**Production-Ready • Enterprise Security • NFT-Verified • E2EE Multi-RAG • Hybrid Config Architecture**
+**Production-Ready • Enterprise Security • NFT-Verified • E2EE Multi-RAG • Hybrid Config Architecture • Prometheus Monitoring**
 
-TAIS (Think Agent Interview System) is a comprehensive platform for AI agent configuration, skill management, and privacy-first knowledge retrieval. Features a three-tier RAG (Retrieval-Augmented Generation) system with end-to-end encryption, dual-database architecture, blockchain verification via THINK Genesis Bundle NFTs, and a hybrid JSON + Markdown personality configuration system.
+TAIS (Think Agent Interview System) is a comprehensive platform for AI agent configuration, skill management, and privacy-first knowledge retrieval. Features a three-tier RAG (Retrieval-Augmented Generation) system with end-to-end encryption, dual-database architecture, blockchain verification via THINK Genesis Bundle NFTs, hybrid JSON + Markdown personality configuration, and Prometheus-compatible monitoring.
 
 ## 🔒 Security Status: A Grade (94%)
 
@@ -26,6 +27,8 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 ✅ **Hybrid Config Tests: 18/18 Passed**
 
 🌐 **Live API:** https://tso.onrender.com  
+📊 **Metrics:** https://tso.onrender.com/monitoring/metrics  
+📈 **Dashboard:** https://tso.onrender.com/monitoring/dashboard  
 📚 **Documentation:** https://tso.onrender.com/api/docs  
 🎨 **Frontend:** https://taisplatform.vercel.app  
 ✅ **Status:** LIVE AND OPERATIONAL (February 20, 2026)  

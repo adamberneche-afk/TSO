@@ -17,9 +17,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cloudflare R2 storage (when revenue positive)
 
 ### In Progress
-- Monitoring & observability setup (Sprint 3)
+- Alert configuration (pending notification channels)
+- Log aggregation setup
 - Performance baseline establishment
-- Alert configuration
+
+## [2.7.1] - 2026-02-20
+
+### Added
+- **Monitoring & Observability System** - Sprint 3
+  - **Prometheus Metrics Endpoint** - `/monitoring/metrics`
+  - **Dashboard Endpoint** - `/monitoring/dashboard`
+  - **Metrics Middleware** - Tracks all API requests automatically
+  
+- **TAIS-Specific Metrics**
+  - `tais_http_request_duration_seconds` - Request latency (p50, p95, p99)
+  - `tais_http_requests_total` - Request counts by endpoint
+  - `tais_nft_verifications_total` - NFT verification success/failure by tier
+  - `tais_config_saves_total` - Configuration saves
+  - `tais_config_updates_total` - Configuration updates
+  - `tais_rag_uploads_total` - RAG document uploads by type/tier
+  - `tais_rag_queries_total` - RAG search queries
+  - `tais_rag_query_duration_seconds` - RAG query latency
+  - `tais_rate_limit_hits_total` - Rate limit hits by tier/endpoint
+  - `tais_wallet_authentications_total` - Wallet authentication stats
+  - `tais_active_wallets` - Unique active wallets gauge
+
+- **Frontend MonitoringDashboard Component**
+  - Real-time system health status
+  - Memory, CPU, and database metrics
+  - Active alerts display
+  - Auto-refresh every 30 seconds
+  - Link to Prometheus metrics endpoint
+
+- **AlertManager** - Alert evaluation and notification framework
+  - Pre-configured alert rules (high error rate, latency, memory, etc.)
+  - Cooldown periods to prevent alert spam
+  - Multiple notification channels (email, Slack, PagerDuty, webhook)
+
+### Changed
+- Fixed `prom-client` import for ESM compatibility (`import * as promClient`)
+- Fixed `winston` import for ESM compatibility
 
 ## [2.7.0] - 2026-02-20
 
