@@ -239,6 +239,37 @@ model AgentConfiguration {
 }
 
 // ============================================
+// Configuration Versioning (v2.7.7)
+// ============================================
+
+model ConfigurationVersion {
+  id            String   @id @default(uuid())
+  configId      String   @map("config_id")
+  walletAddress String   @map("wallet_address")
+  
+  // Version info
+  version       Int
+  versionNote   String?  @map("version_note") // Optional changelog
+  
+  // Compressed snapshot (gzip)
+  configSnapshot Json    @map("config_snapshot") // Full config JSON
+  personalityMd String?  @map("personality_md")
+  
+  // Tier-based retention
+  tier          String   @default("bronze") // bronze, silver, gold
+  
+  // Timestamps
+  createdAt     DateTime @default(now()) @map("created_at")
+  expiresAt     DateTime? @map("expires_at") // For auto-cleanup
+  
+  @@unique([configId, version])
+  @@index([walletAddress])
+  @@index([configId])
+  @@index([expiresAt])
+  @@map("configuration_versions")
+}
+
+// ============================================
 // RAG (Retrieval-Augmented Generation) Models
 // ============================================
 

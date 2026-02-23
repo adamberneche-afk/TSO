@@ -11,6 +11,14 @@ import {
   verifyNFTOwnership
 } from '../services/genesisConfigLimits';
 
+import {
+  createVersionSnapshot,
+  getConfigVersions,
+  getVersionDetails,
+  rollbackToVersion,
+  getUserTier
+} from '../services/configurationVersioning';
+
 // Extend Express Request type to include user
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -357,6 +365,114 @@ router.get('/nft/verify', async (req: AuthenticatedRequest, res: Response) => {
     console.error('Error verifying NFT ownership', error);
     res.status(500).json({
       error: 'Failed to verify NFT ownership'
+    });
+  }
+});
+
+/**
+ * GET /api/configurations/:id/versions
+ * Get all versions for a configuration
+ */
+router.get('/:id/versions', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const walletAddress = req.user?.walletAddress;
+    const configId = req.params.id;
+    
+    if (!walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const configs: any = await getWalletConfigurations(walletAddress);
+    const config = configs.find((c: any) => c.id === configId);
+    
+    if (!config) {
+      return res.status(404).json({ error: 'Configuration not found' });
+    }
+    
+    const versions = await getConfigVersions(configId, walletAddress);
+    const tier = await getUserTier(walletAddress);
+    
+    res.json({
+      configId,
+      currentVersion: config.version,
+      tier,
+      versions
+    });
+    
+  } catch (error) {
+    console.error('Error getting versions', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to get versions'
+    });
+  }
+});
+
+/**
+ * GET /api/configurations/:id/versions/:version
+ * Get specific version details
+ */
+router.get('/:id/versions/:ver', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const walletAddress = req.user?.walletAddress;
+    const configId = req.params.id;
+    const version = parseInt((req.params as any).ver);
+    
+    if (!walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const configs: any = await getWalletConfigurations(walletAddress);
+    const config = configs.find((c: any) => c.id === configId);
+    
+    if (!config) {
+      return res.status(404).json({ error: 'Configuration not found' });
+    }
+    
+    const versionData = await getVersionDetails(configId, walletAddress, version);
+
+    res.json(versionData);
+    
+  } catch (error) {
+    console.error('Error getting version', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to get version'
+    });
+  }
+});
+
+/**
+ * POST /api/configurations/:id/rollback/:version
+ * Rollback to a specific version
+ */
+router.post('/:id/rollback/:ver', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const walletAddress = req.user?.walletAddress;
+    const configId = req.params.id;
+    const version = parseInt((req.params as any).ver);
+    
+    if (!walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const configs: any = await getWalletConfigurations(walletAddress);
+    const config = configs.find((c: any) => c.id === configId);
+    
+    if (!config) {
+      return res.status(404).json({ error: 'Configuration not found' });
+    }
+    
+    const updated = await rollbackToVersion(configId, walletAddress, version);
+    
+    res.json({
+      success: true,
+      config: updated,
+      message: `Rolled back to version ${version}`
+    });
+    
+  } catch (error) {
+    console.error('Error rolling back version', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to rollback'
     });
   }
 });

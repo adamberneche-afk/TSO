@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import WeeklyInsightsEmailService from '../services/weeklyInsightsEmail';
+import { pruneExpiredVersions } from '../services/configurationVersioning';
 
 export function createAdminRoutes(prisma: PrismaClient, logger: any): Router {
   const router = Router();
@@ -30,7 +31,29 @@ export function createAdminRoutes(prisma: PrismaClient, logger: any): Router {
       }
     } catch (error: any) {
       logger.error('[Cron] Error generating weekly insights:', error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error?.message || String(error) });
+    }
+  });
+
+  // Prune expired configuration versions
+  router.post('/prune-versions', async (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const expectedToken = process.env.CRON_SECRET;
+
+    if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      logger.info('[Cron] Starting configuration version pruning...');
+      
+      const deletedCount = await pruneExpiredVersions();
+      
+      logger.info(`[Cron] Pruned ${deletedCount} expired versions`);
+      res.json({ success: true, deletedCount });
+    } catch (error: any) {
+      logger.error('[Cron] Error pruning versions:', error);
+      res.status(500).json({ error: error?.message || String(error) });
     }
   });
 

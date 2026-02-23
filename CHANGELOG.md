@@ -8,9 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- **Configuration Versioning** - R2 storage + tiered retention
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
+
+## [2.7.7] - 2026-02-23
+
+### Added
+- **Configuration Versioning** - Safe history with tiered retention
+  - Automatic version snapshots on save/update
+  - Tier-based retention:
+    - Bronze: 7 days, 10 versions
+    - Silver: 30 days, 30 versions
+    - Gold: 90 days, 100 versions
+  - API: `GET /api/v1/configurations/:id/versions`
+  - API: `GET /api/v1/configurations/:id/versions/:ver`
+  - API: `POST /api/v1/configurations/:id/rollback/:ver`
+  - Prune endpoint: `POST /admin/cron/prune-versions`
+  - Database storage (R2-ready architecture)
+
+### Database
+- Added model: `ConfigurationVersion`
 
 ## [2.7.6] - 2026-02-23
 

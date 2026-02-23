@@ -4,6 +4,7 @@
 import { ethers } from 'ethers';
 import { PrismaClient } from '@prisma/client';
 import { cacheGet, cacheSet, cacheDelete, isRedisAvailable } from './redis';
+import { createVersionSnapshot } from './configurationVersioning';
 
 const prisma = new PrismaClient();
 
@@ -311,6 +312,14 @@ export async function saveConfiguration(
     }
   });
   
+  await createVersionSnapshot(
+    config.id,
+    walletAddress,
+    configData,
+    personalityMd,
+    'Initial version'
+  );
+  
   return {
     config,
     remaining: check.remaining - 1,
@@ -360,6 +369,14 @@ export async function updateConfiguration(
       updatedAt: new Date()
     }
   });
+  
+  await createVersionSnapshot(
+    configId,
+    walletAddress,
+    updates.configData || existing.configData,
+    updates.personalityMd ?? undefined,
+    updates.description || 'Updated'
+  );
   
   return config;
 }

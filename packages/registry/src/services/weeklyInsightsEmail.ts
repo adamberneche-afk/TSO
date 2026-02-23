@@ -45,16 +45,17 @@ export class WeeklyInsightsEmailService {
     const now = new Date();
     const day = now.getDay();
     const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const weekStart = new Date(now.setDate(diff));
+    const weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - diff);
     weekStart.setHours(0, 0, 0, 0);
 
     // Generate insights for the week
     let insights: any;
     try {
       insights = await this.analytics.getWeeklyInsights(weekStart);
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Weekly Insights] Failed to generate insights:', error);
-      return { success: false, message: 'Failed to generate insights' };
+      return { success: false, message: 'Failed to generate insights: ' + error.message };
     }
 
     // Build email content
