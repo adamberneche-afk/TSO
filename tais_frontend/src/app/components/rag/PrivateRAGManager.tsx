@@ -4,12 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { ScrollArea } from '../ui/scroll-area';
-import { Upload, FileText, Trash2, AlertCircle, CheckCircle2, Loader2, ShieldCheck, Database, HardDrive } from 'lucide-react';
+import { Upload, FileText, Trash2, AlertCircle, CheckCircle2, Loader2, ShieldCheck, Database, HardDrive, FolderOpen, FileUp } from 'lucide-react';
 import { usePrivateRAG } from '../../../hooks/useRAG';
 import { getPrivateRAG } from '../../../services/rag/privateRAG';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Document } from '../../../types/rag';
+
+const STORAGE_KEY = 'tais_private_rag_directory';
 
 export const PrivateRAGManager: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -17,20 +19,82 @@ export const PrivateRAGManager: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState<{ status: string; progress: number } | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
+  const [storageDir, setStorageDir] = useState<FileSystemDirectoryHandle | null>(null);
+  const [storageMode, setStorageMode] = useState<'browser' | 'local'>('browser');
 
-  useEffect(() => {
-    const checkInit = async () => {
-      try {
-        const rag = getPrivateRAG();
-        await rag.initialize();
-        setIsInitialized(true);
-      } catch (err) {
-        console.error('Private RAG init error:', err);
-        setInitError(err instanceof Error ? err.message : 'Failed to initialize');
+  const chooseLocalFolder = async () => {
+    if (!('showDirectoryPicker' in window)) {
+      toast.error('Your browser does not support folder selection. Try Chrome or Edge.');
+      return;
+    }
+    
+    try {
+      const dirHandle = await (window as any).showDirectoryPicker({
+        mode: 'readwrite'
+      });
+      
+      // Store permission for future use
+      if (await dirHandle.queryPermission({ mode: 'readwrite' }) === 'granted') {
+        localStorage.setItem(STORAGE_KEY, dirHandle.name);
+        setStorageDir(dirHandle);
+        setStorageMode('local');
+        toast.success(`Using folder: ${dirHandle.name}`);
       }
-    };
-    checkInit();
-  }, []);
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        console.error('Failed to choose folder:', err);
+        toast.error('Failed to access folder');
+      }
+    }
+  };
+
+  const exportToLocal = async () => {
+    if (!documents.length) {
+      toast.error('No documents to export');
+      return;
+    }
+
+    const dir = storageDir || await chooseLocalFolder();
+    if (!dir) return;
+
+    try {
+      for (const doc of documents) {
+        const fileName = `${doc.id}.json`;
+        const fileHandle = await dir.getFileHandle(fileName, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(JSON.stringify(doc, null, 2));
+        await writable.close();
+      }
+      toast.success(`Exported ${documents.length} documents`);
+    } catch (err) {
+      console.error('Export failed:', err);
+      toast.error('Export failed');
+    }
+  };
+
+  const importFromLocal = async () => {
+    const dir = storageDir || await chooseLocalFolder();
+    if (!dir) return;
+
+    try {
+      let imported = 0;
+      for await (const entry of (dir as any).values()) {
+        if (entry.kind === 'file' && entry.name.endsWith('.json')) {
+          const file = await entry.getFile();
+          const content = await file.text();
+          const doc = JSON.parse(content);
+          
+          const rag = getPrivateRAG();
+          await rag.addDocument(doc.content, doc.metadata);
+          imported++;
+        }
+      }
+      toast.success(`Imported ${imported} documents`);
+    } catch (err) {
+      console.error('Import failed:', err);
+      toast.error('Import failed');
+    }
+  };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -96,6 +160,43 @@ export const PrivateRAGManager: React.FC = () => {
           <StatItem label="Chunks" value={(stats?.chunkCount || 0).toString()} />
           <StatItem label="Storage" value={formatFileSize(stats?.storageUsed || 0)} />
         </div>
+      </div>
+
+      {/* Storage Mode Toggle */}
+      <div className="bg-[#141415] border border-[#262626] rounded-lg p-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="text-xs uppercase tracking-widest text-[#888888]">Storage:</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setStorageMode('browser')}
+              className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-2 transition-all ${
+                storageMode === 'browser' 
+                  ? 'bg-[#3B82F6] text-white' 
+                  : 'bg-[#252525] text-[#888888] hover:text-white'
+              }`}
+            >
+              <HardDrive className="w-3 h-3" /> Browser
+            </button>
+            <button
+              onClick={chooseLocalFolder}
+              className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-2 transition-all ${
+                storageMode === 'local' 
+                  ? 'bg-[#4ADE80] text-black' 
+                  : 'bg-[#252525] text-[#888888] hover:text-white'
+              }`}
+            >
+              <FolderOpen className="w-3 h-3" /> Local Folder
+            </button>
+          </div>
+        </div>
+        {storageMode === 'local' && documents.length > 0 && (
+          <button
+            onClick={exportToLocal}
+            className="text-xs text-[#4ADE80] hover:underline flex items-center gap-1"
+          >
+            <FileUp className="w-3 h-3" /> Export to folder
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
