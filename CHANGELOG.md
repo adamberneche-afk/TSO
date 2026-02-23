@@ -8,15 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Configuration templates gallery
-- Version history for configurations
-- $THINK token integration (migrating from Genesis NFT)
+- **Guided Discovery** - Interview-driven agent creation (replaces templates)
+- **SDK Integration Assistant** - CLI tool for developer onboarding (Gold tier)
+- **CTO Agent** - Dashboard + chat for app development (Gold tier)
+- **Configuration Versioning** - R2 storage + tiered retention
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
 - Cloudflare R2 storage (when revenue positive)
 
 ### In Progress
-- Configuration templates gallery (Release 2)
+- Guided Discovery design and architecture
+- SDK Assistant CLI implementation
 
 ## [2.7.4] - 2026-02-23
 

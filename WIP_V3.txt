@@ -1,8 +1,93 @@
 # TAIS Platform - Development Planning V3
 **Created:** February 20, 2026  
 **Last Updated:** February 23, 2026
-**Status:** Sprint 3 COMPLETE + App RAG SDK Published  
-**Version:** 2.7.3 (Current Production)
+**Status:** Sprint 3 COMPLETE + SDK + Session Auth Published  
+**Version:** 2.7.4 (Current Production)
+
+---
+
+## 🎯 ACTIVE DEVELOPMENT
+
+### Guided Discovery (Replacing Templates)
+**Goal:** Interview-driven agent creation that preserves human agency
+**Status:** 🔄 IN PROGRESS
+**Priority:** High
+
+**Why:** Templates remove human agency. Guided Discovery preserves personalization while reducing friction.
+
+**Question Flow:**
+1. "What does your agent do?" (function)
+2. "Who does it help?" (audience)
+3. "What's unique about them?" (differentiation)
+4. "How should it communicate?" (tone)
+5. "What knowledge should it have?" (domain)
+
+**Features:**
+- Progressive questions with smart defaults
+- Forces customization (not pre-filled configs)
+- "Make it yours" enforced before saving
+- Shows uniqueness indicators
+
+---
+
+### SDK Integration Assistant (Gold Tier)
+**Goal:** CLI tool to help developers integrate TAIS platform
+**Status:** 🔄 IN PROGRESS
+**Priority:** High
+
+**Scope:**
+- Interactive CLI onboarding
+- Step-by-step SDK integration guide
+- Test mode for API calls
+- Debug mode with verbose output
+
+**Analytics (in priority order):**
+1. Session completion rates
+2. Error type tracking
+3. Feature adoption
+4. Time to first API call
+
+**Access:** Genesis NFT holders (Gold tier) only
+
+---
+
+### CTO Agent (Gold Tier)
+**Goal:** Full app development partner with dashboard + chat
+**Status:** 📋 PLANNED
+**Priority:** High
+
+**Capabilities:**
+- Product planning & personas
+- Architecture recommendations
+- Data strategy (aggregation, retention, privacy)
+- Growth & product-market fit
+- Launch preparation
+
+**Analytics:**
+- Pain points encountered
+- Forgotten areas (security, testing, docs)
+- MVP blockers
+- Best practices observed
+
+**Interface:** Dashboard with chat window
+
+**LLM:** User brings their own API key with spend caps
+
+---
+
+### Configuration Versioning
+**Goal:** Safe history with R2 + tiered retention
+**Status:** 📋 PLANNED
+**Priority:** Medium
+
+**Requirements:**
+- R2 storage (external, not database)
+- Compression (gzip, ~70% reduction)
+- Tiered retention:
+  - Bronze: 7 days, 10 versions
+  - Silver: 30 days, 30 versions
+  - Gold: 90 days, 100 versions
+- Auto-prune job
 
 ---
 
@@ -369,10 +454,10 @@ const quota = await client.getQuota();
 
 ```
                     Low Effort    High Effort
-High Impact    │  Templates   │  Enterprise RAG
-               │  Version Hist │  $THINK Token
+High Impact    │  Guided Discov│ CTO Agent
+               │  SDK Asst     │  Enterprise RAG
 Medium Impact  │  Alerts ✅   │  Multi-Device Sync
-               │  Baseline ✅  │  App RAG SDK ✅
+               │  Baseline ✅  │  Config Versions
 Low Impact     │  Prometheus✅ │  R2 Storage
                │  Monitoring ✅│
 ```
@@ -383,28 +468,28 @@ Low Impact     │  Prometheus✅ │  R2 Storage
 
 ### Week 1-2 (Feb 20 - Feb 23) ✅ COMPLETE
 - [x] Sprint 3: Monitoring & Observability - COMPLETE
-- [x] Prometheus metrics implementation
-- [x] Alert configuration (SendGrid verified)
-- [x] Performance baseline (load tested)
-
-### Week 3-4 (Feb 23 - Mar 6) ✅ COMPLETE (Ahead of Schedule)
 - [x] App RAG SDK - Published to npm (`tais-rag-sdk`)
 - [x] Wallet signature authentication
-- [x] Gold tier (Genesis NFT) verification
+- [x] RAG session-based auth (sign once, upload unlimited)
+
+### Week 3-4 (Feb 23 - Mar 6) 🔄 IN PROGRESS
+- [x] Guided Discovery design (replacing templates)
+- [x] SDK Assistant CLI architecture
+- [ ] Guided Discovery implementation
+- [ ] SDK Assistant CLI implementation
 
 ### Week 5-6 (Mar 7 - Mar 20)
-- [ ] Configuration templates gallery (Release 2)
-- [ ] Version history feature
+- [ ] CTO Agent (MVP) - Dashboard + Chat
+- [ ] Analytics infrastructure
+- [ ] Weekly insights email (needs data first)
+
+### Week 7-8 (Mar 21 - Apr 3)
+- [ ] Configuration Versioning + R2
+- [ ] Tiered retention policy
 
 ### Q2 2026
-- [ ] $THINK Token Integration
-- [ ] Multi-Device Sync
-
-### Q3 2026
 - [ ] Enterprise RAG with SSO
-
-### Future (Revenue Positive)
-- [ ] Cloudflare R2 Storage migration
+- [ ] Multi-Device Sync
 
 ---
 
