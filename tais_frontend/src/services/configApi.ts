@@ -197,6 +197,66 @@ class ConfigAPI {
 
     return response.json();
   }
+
+  /**
+   * Get version history for a configuration
+   */
+  async getConfigVersions(configId: string): Promise<{
+    configId: string;
+    currentVersion: number;
+    tier: string;
+    versions: Array<{
+      id: string;
+      version: number;
+      versionNote: string | null;
+      tier: string;
+      createdAt: string;
+      expiresAt: string | null;
+    }>;
+  }> {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/${configId}/versions`);
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get versions');
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get specific version details
+   */
+  async getVersionDetails(configId: string, version: number): Promise<any> {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/${configId}/versions/${version}`);
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get version details');
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Rollback to a specific version
+   */
+  async rollbackToVersion(configId: string, version: number): Promise<{
+    success: boolean;
+    config: AgentConfiguration;
+    message: string;
+  }> {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/${configId}/rollback/${version}`, {
+      method: 'POST',
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to rollback');
+    }
+
+    return response.json();
+  }
 }
 
 export const configApi = new ConfigAPI();
