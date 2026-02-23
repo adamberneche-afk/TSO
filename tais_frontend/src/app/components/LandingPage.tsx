@@ -283,7 +283,7 @@ export function LandingPage({
             <p className="text-xs text-[#717171] uppercase tracking-widest">© 2026 Think Agent Interview System</p>
           </div>
           <div className="flex gap-12">
-            <FooterLink href="#">Docs</FooterLink>
+            <FooterLink href="#" onClick={() => onViewDoc?.('doc-guided-discovery')}>Docs</FooterLink>
             <FooterLink href="#">GitHub</FooterLink>
             <FooterLink href="#">Support</FooterLink>
           </div>
@@ -345,9 +345,9 @@ function StatsCard({ label, value, loading }: { label: string; value: string; lo
   );
 }
 
-function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
+function FooterLink({ href, children, onClick }: { href: string; children: React.ReactNode; onClick?: () => void }) {
   return (
-    <a href={href} className="text-xs uppercase tracking-widest text-[#717171] hover:text-white transition-colors">
+    <a href={href} onClick={onClick} className="text-xs uppercase tracking-widest text-[#717171] hover:text-white transition-colors">
       {children}
     </a>
   );
