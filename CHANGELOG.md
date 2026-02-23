@@ -8,17 +8,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- **Guided Discovery** - Interview-driven agent creation (replaces templates)
-- **SDK Integration Assistant** - CLI tool for developer onboarding (Gold tier)
 - **CTO Agent** - Dashboard + chat for app development (Gold tier)
 - **Configuration Versioning** - R2 storage + tiered retention
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
-- Cloudflare R2 storage (when revenue positive)
 
-### In Progress
-- Guided Discovery design and architecture
-- SDK Assistant CLI implementation
+## [2.7.5] - 2026-02-23
+
+### Added
+- **Guided Discovery** - Interview-driven agent creation (replaces templates)
+  - 15-question progressive flow covering function, audience, differentiation, communication, knowledge
+  - Generates Personality Markdown + System Prompt + Config JSON
+  - API: `/api/v1/guided-discovery/*`
+  - Preserves human agency through forced customization
+
+- **SDK Assistant CLI** (`packages/sdk-assistant`)
+  - Interactive CLI onboarding for developers
+  - Commands: `init`, `start`, `test`, `status`, `config`, `analytics`
+  - Tracked analytics: session completion, errors, features, timing
+  - Gold tier (Genesis NFT) required
+
+- **Analytics Infrastructure**
+  - `SDKAnalyticsEvent` - Track integration events
+  - `CTOAgentProject` - Track CTO agent usage
+  - `WeeklyInsightsReport` - Generated reports storage
+  - API: `/api/v1/analytics/*`
+
+- **Weekly Insights Email**
+  - Automated weekly reports to taisplatform@gmail.com
+  - GitHub Actions cron (free, no Render payment)
+  - `.github/workflows/weekly-insights.yml`
+  - Triggers every Monday at 9am UTC
+
+### Database
+- Added models: `GuidedDiscoverySession`, `SDKAnalyticsEvent`, `CTOAgentProject`, `WeeklyInsightsReport`
 
 ## [2.7.4] - 2026-02-23
 
