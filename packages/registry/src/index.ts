@@ -296,6 +296,14 @@ import { createAnalyticsRoutes } from './routes/analytics';
 apiV1Router.use('/analytics', createAnalyticsRoutes(prisma, logger));
 
 // ============================================
+// CTO Agent Routes
+// Full app development partner (Gold tier)
+// ============================================
+import { createCTOAgentRoutes } from './routes/ctoAgent';
+
+apiV1Router.use('/cto', rateLimiters.authenticated, createCTOAgentRoutes(prisma, logger));
+
+// ============================================
 // Monitoring & Observability Routes
 // Prometheus metrics, health dashboard, alerts
 // ============================================
