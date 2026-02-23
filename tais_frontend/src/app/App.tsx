@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { LandingPage } from './components/LandingPage';
-import { InterviewWizard } from './components/interview/InterviewWizard';
+import { GuidedDiscoveryWizard } from './components/interview/GuidedDiscoveryWizard';
 import { Dashboard } from './components/Dashboard';
 import { PublicRAGManager } from './components/rag/PublicRAGManager';
 import { PrivateRAGManager } from './components/rag/PrivateRAGManager';
@@ -58,10 +58,14 @@ export default function App() {
       )}
       {currentView === 'interview' && (
         <>
-          <InterviewWizard onExit={() => {
-            resetInterview();
-            setCurrentView('landing');
-          }} />
+          <GuidedDiscoveryWizard 
+            onCancel={() => {
+              setCurrentView('landing');
+            }}
+            onComplete={() => {
+              setCurrentView('dashboard');
+            }}
+          />
           <Toaster position="top-right" />
         </>
       )}
