@@ -286,43 +286,36 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
     // Map responses to config
     const personalityMd = generatePersonalityMarkdown(r);
     
-    const config: AgentConfig = {
+    const config: any = {
       version: '1.0',
       agent: {
         name,
-        role: r.primary_function || 'AI Assistant',
-        goal: r.problem_solved || '',
         description: r.primary_function || '',
+        goals: r.problem_solved ? [r.problem_solved] : [],
         skills: [],
-        constraints: r.must_avoid ? [`Avoid: ${r.must_avoid}`] : [],
-        autonomy: r.response_length === 'Concise (quick answers)' ? 'low' : 
-                  r.response_length === 'Detailed (comprehensive explanations)' ? 'high' : 'medium',
-        knowledge: {
-          enabled: true,
-          sources: [],
-          domains: r.knowledge_domains || [],
-          dataSources: r.data_sources || [],
-          unknownHandling: r.knowledge_gaps,
-        },
-        communication: {
-          style: r.communication_style || 'Professional & Formal',
-          format: r.format_preference || ['Plain text'],
-          length: r.response_length || 'Balanced',
-        },
         personality: {
-          traits: r.brand_voice ? String(r.brand_voice).split(',').map((s: string) => s.trim()) : [],
-          tone: r.communication_style || 'Professional',
+          tone: 'balanced',
+          verbosity: 'balanced',
+          formality: 'professional'
         },
-        targetAudience: {
-          description: r.target_audience,
-          expertise: r.audience_expertise,
-          goals: r.audience_goals,
+        personalityMd,
+        autonomy: {
+          level: r.response_length === 'Concise (quick answers)' ? 'confirm' : 
+                 r.response_length === 'Detailed (comprehensive explanations)' ? 'independent' : 'suggest'
         },
-        differentiation: {
-          uniqueValue: r.unique_value,
-          brandVoice: r.brand_voice,
+        constraints: {
+          privacy: 'balanced',
+          maxCostPerAction: 0.1
         },
-        useCases: r.use_cases || [],
+        knowledge: {
+          sources: [],
+          retrievalConfig: {
+            topK: 5,
+            similarityThreshold: 0.7,
+            reranking: false,
+            citationStyle: 'inline'
+          }
+        }
       },
       llm: {
         provider: 'openai',
