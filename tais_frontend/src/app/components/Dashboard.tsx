@@ -888,6 +888,14 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
                         <Database className="w-4 h-4" />
                         Knowledge Sources
                       </h5>
+                      {isEditing && (
+                        <button
+                          onClick={() => addKnowledgeSource({ id: `manual-${Date.now()}`, title: 'New Source' })}
+                          className="text-xs text-[#3B82F6] hover:underline flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" /> Add Source
+                        </button>
+                      )}
                       {knowledgeSources.length > 0 && (
                         <span className="text-xs text-[#3B82F6]">{knowledgeSources.length} sources</span>
                       )}

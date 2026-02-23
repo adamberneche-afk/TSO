@@ -1,6 +1,6 @@
 // TAIS Platform - Landing Page Component
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { ArrowRight, Zap, Shield, Code, Users, CheckCircle, Upload, ClipboardCheck, ExternalLink, Sparkles } from 'lucide-react';
@@ -27,6 +27,36 @@ export function LandingPage({
   onViewConversation,
   onViewLLMSettings
 }: LandingPageProps) {
+  const [nftStats, setNftStats] = useState({
+    totalSupply: '2,022',
+    floorPrice: 'Loading...',
+    totalVolume: 'Loading...',
+    uniqueOwners: 'Loading...'
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchNFTStats() {
+      try {
+        const response = await fetch('https://api.opensea.io/api/v2/collections/think-agent-bundle/stats');
+        if (response.ok) {
+          const data = await response.json();
+          setNftStats({
+            totalSupply: data.total_supply?.toLocaleString() || '2,022',
+            floorPrice: data.floor_price ? `${parseFloat(data.floor_price).toFixed(3)} ETH` : '0.01 ETH',
+            totalVolume: data.total_volume ? `${parseFloat(data.total_volume).toFixed(0)} ETH` : '0 ETH',
+            uniqueOwners: data.num_owners?.toLocaleString() || '0'
+          });
+        }
+      } catch (error) {
+        console.log('Failed to fetch NFT stats:', error);
+      } finally {
+        setStatsLoading(false);
+      }
+    }
+    fetchNFTStats();
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#0A0A0B] text-[#EDEDED] font-sans selection:bg-blue-500/30">
       {/* Header */}
@@ -84,11 +114,6 @@ export function LandingPage({
                 Start Building
                 <ArrowRight className="w-4 h-4" />
               </button>
-              <button
-                className="w-full sm:w-auto bg-transparent text-white border border-[#262626] font-bold text-sm uppercase tracking-widest px-10 py-4 rounded-md hover:bg-white/5 transition-all active:scale-95"
-              >
-                View Demo
-              </button>
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6 text-[10px] uppercase tracking-widest text-[#717171] pt-8">
@@ -112,30 +137,34 @@ export function LandingPage({
         <section id="features" className="py-24 px-6 bg-[#0F0F10] border-b border-[#262626]">
           <div className="max-w-6xl mx-auto">
             <div className="mb-16">
-              <label className="text-[10px] uppercase tracking-[0.3em] text-[#3B82F6] font-bold block mb-4">Core Capabilities</label>
-              <h2 className="text-4xl font-bold tracking-tightest">Why Choose TAIS?</h2>
+              <label className="text-[10px] uppercase tracking-[0.3em] text-[#3B82F6] font-bold block mb-4">Why TAIS</label>
+              <h2 className="text-4xl font-bold tracking-tightest">Build Agents That Actually Work</h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <FeatureCard
                 icon={<Zap className="w-5 h-5 text-[#3B82F6]" />}
-                title="Interview-Driven"
-                description="Simple questions guide you through the entire configuration process"
-              />
-              <FeatureCard
-                icon={<Code className="w-5 h-5 text-[#3B82F6]" />}
-                title="JSON Config"
-                description="Generates clean, executable JSON configs that work anywhere"
+                title="Zero Friction"
+                description="Answer simple questions. Get a production-ready agent in minutes. No code needed."
+                link="/docs/guided-discovery"
               />
               <FeatureCard
                 icon={<Shield className="w-5 h-5 text-[#3B82F6]" />}
-                title="Skill Registry"
-                description="Access verified skills with trust scores and community ratings"
+                title="Full Ownership"
+                description="Your agents are NFTs. Trade, sell, or transfer them. You own your infrastructure."
+                link="/docs/nft-integration"
+              />
+              <FeatureCard
+                icon={<Code className="w-5 h-5 text-[#3B82F6]" />}
+                title="Portable Configs"
+                description="JSON configs that run anywhere. OpenAI, Anthropic, local LLMs—your choice."
+                link="/docs/configuration"
               />
               <FeatureCard
                 icon={<Users className="w-5 h-5 text-[#3B82F6]" />}
-                title="NFT-Verified"
-                description="Own your agents as NFTs and access premium features"
+                title="Verified Skills"
+                description="Access community-vetted skills with trust scores. Know what you're getting."
+                link="/docs/skills-registry"
               />
             </div>
           </div>
@@ -170,8 +199,8 @@ export function LandingPage({
               <RAGCard 
                 onClick={onViewConversation}
                 icon={<Users className="w-5 h-5 text-[#8B5CF6]" />}
-                title="AI Interview"
-                description="Dynamic interview with semantic extraction."
+                title="Guided Design"
+                description="Interactive interview that extracts exactly what your agent needs."
                 tag="Conversational"
               />
               <RAGCard 
@@ -220,10 +249,10 @@ export function LandingPage({
               </div>
               
               <div className="flex-1 w-full grid grid-cols-2 gap-4">
-                <StatsCard label="Total Supply" value="2,022" />
-                <StatsCard label="Floor Price" value="0.03 ETH" />
-                <StatsCard label="Total Volume" value="192 ETH" />
-                <StatsCard label="Unique Owners" value="759" />
+                <StatsCard label="Total Supply" value={nftStats.totalSupply} loading={statsLoading} />
+                <StatsCard label="Floor Price" value={nftStats.floorPrice} loading={statsLoading} />
+                <StatsCard label="Total Volume" value={nftStats.totalVolume} loading={statsLoading} />
+                <StatsCard label="Unique Owners" value={nftStats.uniqueOwners} loading={statsLoading} />
               </div>
             </div>
           </div>
@@ -248,14 +277,19 @@ export function LandingPage({
   );
 }
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+function FeatureCard({ icon, title, description, link }: { icon: React.ReactNode; title: string; description: string; link?: string }) {
   return (
     <div className="bg-[#141415] border border-[#262626] p-6 rounded-lg group hover:border-[#3B82F6] transition-all">
       <div className="w-10 h-10 rounded-md bg-[#0A0A0B] border border-[#262626] flex items-center justify-center mb-6 group-hover:border-[#3B82F6]/50 transition-all">
         {icon}
       </div>
       <h3 className="text-sm font-bold uppercase tracking-widest mb-3">{title}</h3>
-      <p className="text-sm text-[#A1A1A1] leading-relaxed">{description}</p>
+      <p className="text-sm text-[#A1A1A1] leading-relaxed mb-4">{description}</p>
+      {link && (
+        <a href={link} className="text-[10px] uppercase tracking-[0.2em] text-[#3B82F6] font-bold hover:underline">
+          Learn more →
+        </a>
+      )}
     </div>
   );
 }
@@ -283,10 +317,10 @@ function RAGCard({ icon, title, description, tag, onClick }: { icon: React.React
   );
 }
 
-function StatsCard({ label, value }: { label: string; value: string }) {
+function StatsCard({ label, value, loading }: { label: string; value: string; loading?: boolean }) {
   return (
     <div className="bg-[#141415] border border-[#262626] p-6 rounded-lg text-center">
-      <div className="text-2xl font-bold tracking-tightest mb-1">{value}</div>
+      <div className="text-2xl font-bold tracking-tightest mb-1">{loading ? '...' : value}</div>
       <div className="text-[10px] uppercase tracking-widest text-[#717171]">{label}</div>
     </div>
   );

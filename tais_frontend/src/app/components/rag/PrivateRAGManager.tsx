@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -6,6 +6,7 @@ import { Progress } from '../ui/progress';
 import { ScrollArea } from '../ui/scroll-area';
 import { Upload, FileText, Trash2, AlertCircle, CheckCircle2, Loader2, ShieldCheck, Database, HardDrive } from 'lucide-react';
 import { usePrivateRAG } from '../../../hooks/useRAG';
+import { getPrivateRAG } from '../../../services/rag/privateRAG';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Document } from '../../../types/rag';
@@ -14,6 +15,22 @@ export const PrivateRAGManager: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { documents, stats, isUploading, uploadDocument, deleteDocument, clearAll } = usePrivateRAG();
   const [uploadProgress, setUploadProgress] = useState<{ status: string; progress: number } | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkInit = async () => {
+      try {
+        const rag = getPrivateRAG();
+        await rag.initialize();
+        setIsInitialized(true);
+      } catch (err) {
+        console.error('Private RAG init error:', err);
+        setInitError(err instanceof Error ? err.message : 'Failed to initialize');
+      }
+    };
+    checkInit();
+  }, []);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -59,9 +76,19 @@ export const PrivateRAGManager: React.FC = () => {
               <ShieldCheck className="w-5 h-5" />
             </div>
             <h2 className="text-xl font-bold tracking-tightest uppercase tracking-widest">Local Knowledge Base</h2>
+            {!isInitialized && !initError && (
+              <Loader2 className="w-4 h-4 animate-spin text-[#3B82F6]" />
+            )}
+            {initError && (
+              <span className="text-xs text-red-400 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> Error
+              </span>
+            )}
           </div>
           <p className="text-xs text-[#A1A1A1] uppercase tracking-widest leading-relaxed">
-            Personal documents stored exclusively in browser IndexedDB.
+            {initError 
+              ? `Error: ${initError}` 
+              : 'Personal documents stored exclusively in browser IndexedDB.'}
           </p>
         </div>
         <div className="flex gap-8">
