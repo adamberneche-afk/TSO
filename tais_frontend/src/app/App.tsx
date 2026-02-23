@@ -12,8 +12,9 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 import { useInterviewStore } from '../hooks/useInterview';
+import { GuidedDiscoveryDoc, NFTIntegrationDoc, ConfigurationDoc, SkillsRegistryDoc } from './docs';
 
-type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings';
+type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('landing');
@@ -52,6 +53,7 @@ export default function App() {
             onViewPrivateRAG={() => setCurrentView('privateRAG')}
             onViewConversation={() => setCurrentView('conversation')}
             onViewLLMSettings={() => setCurrentView('llmSettings')}
+            onViewDoc={(doc) => setCurrentView(doc as View)}
           />
           <Toaster position="top-right" />
         </>
@@ -155,6 +157,20 @@ export default function App() {
           </div>
           <Toaster position="top-right" />
         </>
+      )}
+
+      {/* Doc Pages */}
+      {currentView === 'doc-guided-discovery' && (
+        <GuidedDiscoveryDoc onBack={() => setCurrentView('landing')} />
+      )}
+      {currentView === 'doc-nft-integration' && (
+        <NFTIntegrationDoc onBack={() => setCurrentView('landing')} />
+      )}
+      {currentView === 'doc-configuration' && (
+        <ConfigurationDoc onBack={() => setCurrentView('landing')} />
+      )}
+      {currentView === 'doc-skills-registry' && (
+        <SkillsRegistryDoc onBack={() => setCurrentView('landing')} />
       )}
     </ErrorBoundary>
   );

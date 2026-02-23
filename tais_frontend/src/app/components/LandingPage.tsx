@@ -15,6 +15,7 @@ interface LandingPageProps {
   onViewPrivateRAG?: () => void;
   onViewConversation?: () => void;
   onViewLLMSettings?: () => void;
+  onViewDoc?: (doc: string) => void;
 }
 
 export function LandingPage({ 
@@ -25,7 +26,8 @@ export function LandingPage({
   onViewPublicRAG,
   onViewPrivateRAG,
   onViewConversation,
-  onViewLLMSettings
+  onViewLLMSettings,
+  onViewDoc
 }: LandingPageProps) {
   const [nftStats, setNftStats] = useState({
     totalSupply: '2,022',
@@ -123,7 +125,7 @@ export function LandingPage({
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-1 h-1 rounded-full bg-[#3B82F6]" />
-                7-step interview
+                15-question discovery
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-1 h-1 rounded-full bg-[#3B82F6]" />
@@ -146,25 +148,25 @@ export function LandingPage({
                 icon={<Zap className="w-5 h-5 text-[#3B82F6]" />}
                 title="Zero Friction"
                 description="Answer simple questions. Get a production-ready agent in minutes. No code needed."
-                link="/docs/guided-discovery"
+                onClick={() => onViewDoc?.('doc-guided-discovery')}
               />
               <FeatureCard
                 icon={<Shield className="w-5 h-5 text-[#3B82F6]" />}
                 title="Full Ownership"
                 description="Your agents are NFTs. Trade, sell, or transfer them. You own your infrastructure."
-                link="/docs/nft-integration"
+                onClick={() => onViewDoc?.('doc-nft-integration')}
               />
               <FeatureCard
                 icon={<Code className="w-5 h-5 text-[#3B82F6]" />}
                 title="Portable Configs"
                 description="JSON configs that run anywhere. OpenAI, Anthropic, local LLMs—your choice."
-                link="/docs/configuration"
+                onClick={() => onViewDoc?.('doc-configuration')}
               />
               <FeatureCard
                 icon={<Users className="w-5 h-5 text-[#3B82F6]" />}
                 title="Verified Skills"
                 description="Access community-vetted skills with trust scores. Know what you're getting."
-                link="/docs/skills-registry"
+                onClick={() => onViewDoc?.('doc-skills-registry')}
               />
             </div>
           </div>
@@ -277,18 +279,21 @@ export function LandingPage({
   );
 }
 
-function FeatureCard({ icon, title, description, link }: { icon: React.ReactNode; title: string; description: string; link?: string }) {
+function FeatureCard({ icon, title, description, onClick }: { icon: React.ReactNode; title: string; description: string; onClick?: () => void }) {
   return (
-    <div className="bg-[#141415] border border-[#262626] p-6 rounded-lg group hover:border-[#3B82F6] transition-all">
+    <div 
+      onClick={onClick}
+      className="bg-[#141415] border border-[#262626] p-6 rounded-lg group hover:border-[#3B82F6] transition-all cursor-pointer"
+    >
       <div className="w-10 h-10 rounded-md bg-[#0A0A0B] border border-[#262626] flex items-center justify-center mb-6 group-hover:border-[#3B82F6]/50 transition-all">
         {icon}
       </div>
       <h3 className="text-sm font-bold uppercase tracking-widest mb-3">{title}</h3>
       <p className="text-sm text-[#A1A1A1] leading-relaxed mb-4">{description}</p>
-      {link && (
-        <a href={link} className="text-[10px] uppercase tracking-[0.2em] text-[#3B82F6] font-bold hover:underline">
+      {onClick && (
+        <span className="text-[10px] uppercase tracking-[0.2em] text-[#3B82F6] font-bold">
           Learn more →
-        </a>
+        </span>
       )}
     </div>
   );
