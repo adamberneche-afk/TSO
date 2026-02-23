@@ -49,9 +49,23 @@ export function LandingPage({
             totalVolume: data.total_volume ? `${parseFloat(data.total_volume).toFixed(0)} ETH` : '0 ETH',
             uniqueOwners: data.num_owners?.toLocaleString() || '0'
           });
+        } else {
+          // API error - use defaults
+          setNftStats({
+            totalSupply: '2,022',
+            floorPrice: '0.01+ ETH',
+            totalVolume: '200+ ETH',
+            uniqueOwners: '750+'
+          });
         }
       } catch (error) {
         console.log('Failed to fetch NFT stats:', error);
+        setNftStats({
+          totalSupply: '2,022',
+          floorPrice: '0.01+ ETH',
+          totalVolume: '200+ ETH',
+          uniqueOwners: '750+'
+        });
       } finally {
         setStatsLoading(false);
       }

@@ -281,7 +281,7 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
     const r = responses;
     
     // Generate agent name from primary function if not set
-    const name = agentName || (r.primary_function as string)?.split(' ').slice(0, 4).join(' ') || 'My Agent';
+    const name = agentName || (r.primary_function ? String(r.primary_function).split(' ').slice(0, 4).join(' ') : null) || 'My Agent';
     
     // Map responses to config
     const personalityMd = generatePersonalityMarkdown(r);
@@ -310,7 +310,7 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
           length: r.response_length || 'Balanced',
         },
         personality: {
-          traits: r.brand_voice ? r.brand_voice.split(',').map(s => s.trim()) : [],
+          traits: r.brand_voice ? String(r.brand_voice).split(',').map((s: string) => s.trim()) : [],
           tone: r.communication_style || 'Professional',
         },
         targetAudience: {
