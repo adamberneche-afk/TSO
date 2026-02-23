@@ -97,43 +97,15 @@ security, database, api-design, frontend, backend, infrastructure, testing, moni
 
 ---
 
-### CTO Agent (Gold Tier)
-**Goal:** Full app development partner with dashboard + chat
-**Status:** 📋 PLANNED
-**Priority:** High
+### Weekly Insights Email - Bug Fixes Applied
+**Date:** February 23, 2026
 
-**Capabilities:**
-- Product planning & personas
-- Architecture recommendations
-- Data strategy (aggregation, retention, privacy)
-- Growth & product-market fit
-- Launch preparation
+**Issues Fixed:**
+1. Date calculation bug in `weeklyInsightsEmail.ts` - setDate() mutation
+2. Cron endpoint using wrong Prisma client (RAG instead of Skills database)
+3. Missing analytics tables migration - now added
 
-**Analytics:**
-- Pain points encountered
-- Forgotten areas (security, testing, docs)
-- MVP blockers
-- Best practices observed
-
-**Interface:** Dashboard with chat window
-
-**LLM:** User brings their own API key with spend caps
-
----
-
-### Configuration Versioning
-**Goal:** Safe history with R2 + tiered retention
-**Status:** 📋 PLANNED
-**Priority:** Medium
-
-**Requirements:**
-- R2 storage (external, not database)
-- Compression (gzip, ~70% reduction)
-- Tiered retention:
-  - Bronze: 7 days, 10 versions
-  - Silver: 30 days, 30 versions
-  - Gold: 90 days, 100 versions
-- Auto-prune job
+**Tested:** Successfully sent email to taisplatform@gmail.com
 
 ---
 

@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.7.6] - 2026-02-23
 
+### Fixed
+- **Weekly Insights Cron** - Multiple bugs fixed:
+  - Date calculation bug in `weeklyInsightsEmail.ts` (setDate mutation)
+  - Cron endpoint using wrong Prisma client (RAG instead of Skills database)
+  - Added missing analytics tables migration
+
 ### Added
 - **CTO Agent** - Full app development partner
   - Project-based tracking through 5 phases: planning → architecture → development → testing → launch
