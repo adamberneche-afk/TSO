@@ -276,17 +276,14 @@ export class PublicRAGClient {
     let content: string;
     let metadataStr: string;
 
-    if (isOwner) {
-      // Owner can always decrypt with their wallet key
-      content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
-      metadataStr = await this.encryptionService.decrypt(doc.encryptedMetadata, doc.iv, doc.salt);
-    } else if (isPublicDoc) {
-      // For public docs, try community key first, then wallet key (for old uploads)
-      // If neither works, the doc needs re-uploading with new encryption
+    // For PUBLIC docs: ALWAYS use community key (even for owner, since that's what was used to encrypt)
+    // For PRIVATE docs: use wallet key
+    if (isPublicDoc) {
+      // Try community decryption first for public docs
       try {
         content = await this.encryptionService.decryptCommunity(doc.encryptedData, doc.iv, doc.salt);
       } catch {
-        // Try wallet key as fallback for old public docs
+        // Fallback to wallet key for old public docs
         try {
           content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
         } catch (e) {
@@ -302,6 +299,10 @@ export class PublicRAGClient {
           metadataStr = '{}';
         }
       }
+    } else if (isOwner) {
+      // Owner can always decrypt with their wallet key
+      content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
+      metadataStr = await this.encryptionService.decrypt(doc.encryptedMetadata, doc.iv, doc.salt);
     } else {
       // Private/shared docs - use wallet decryption
       content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
@@ -316,14 +317,21 @@ export class PublicRAGClient {
     
     const chunks = await Promise.all(
       encryptedChunks.map(async (chunk: any) => {
-        if (isOwner) {
-          return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, doc.salt);
-        } else if (isPublicDoc) {
+        // For public docs: always try community key first (even for owner)
+        if (isPublicDoc) {
           try {
             return await this.encryptionService.decryptCommunity(chunk.encryptedContent, chunk.iv, doc.salt);
           } catch {
-            return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, doc.salt);
+            try {
+              return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, doc.salt);
+            } catch {
+              return '[Decryption failed]';
+            }
           }
+        }
+        // For private docs
+        if (isOwner) {
+          return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, doc.salt);
         }
         return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, doc.salt);
       })
