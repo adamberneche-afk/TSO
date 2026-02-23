@@ -8,10 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- **CTO Agent** - Dashboard + chat for app development (Gold tier)
 - **Configuration Versioning** - R2 storage + tiered retention
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
+
+## [2.7.6] - 2026-02-23
+
+### Added
+- **CTO Agent** - Full app development partner
+  - Project-based tracking through 5 phases: planning → architecture → development → testing → launch
+  - Pain points by area (security, database, API, etc.)
+  - Blockers with resolution tracking
+  - Analytics integration for weekly insights
+  - Gold tier authentication required
+  - API: `/api/v1/cto/*`
 
 ## [2.7.5] - 2026-02-23
 
