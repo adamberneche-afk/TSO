@@ -243,6 +243,16 @@ apiV1Router.use('/configurations',
   configurationRoutes
 );
 
+// ============================================
+// Guided Discovery Routes
+// Interview-driven agent creation (replaces templates)
+// ============================================
+import { createGuidedDiscoveryRoutes } from './routes/guidedDiscovery';
+
+apiV1Router.use('/guided-discovery',
+  createGuidedDiscoveryRoutes(prisma, logger)
+);
+
 // Admin-only migration endpoint for v2.7.0 hybrid config
 import migrateRoutes from './routes/migrate';
 apiV1Router.use('/admin/migrate',
@@ -278,6 +288,14 @@ import { createSDKAuthRoutes } from './routes/sdkAuth';
 apiV1Router.use('/sdk/auth', createSDKAuthRoutes(prisma, logger));
 
 // ============================================
+// Analytics Routes
+// SDK integration tracking for weekly insights
+// ============================================
+import { createAnalyticsRoutes } from './routes/analytics';
+
+apiV1Router.use('/analytics', createAnalyticsRoutes(prisma, logger));
+
+// ============================================
 // Monitoring & Observability Routes
 // Prometheus metrics, health dashboard, alerts
 // ============================================
@@ -293,6 +311,10 @@ app.use('/monitoring', monitoringRoutes);
 // Admin migration fix endpoint (run once to fix failed migrations)
 import { migrationFixRoutes } from './routes/migrationFix';
 app.use('/admin/migration', adminMiddleware, migrationFixRoutes);
+
+// Cron endpoints (protected by secret)
+import cronRoutes from './routes/cron';
+app.use('/admin/cron', cronRoutes(prisma, logger));
 
 // Mount API v1 router
 app.use('/api/v1', apiV1Router);

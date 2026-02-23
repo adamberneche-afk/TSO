@@ -1,0 +1,39 @@
+{
+  "name": "@tais/sdk-assistant",
+  "version": "1.0.0",
+  "description": "TAIS SDK Assistant - CLI tool for integrating with TAIS platform",
+  "main": "dist/index.js",
+  "bin": {
+    "tais-assistant": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "keywords": [
+    "tais",
+    "sdk",
+    "cli",
+    "integration",
+    "developer-tools"
+  ],
+  "author": "TAIS Platform",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "inquirer": "^8.2.5",
+    "ora": "^5.4.1",
+    "tais-rag-sdk": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^8.2.10",
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -412,3 +412,124 @@ model RAGAuditLog {
   @@index([createdAt])
   @@map("rag_audit_logs")
 }
+
+// ============================================
+// Guided Discovery - Interview-driven agent creation
+// ============================================
+
+model GuidedDiscoverySession {
+  id            String   @id @default(uuid())
+  walletAddress String   @map("wallet_address")
+  
+  // Progress tracking
+  currentStep   Int      @default(1) @map("current_step")
+  responses     Json     // { questionId: answer }
+  
+  // Status
+  status        String   @default("in_progress") // 'in_progress', 'completed', 'abandoned'
+  
+  // Timestamps
+  startedAt     DateTime @default(now()) @map("started_at")
+  completedAt  DateTime? @map("completed_at")
+  
+  @@index([walletAddress])
+  @@index([status])
+  @@index([startedAt])
+  @@map("guided_discovery_sessions")
+}
+
+// ============================================
+// Analytics - SDK Integration & Usage Tracking
+// ============================================
+
+model SDKAnalyticsEvent {
+  id            String   @id @default(uuid())
+  
+  // Event categorization
+  eventType     String   @map("event_type") // 'session_started', 'session_completed', 'error_encountered', 'feature_used', 'api_call'
+  source        String   // 'sdk_assistant', 'ct0_agent', 'api'
+  
+  // User identification
+  walletAddress String?  @map("wallet_address")
+  sessionId     String?  @map("session_id")
+  
+  // Event data
+  metadata      Json     // { feature: 'upload', error: 'timeout', ... }
+  duration      Int?     // Milliseconds (for timing events)
+  
+  // Error tracking
+  errorType    String?  @map("error_type")
+  errorMessage String?  @map("error_message")
+  
+  // Location/context
+  ipAddress     String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  
+  // Timestamps
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  @@index([eventType])
+  @@index([walletAddress])
+  @@index([sessionId])
+  @@index([source])
+  @@index([createdAt])
+  @@map("sdk_analytics_events")
+}
+
+// CTO Agent Project Tracking
+model CTOAgentProject {
+  id            String   @id @default(uuid())
+  walletAddress String   @map("wallet_address")
+  
+  // Project info
+  name          String
+  description   String?
+  
+  // Phase tracking
+  currentPhase  String   @default("planning") @map("current_phase") // 'planning', 'architecture', 'development', 'testing', 'launch'
+  
+  // Pain points and blockers
+  painPoints    Json     @default("[]") // [{ area: 'security', description: '...', resolved: false }]
+  blockers      Json     @default("[]") // [{ description: '...', resolved: false }]
+  
+  // Timestamps
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  completedAt   DateTime? @map("completed_at")
+  
+  @@index([walletAddress])
+  @@index([currentPhase])
+  @@index([createdAt])
+  @@map("cto_agent_projects")
+}
+
+// Weekly Insights Report (generated)
+model WeeklyInsightsReport {
+  id            String   @id @default(uuid())
+  
+  // Report period
+  weekStart     DateTime @map("week_start")
+  weekEnd       DateTime @map("week_end")
+  
+  // Report data
+  reportData    Json     @map("report_data")
+  
+  // Metrics summary
+  sessionsStarted Int    @default(0) @map("sessions_started")
+  sessionsCompleted Int @default(0) @map("sessions_completed")
+  errorsEncountered Int @default(0) @map("errors_encountered")
+  
+  // Top insights
+  topPainPoints    Json     @default("[]") @map("top_pain_points")
+  topErrors        Json     @default("[]") @map("top_errors")
+  suggestions      Json     @default("[]")
+  
+  // Status
+  generatedAt     DateTime @default(now()) @map("generated_at")
+  sentAt          DateTime? @map("sent_at")
+  emailStatus     String   @default("pending") @map("email_status") // 'pending', 'sent', 'failed'
+  
+  @@index([weekStart])
+  @@index([emailStatus])
+  @@map("weekly_insights_reports")
+}

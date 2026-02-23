@@ -1,0 +1,24 @@
+# Render Cron Configuration
+# Add this to your render.yaml or create via Render Dashboard
+
+# Weekly Insights Cron Job
+# Runs every Monday at 9:00 AM UTC
+#
+# To configure via Dashboard:
+# 1. Go to your Render service
+# 2. Click "Cron Jobs" 
+# 3. Add new cron job:
+#    - Command: curl -X POST https://tso.onrender.com/admin/cron/weekly-insights
+#    - Schedule: 0 9 * * 1 (every Monday at 9am UTC)
+
+# Alternative: Add to your render.yaml
+# See: https://render.com/docs/cron-jobs
+
+services:
+  - type: cron
+    name: weekly-insights
+    schedule: "0 9 * * 1"
+    command: "curl -X POST https://tso.onrender.com/admin/cron/weekly-insights"
+    envVars:
+      - key: CRON_SECRET
+        generateValue: true

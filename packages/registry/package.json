@@ -27,6 +27,7 @@
     "@aws-sdk/s3-request-presigner": "^3.995.0",
     "@aws-sdk/xml-builder": "^3.972.5",
     "@prisma/client": "^5.6.0",
+    "@sendgrid/mail": "^8.1.6",
     "@sentry/node": "^7.100.0",
     "@sentry/tracing": "^7.100.0",
     "chalk": "^4.1.2",
