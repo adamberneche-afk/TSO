@@ -21,7 +21,8 @@ declare global {
 
 const DERIVATION_MESSAGE = 'TAIS Public RAG Encryption Key v2';
 const STORAGE_KEY = 'public_rag_keypair_v2';
-const CURVE = 'P-384'; // NIST P-384 curve for strong security
+const CURVE = 'P-384';
+const COMMUNITY_SALT = 'TAIS-RAG-COMMUNITY-SHARED-KEY-v1'; // NIST P-384 curve for strong security
 
 // Encrypted key pair storage format
 interface StoredKeyPair {
@@ -325,6 +326,106 @@ export class E2EEEncryptionService {
 
     const decoder = new TextDecoder();
     return decoder.decode(decryptedBuffer);
+  }
+
+  /**
+   * Encrypt data for community/public documents
+   * Uses a shared community salt so anyone can decrypt
+   */
+  async encryptForCommunity(data: string): Promise<{ encrypted: string; iv: string; salt: string }> {
+    const salt = this.stringToArrayBuffer(COMMUNITY_SALT);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+
+    const key = await this.deriveKeyFromMessage(COMMUNITY_SALT, salt);
+
+    const encoder = new TextEncoder();
+    const encodedData = encoder.encode(data);
+
+    const encryptedBuffer = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encodedData
+    );
+
+    return {
+      encrypted: this.arrayBufferToBase64(new Uint8Array(encryptedBuffer)),
+      iv: this.arrayBufferToBase64(iv),
+      salt: this.arrayBufferToBase64(salt)
+    };
+  }
+
+  /**
+   * Decrypt community/public documents
+   * Uses the shared community salt
+   */
+  async decryptCommunity(encrypted: string, iv: string, salt: string): Promise<string> {
+    const saltBytes = this.base64ToArrayBuffer(salt);
+    
+    // Verify this is actually a community document (uses community salt)
+    if (this.arrayBufferToBase64(saltBytes) !== this.arrayBufferToBase64(this.stringToArrayBuffer(COMMUNITY_SALT))) {
+      throw new Error('Invalid salt for community document');
+    }
+
+    const key = await this.deriveKeyFromMessage(COMMUNITY_SALT, saltBytes);
+
+    const encryptedBytes = this.base64ToArrayBuffer(encrypted);
+    const ivBytes = this.base64ToArrayBuffer(iv);
+
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: ivBytes },
+      key,
+      encryptedBytes
+    );
+
+    const decoder = new TextDecoder();
+    return decoder.decode(decryptedBuffer);
+  }
+
+  /**
+   * Derive key from a message string (used for community key)
+   */
+  private async deriveKeyFromMessage(message: string, salt: Uint8Array): Promise<CryptoKey> {
+    const encoder = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(message),
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey']
+    );
+
+    return crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt,
+        iterations: 100000,
+        hash: 'SHA-256',
+      },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  /**
+   * Check if a salt is the community salt
+   */
+  isCommunitySalt(salt: string): boolean {
+    try {
+      const saltBytes = this.base64ToArrayBuffer(salt);
+      return this.arrayBufferToBase64(saltBytes) === this.arrayBufferToBase64(this.stringToArrayBuffer(COMMUNITY_SALT));
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Convert string to ArrayBuffer
+   */
+  private stringToArrayBuffer(str: string): Uint8Array {
+    const encoder = new TextEncoder();
+    return encoder.encode(str);
   }
 
   /**

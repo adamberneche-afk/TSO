@@ -12,11 +12,13 @@ export interface PublicDocument {
   iv?: string;
   salt?: string;
   ownerPublicKey?: string;
+  walletAddress?: string;
   createdAt?: string | number;
   updatedAt?: string | number;
   chunkCount?: number;
   size?: number;
   isPublic?: boolean;
+  isShared?: boolean;
   allowedViewers?: string[];
   tags?: string[];
   popularity?: number;

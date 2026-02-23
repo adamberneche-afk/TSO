@@ -109,7 +109,11 @@ export class PublicRAGClient {
 
     const chunks = chunkText(request.content, 500, 50);
     const embeddings = await generateEmbeddings(chunks);
-    const encryptedContent = await this.encryptionService.encrypt(request.content);
+    
+    // Use community encryption for public documents, wallet encryption for private
+    const encryptionResult = request.isPublic 
+      ? await this.encryptionService.encryptForCommunity(request.content)
+      : await this.encryptionService.encrypt(request.content);
     
     const metadataStr = JSON.stringify({
       title: request.title,
@@ -117,11 +121,15 @@ export class PublicRAGClient {
       tags: request.tags,
       author: this.walletAddress,
     });
-    const encryptedMetadata = await this.encryptionService.encrypt(metadataStr);
+    const encryptedMetadata = request.isPublic
+      ? await this.encryptionService.encryptForCommunity(metadataStr)
+      : await this.encryptionService.encrypt(metadataStr);
 
     const encryptedChunks = await Promise.all(
       chunks.map(async (chunk, index) => {
-        const encrypted = await this.encryptionService.encrypt(chunk);
+        const encrypted = request.isPublic
+          ? await this.encryptionService.encryptForCommunity(chunk)
+          : await this.encryptionService.encrypt(chunk);
         const embeddingHash = await this.hashEmbedding(embeddings[index]);
         
         return {
@@ -145,10 +153,10 @@ export class PublicRAGClient {
       },
       body: JSON.stringify({
         wallet: this.walletAddress,
-        encryptedData: encryptedContent.encrypted,
+        encryptedData: encryptionResult.encrypted,
         encryptedMetadata: encryptedMetadata.encrypted,
-        iv: encryptedContent.iv,
-        salt: encryptedContent.salt,
+        iv: encryptionResult.iv,
+        salt: encryptionResult.salt,
         ownerPublicKey: publicKey,
         isPublic: request.isPublic,
         tags: request.tags,
@@ -216,12 +224,12 @@ export class PublicRAGClient {
     content: string;
     metadata: any;
   }> {
-    // Decrypt content
-    const content = await this.encryptionService.decrypt(
-      result.encryptedContent,
-      result.iv,
-      result.salt
-    );
+    const isCommunityDoc = this.encryptionService.isCommunitySalt(result.salt);
+
+    // Decrypt content - use community decryption for public docs
+    const content = isCommunityDoc
+      ? await this.encryptionService.decryptCommunity(result.encryptedContent, result.iv, result.salt)
+      : await this.encryptionService.decrypt(result.encryptedContent, result.iv, result.salt);
 
     // Parse metadata (it's also encrypted but returned as part of search result)
     const metadata = JSON.parse(content); // Content contains both text and metadata
@@ -256,17 +264,50 @@ export class PublicRAGClient {
   }> {
     const doc = await this.getDocument(documentId);
 
-    const content = await this.encryptionService.decrypt(
-      doc.encryptedData,
-      doc.iv,
-      doc.salt
-    );
+    // Check if document has encrypted data
+    if (!doc.encryptedData || !doc.iv || !doc.salt) {
+      throw new Error('Document is not available or not properly encrypted');
+    }
 
-    const metadataStr = await this.encryptionService.decrypt(
-      doc.encryptedMetadata,
-      doc.iv,
-      doc.salt
-    );
+    // Check if user is the document owner
+    const isOwner = doc.walletAddress?.toLowerCase() === this.walletAddress?.toLowerCase();
+    const isPublicDoc = doc.isPublic;
+
+    let content: string;
+    let metadataStr: string;
+
+    if (isOwner) {
+      // Owner can always decrypt with their wallet key
+      content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
+      metadataStr = await this.encryptionService.decrypt(doc.encryptedMetadata, doc.iv, doc.salt);
+    } else if (isPublicDoc) {
+      // For public docs, try community key first, then wallet key (for old uploads)
+      // If neither works, the doc needs re-uploading with new encryption
+      try {
+        content = await this.encryptionService.decryptCommunity(doc.encryptedData, doc.iv, doc.salt);
+      } catch {
+        // Try wallet key as fallback for old public docs
+        try {
+          content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
+        } catch (e) {
+          throw new Error('This document was uploaded with old encryption and cannot be decrypted by others. Please re-upload it as a new public document.');
+        }
+      }
+      try {
+        metadataStr = await this.encryptionService.decryptCommunity(doc.encryptedMetadata, doc.iv, doc.salt);
+      } catch {
+        try {
+          metadataStr = await this.encryptionService.decrypt(doc.encryptedMetadata, doc.iv, doc.salt);
+        } catch {
+          metadataStr = '{}';
+        }
+      }
+    } else {
+      // Private/shared docs - use wallet decryption
+      content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
+      metadataStr = await this.encryptionService.decrypt(doc.encryptedMetadata, doc.iv, doc.salt);
+    }
+
     const metadata = JSON.parse(metadataStr);
 
     const response = await fetch(`${API_BASE_URL}/documents/${documentId}/chunks?wallet=${this.walletAddress}`);
@@ -275,11 +316,16 @@ export class PublicRAGClient {
     
     const chunks = await Promise.all(
       encryptedChunks.map(async (chunk: any) => {
-        return await this.encryptionService.decrypt(
-          chunk.encryptedContent,
-          chunk.iv,
-          doc.salt
-        );
+        if (isOwner) {
+          return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, doc.salt);
+        } else if (isPublicDoc) {
+          try {
+            return await this.encryptionService.decryptCommunity(chunk.encryptedContent, chunk.iv, doc.salt);
+          } catch {
+            return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, doc.salt);
+          }
+        }
+        return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, doc.salt);
       })
     );
 

@@ -124,7 +124,8 @@ export const PublicRAGManager: React.FC = () => {
       setViewingDoc({ id: docId, title, content, author, isPublic });
     } catch (error) {
       console.error('Failed to load document:', error);
-      toast.error('Failed to load document');
+      const message = error instanceof Error ? error.message : 'Failed to load document';
+      toast.error(message);
     } finally {
       setIsLoadingDoc(false);
     }

@@ -223,6 +223,7 @@ export function createRAGRoutes(
 
       res.json({
         id: doc.id,
+        walletAddress: doc.walletAddress,
         encryptedData: doc.encryptedData, // S3 key
         encryptedMetadata: doc.encryptedMetadata,
         iv: doc.iv,
