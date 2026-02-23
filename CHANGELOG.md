@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
 
+## [2.7.8] - 2026-02-23
+
+### Added
+- **Frontend UI Improvements**
+  - Removed broken demo link
+  - Core capabilities now show benefits with docs links
+  - OpenSea metrics now dynamic (live from API)
+  - "AI Interview" renamed to "Guided Design"
+  - Knowledge sources now dynamic (Add Source button in My Agents)
+
+- **Private RAG Storage**
+  - Local folder storage option using File System Access API
+  - Data persists across browser restarts
+  - Export/Import between browser and local folders
+
 ## [2.7.7] - 2026-02-23
 
 ### Added
