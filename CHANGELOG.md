@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
 
+## [2.7.9] - 2026-02-23
+
+### Added
+- **Guided Discovery** - 15 progressive questions replacing old interview
+  - Categories: Function, Audience, Differentiation, Communication, Knowledge
+  - Auto-generates personality markdown and config
+  - Saves directly to backend
+
+### Fixed
+- **Frontend-Backend Integration** - Added version API methods to configApi
+
 ## [2.7.8] - 2026-02-23
 
 ### Added
