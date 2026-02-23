@@ -1,0 +1,8 @@
+dist/
+*.ts
+!*.d.ts
+src/
+examples/
+*.map
+.DS_Store
+node_modules/

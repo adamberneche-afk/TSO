@@ -2,6 +2,7 @@
  * RAG API Routes
  * End-to-end encrypted document storage and retrieval
  * Tier-based access control per staking document
+ * Supports session-based authentication for streamlined uploads
  */
 
 import { Router, Request, Response } from 'express';
@@ -9,6 +10,7 @@ import { PrismaClient } from '@prisma/client';
 import { verifySignature } from '../utils/signature';
 import RAGAccessControl from '../services/ragAccessControl';
 import { createRAGStorageService } from '../services/ragStorage';
+import { getSession, updateSessionActivity, sessionAuthMiddleware } from '../services/ragSession';
 
 export function createRAGRoutes(
   prisma: PrismaClient,
@@ -18,21 +20,32 @@ export function createRAGRoutes(
   const accessControl = new RAGAccessControl(prisma, logger);
   const storage = createRAGStorageService(logger, prisma);
 
+  // Apply session middleware to all routes
+  router.use(sessionAuthMiddleware);
+
   // ============ Document Management ============
 
   /**
    * POST /api/v1/rag/documents
    * Upload encrypted document
+   * Supports session-based auth (X-Session-Token header) or wallet param
    */
   router.post('/documents', async (req: Request, res: Response) => {
     try {
-      const { wallet, encryptedData, encryptedMetadata, iv, salt, ownerPublicKey, isPublic, tags, chunks } = req.body;
+      const session = (req as any).session;
+      let wallet = session?.walletAddress || req.body.wallet;
+      
+      const { encryptedData, encryptedMetadata, iv, salt, ownerPublicKey, isPublic, tags, chunks } = req.body;
 
-      // Verify wallet signature
-      // Note: In production, verify proper signature
+      // Verify wallet or session exists
       if (!wallet || !encryptedData) {
-        return res.status(400).json({ error: 'Missing required fields' });
+        return res.status(400).json({ 
+          error: 'Missing required fields',
+          hint: session ? 'Session found, ensure encryptedData is provided' : 'Provide wallet or start a session with POST /api/v1/rag/session/start'
+        });
       }
+
+      wallet = wallet.toLowerCase();
 
       // Check storage quota
       const dataSize = Buffer.byteLength(encryptedData, 'base64');
@@ -114,13 +127,19 @@ export function createRAGRoutes(
         },
       });
 
-      logger.info(`Document uploaded: ${doc.id}`, { wallet, size: dataSize });
+      logger.info(`Document uploaded: ${doc.id}`, { wallet, size: dataSize, session: !!session });
+
+      // Update session activity if using session auth
+      if (session) {
+        updateSessionActivity(session.sessionId, dataSize);
+      }
 
       res.status(201).json({
         documentId: doc.id,
         size: dataSize,
         chunkCount: chunks?.length || 0,
         message: 'Document uploaded successfully',
+        sessionRemaining: session ? Math.max(0, Math.floor((session.expiresAt.getTime() - Date.now()) / 1000)) : null,
       });
     } catch (error) {
       logger.error('Error uploading document:', error);

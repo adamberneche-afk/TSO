@@ -1,0 +1,74 @@
+config:
+  target: "https://tso.onrender.com"
+  phases:
+    - name: "Warm up"
+      duration: 30
+      arrivalRate: 5
+    - name: "Ramp up"
+      duration: 60
+      arrivalRate: 5
+      rampTo: 50
+    - name: "Peak load"
+      duration: 120
+      arrivalRate: 50
+      rampTo: 100
+    - name: "Cool down"
+      duration: 30
+      arrivalRate: 50
+      rampTo: 5
+  defaults:
+    headers:
+      Accept: "application/json"
+  plugins:
+    metrics-by-endpoint:
+      useDistinctRequestCount: true
+
+scenarios:
+  - name: "Health Check"
+    weight: 10
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+            - contentType: json
+
+  - name: "Skills API"
+    weight: 20
+    flow:
+      - get:
+          url: "/api/v1/skills"
+          expect:
+            - statusCode: 200
+
+  - name: "RAG Stats"
+    weight: 25
+    flow:
+      - get:
+          url: "/api/v1/rag/stats?wallet=0x8f49701734bfe3f3331c6f8ffeb814f73e4f5102"
+          expect:
+            - statusCode: 200
+
+  - name: "RAG Documents"
+    weight: 20
+    flow:
+      - get:
+          url: "/api/v1/rag/documents?wallet=0x8f49701734bfe3f3331c6f8ffeb814f73e4f5102"
+          expect:
+            - statusCode: 200
+
+  - name: "RAG Community"
+    weight: 15
+    flow:
+      - get:
+          url: "/api/v1/rag/community?limit=10"
+          expect:
+            - statusCode: 200
+
+  - name: "Monitoring Dashboard"
+    weight: 10
+    flow:
+      - get:
+          url: "/monitoring/dashboard"
+          expect:
+            - statusCode: 200

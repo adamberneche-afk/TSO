@@ -12,14 +12,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Version history for configurations
 - $THINK token integration (migrating from Genesis NFT)
 - Multi-device sync with Supabase
-- App RAG SDK for third-party developers
 - Enterprise RAG with SSO integration
 - Cloudflare R2 storage (when revenue positive)
 
 ### In Progress
-- Alert configuration (pending notification channels)
-- Log aggregation setup
-- Performance baseline establishment
+- Configuration templates gallery (Release 2)
+
+## [2.7.4] - 2026-02-23
+
+### Added
+- **RAG Session-Based Authentication** - Streamlined uploads
+  - `POST /api/v1/rag/session/start` - Start 1-hour session with wallet signature
+  - `GET /api/v1/rag/session/status` - Check session status
+  - `DELETE /api/v1/rag/session/end` - End session
+  - Upload unlimited documents during session (no per-doc signature)
+  - Session tracked with activity, document count, bytes uploaded
+  - Max 3 concurrent sessions per wallet
+
+- **SDK Session Support** - `tais-rag-sdk@1.1.0`
+  - `client.startRAGSession(signFn)` - Start session
+  - `client.getSessionStatus()` - Check session
+  - `client.endRAGSession()` - End session
+  - Automatic session token in upload requests
+
+### Changed
+- RAG routes now support session-based auth via `X-Session-Token` header
+- Upload response includes `sessionRemaining` seconds when using session
+
+## [2.7.3] - 2026-02-23
+
+### Added
+- **App RAG SDK** (`tais-rag-sdk`) - Published to npm for third-party developers
+  - `npm install tais-rag-sdk`
+  - `TAISClient` class for API communication
+  - Document upload, search, delete, share methods
+  - Quota and stats endpoints
+  - Community document browsing
+  - E2EE crypto utilities (AES-256-GCM, ECDH P-384)
+  - Text chunking with overlap support
+  - Embedding hash generation for privacy-preserving search
+
+- **SDK Wallet Signature Authentication** - Gold tier required
+  - `GET /api/v1/sdk/auth/challenge` - Get challenge message to sign
+  - `POST /api/v1/sdk/auth/authenticate` - Submit signature, receive API key
+  - `GET /api/v1/sdk/auth/verify` - Verify API key validity
+  - `DELETE /api/v1/sdk/auth/revoke` - Revoke API key
+  - Genesis NFT verification for Gold tier access
+  - 30-day API key expiry, 10K requests/day limit
+
+### Files Added
+- `packages/rag-sdk/` - New SDK package
+  - `src/index.ts` - Main client and types
+  - `src/crypto.ts` - Encryption utilities
+  - `README.md` - SDK documentation
+  - `examples/basic.ts` - Usage example
+- `packages/registry/src/routes/sdkAuth.ts` - SDK authentication routes
+
+## [2.7.2] - 2026-02-23
+
+### Added
+- **Sprint 3 Complete: Monitoring & Observability**
+  - SendGrid email alerts verified working
+  - Performance baseline established via load testing
+  - Load test script (`tests/load-test.js`) for ongoing testing
+
+### Changed
+- **Redis Service**: Created mock redis.ts for module compatibility
+
+### Performance Baseline
+| Metric | Value | Target | Notes |
+|--------|-------|--------|-------|
+| Error Rate | 0.00% | < 5% | ✅ Pass |
+| p50 Latency | 295ms | < 200ms | ⚠️ Render cold start |
+| p95 Latency | 1829ms | < 500ms | ⚠️ Render free tier |
+| p99 Latency | 2070ms | < 1000ms | ⚠️ Render free tier |
 
 ## [2.7.1] - 2026-02-20
 

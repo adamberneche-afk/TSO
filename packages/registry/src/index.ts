@@ -256,6 +256,10 @@ apiV1Router.use('/admin/migrate',
 // Uses separate RAG database (tais-rag)
 // ============================================
 import { createRAGRoutes } from './routes/rag';
+import { createSessionRoutes } from './services/ragSession';
+
+// RAG session management (for streamlined uploads)
+apiV1Router.use('/rag/session', createSessionRoutes(prisma, logger));
 
 // RAG routes with tier-based rate limiting
 // Uses ragPrisma for RAG-specific database operations
@@ -263,6 +267,15 @@ apiV1Router.use('/rag',
   rateLimiters.authenticated, // Apply rate limiting to all RAG routes
   createRAGRoutes(ragPrisma, logger)
 );
+
+// ============================================
+// SDK Authentication Routes
+// Wallet signature auth for third-party developers
+// Requires Gold tier (Genesis NFT holder)
+// ============================================
+import { createSDKAuthRoutes } from './routes/sdkAuth';
+
+apiV1Router.use('/sdk/auth', createSDKAuthRoutes(prisma, logger));
 
 // ============================================
 // Monitoring & Observability Routes

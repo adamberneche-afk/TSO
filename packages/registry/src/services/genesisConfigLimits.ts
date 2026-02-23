@@ -424,16 +424,14 @@ export function getNFTCacheStats(): {
  * Cache NFT verification result (Redis with in-memory fallback)
  */
 async function cacheNFTResult(walletAddress: string, result: NFTOwnershipResult): Promise<void> {
-  const cacheKey = walletAddress.toLowerCase();
+  const cacheKey = `nft:${walletAddress.toLowerCase()}`;
   
-  // Try Redis first
   const redisAvailable = isRedisAvailable();
   if (redisAvailable) {
-    await cacheSet(cacheKey, result, { prefix: 'nft', ttl: 900 });
+    await cacheSet(cacheKey, JSON.stringify(result), 900);
     console.log(`[NFT Cache] Redis: Cached result for ${walletAddress}`);
   } else {
-    // Fallback to in-memory
-    nftCache.set(cacheKey, result);
+    nftCache.set(walletAddress.toLowerCase(), result);
     console.log(`[NFT Cache] Memory: Cached result for ${walletAddress}, cache size: ${nftCache.size()}`);
   }
 }
@@ -442,21 +440,19 @@ async function cacheNFTResult(walletAddress: string, result: NFTOwnershipResult)
  * Get cached NFT status if not expired
  */
 async function getCachedNFTStatus(walletAddress: string): Promise<NFTOwnershipResult | null> {
-  const cacheKey = walletAddress.toLowerCase();
+  const cacheKey = `nft:${walletAddress.toLowerCase()}`;
   
-  // Try Redis first
   const redisAvailable = isRedisAvailable();
   if (redisAvailable) {
-    const cached = await cacheGet<NFTOwnershipResult>(cacheKey, { prefix: 'nft' });
+    const cached = await cacheGet(cacheKey);
     if (cached) {
       console.log(`[NFT Cache] Redis: Using cached result for ${walletAddress}`);
-      return cached;
+      return JSON.parse(cached) as NFTOwnershipResult;
     }
     return null;
   }
   
-  // Fallback to in-memory
-  const cached = nftCache.get(cacheKey);
+  const cached = nftCache.get(walletAddress.toLowerCase());
   if (!cached) return null;
   
   console.log(`[NFT Cache] Memory: Using cached result for ${walletAddress}`);
@@ -467,14 +463,14 @@ async function getCachedNFTStatus(walletAddress: string): Promise<NFTOwnershipRe
  * Clear NFT cache for a wallet
  */
 export function clearNFTCache(walletAddress: string): void {
-  const cacheKey = walletAddress.toLowerCase();
+  const cacheKey = `nft:${walletAddress.toLowerCase()}`;
   
   const redisAvailable = isRedisAvailable();
   if (redisAvailable) {
-    cacheDelete(cacheKey, { prefix: 'nft' });
+    cacheDelete(cacheKey);
     console.log(`[NFT Cache] Redis: Cleared cache for ${walletAddress}`);
   } else {
-    nftCache.delete(cacheKey);
+    nftCache.delete(walletAddress.toLowerCase());
     console.log(`[NFT Cache] Memory: Cleared cache for ${walletAddress}`);
   }
 }

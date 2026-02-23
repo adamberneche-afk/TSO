@@ -1,0 +1,53 @@
+{
+  "name": "tais-rag-sdk",
+  "version": "1.1.0",
+  "description": "TAIS RAG SDK for third-party developers - requires Genesis NFT (Gold tier)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "tais",
+    "rag",
+    "retrieval-augmented-generation",
+    "ai",
+    "knowledge-base",
+    "e2ee",
+    "encryption",
+    "nft-gated"
+  ],
+  "author": "TAIS Platform",
+  "license": "MIT",
+  "dependencies": {
+    "cross-fetch": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adamberneche-afk/TSO.git",
+    "directory": "packages/rag-sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/adamberneche-afk/TSO/issues"
+  },
+  "homepage": "https://github.com/adamberneche-afk/TSO#readme"
+}
