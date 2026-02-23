@@ -1,4 +1,4 @@
-# Weekly Insights - Two Options
+# Cron Jobs - Two Options
 
 ## Option 1: GitHub Actions (Free - Recommended)
 
@@ -6,20 +6,25 @@
    - Go to: https://github.com/adamberneche-afk/TSO/settings/secrets/actions
    - Add `CRON_SECRET` = your cron secret value
 
-2. The workflow is already configured:
-   - `.github/workflows/weekly-insights.yml`
-   - Runs every Monday at 9am UTC
+2. The workflows are already configured:
+   - `.github/workflows/weekly-insights.yml` - Runs every Monday at 9am UTC
    - Can also be triggered manually from GitHub Actions tab
 
 ## Option 2: Render Cron (Paid)
 
 Render requires payment for cron jobs. Use GitHub Actions instead.
 
-## Manual Trigger
+## Manual Triggers
 
-To trigger insights email manually:
+### Weekly Insights Email
 ```bash
 curl -X POST https://tso.onrender.com/admin/cron/weekly-insights \
+  -H "Authorization: Bearer YOUR_CRON_SECRET"
+```
+
+### Prune Expired Configuration Versions
+```bash
+curl -X POST https://tso.onrender.com/admin/cron/prune-versions \
   -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
 
