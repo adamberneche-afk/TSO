@@ -279,6 +279,9 @@ export class PublicRAGClient {
     // For PUBLIC docs: ALWAYS use community key (even for owner, since that's what was used to encrypt)
     // For PRIVATE docs: use wallet key
     if (isPublicDoc) {
+      console.log('[DEBUG] encryptedData sample:', doc.encryptedData?.slice(0, 50));
+      console.log('[DEBUG] iv sample:', doc.iv?.slice(0, 30));
+      console.log('[DEBUG] salt sample:', doc.salt);
       // Try community decryption first for public docs
       try {
         console.log('[DEBUG] Attempting community decrypt for public doc, salt:', doc.salt?.slice(0, 20));

@@ -624,12 +624,17 @@ export class E2EEEncryptionService {
    * Utility: Convert Base64 to ArrayBuffer
    */
   private base64ToArrayBuffer(base64: string): Uint8Array {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
+    try {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    } catch (e: any) {
+      console.error('[base64ToArrayBuffer] Invalid base64:', base64?.slice(0, 100), 'Error:', e.message);
+      throw new Error(`Invalid base64 encoding: ${e.message}`);
     }
-    return bytes;
   }
 }
 
