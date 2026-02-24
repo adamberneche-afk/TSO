@@ -188,26 +188,12 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
             <h1 className="text-2xl font-bold text-white">My Agents</h1>
           </div>
           <div className="flex items-center gap-3">
-            {!isConnected ? (
-              <Button
-                onClick={connect}
-                className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                Connect Wallet
-              </Button>
-            ) : currentWallet ? (
-              <div className="flex items-center gap-2 text-sm text-[#888888]">
-                <Wallet className="w-4 h-4" />
-                <span className="font-mono">{currentWallet.slice(0, 6)}...{currentWallet.slice(-4)}</span>
-              </div>
-            ) : null}
             <Button
-              onClick={onStartNewInterview}
+              onClick={isConnected ? onStartNewInterview : connect}
               className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Create New Agent
+              <Wallet className="w-4 h-4 mr-2" />
+              {isConnected ? 'Create New Agent' : 'Connect Wallet'}
             </Button>
           </div>
         </div>
