@@ -159,7 +159,7 @@ export function IdentityStep({
                   <div>
                     <p className="text-sm font-medium text-white">Wallet Connected</p>
                     <p className="text-xs text-[#888888] font-mono">
-                      {wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)}
+                      {wallet.address ? `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}` : 'Not connected'}
                     </p>
                   </div>
                 </div>

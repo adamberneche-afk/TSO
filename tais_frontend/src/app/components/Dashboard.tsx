@@ -236,11 +236,18 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
                     <div className="flex items-center gap-2">
                       <Wallet className="w-3 h-3 text-[#F59E0B]" />
                       <span className="text-[#888888]">Connected:</span>
-                      <span className="text-white font-mono">{currentWallet?.slice(0, 6)}...{currentWallet?.slice(-4)}</span>
+                      <span className="text-white font-mono">{currentWallet ? `${currentWallet.slice(0, 6)}...${currentWallet.slice(-4)}` : 'Not connected'}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-[#888888]">Previously:</span>
-                      <span className="text-[#666666] font-mono">{authApi.getWalletFromToken()?.slice(0, 6)}...{authApi.getWalletFromToken()?.slice(-4)}</span>
+                      {(() => {
+                        const prev = authApi.getWalletFromToken();
+                        return prev ? (
+                          <span className="text-[#666666] font-mono">{prev.slice(0, 6)}...{prev.slice(-4)}</span>
+                        ) : (
+                          <span className="text-[#666666]">None</span>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
