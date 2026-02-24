@@ -32,6 +32,9 @@ import {
   FileCode,
   CheckCircle2,
   Circle,
+  History,
+  RotateCcw,
+  Clock,
 } from 'lucide-react';
 import { AgentConfig } from '../../types/agent';
 import { motion, AnimatePresence } from 'motion/react';
@@ -58,6 +61,7 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
   const [needsReAuth, setNeedsReAuth] = useState<boolean>(false);
   const { address: currentWallet, isConnected, connect } = useWallet();
   const [showKnowledgePicker, setShowKnowledgePicker] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
   const {
     documents: publicDocuments,
     communityDocuments,
@@ -728,6 +732,15 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => setShowVersionHistory(true)}
+                  className="border-[#333333] text-[#888888] hover:text-white"
+                >
+                  <History className="w-4 h-4 mr-1" />
+                  History
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={onDownload}
                   className="border-[#333333] text-[#888888] hover:text-white"
                 >
@@ -1020,6 +1033,16 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
           existingSources={knowledgeSources}
           isLoading={isLoadingRAG}
         />
+
+        <VersionHistoryModal
+          isOpen={showVersionHistory}
+          onClose={() => setShowVersionHistory(false)}
+          configId={agent.id}
+          agentName={agent.config.agent.name}
+          onRollback={() => {
+            loadSavedAgents();
+          }}
+        />
       </motion.div>
     </motion.div>
   );
@@ -1164,6 +1187,201 @@ function KnowledgePickerModal({
         <div className="flex justify-end px-4 py-3 border-t border-[#333333]">
           <Button onClick={onClose} variant="outline" className="border-[#333333] text-white">
             Done
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VersionHistoryModal({
+  isOpen,
+  onClose,
+  configId,
+  agentName,
+  onRollback
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  configId: string;
+  agentName: string;
+  onRollback: () => void;
+}) {
+  const [versions, setVersions] = useState<any[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRollingBack, setIsRollingBack] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && configId) {
+      loadVersions();
+    }
+  }, [isOpen, configId]);
+
+  const loadVersions = async () => {
+    setIsLoading(true);
+    try {
+      const data = await configApi.getConfigVersions(configId);
+      setVersions(data.versions || []);
+    } catch (error) {
+      console.error('Failed to load versions:', error);
+      toast.error('Failed to load version history');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRollback = async (version: number) => {
+    if (!confirm(`Are you sure you want to rollback to version ${version}? This will replace your current configuration.`)) {
+      return;
+    }
+
+    setIsRollingBack(true);
+    try {
+      await configApi.rollbackToVersion(configId, version);
+      toast.success(`Rolled back to version ${version}`);
+      onRollback();
+      onClose();
+    } catch (error) {
+      console.error('Failed to rollback:', error);
+      toast.error('Failed to rollback version');
+    } finally {
+      setIsRollingBack(false);
+    }
+  };
+
+  const viewVersionDetails = async (versionNum: number) => {
+    try {
+      const details = await configApi.getVersionDetails(configId, versionNum);
+      setSelectedVersion(details);
+    } catch (error) {
+      console.error('Failed to load version details:', error);
+      toast.error('Failed to load version details');
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#1a1a1a] border border-[#333333] rounded-lg w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#333333]">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <History className="w-5 h-5" />
+            Version History - {agentName}
+          </h3>
+          <button onClick={onClose} className="text-[#888888] hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {selectedVersion ? (
+          <div className="flex-1 overflow-auto p-4">
+            <div className="flex items-center justify-between mb-4">
+              <Button variant="outline" size="sm" onClick={() => setSelectedVersion(null)} className="border-[#333333] text-white">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to list
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={() => handleRollback(selectedVersion.version)}
+                disabled={isRollingBack}
+                className="bg-[#3B82F6] hover:bg-[#2563EB]"
+              >
+                {isRollingBack ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                )}
+                Restore This Version
+              </Button>
+            </div>
+            <div className="bg-[#252525] border border-[#333333] rounded-lg p-4">
+              <div className="flex items-center gap-4 mb-4 text-sm text-[#888888]">
+                <span>Version {selectedVersion.version}</span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {new Date(selectedVersion.createdAt).toLocaleString()}
+                </span>
+                {selectedVersion.versionNote && (
+                  <>
+                    <span>•</span>
+                    <span>{selectedVersion.versionNote}</span>
+                  </>
+                )}
+              </div>
+              <pre className="text-xs text-[#e0e0e0] whitespace-pre-wrap font-mono max-h-96 overflow-auto">
+                {JSON.stringify(selectedVersion.config, null, 2)}
+              </pre>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-auto p-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" />
+              </div>
+            ) : versions.length === 0 ? (
+              <div className="text-center py-12">
+                <History className="w-12 h-12 text-[#555555] mx-auto mb-4" />
+                <p className="text-[#888888]">No version history available</p>
+                <p className="text-xs text-[#666666] mt-2">Version history is created when you save changes</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {versions.map((version) => (
+                  <div
+                    key={version.id}
+                    className="p-4 border border-[#333333] bg-[#252525] rounded-lg hover:border-white/30 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[#3B82F6]/20 flex items-center justify-center">
+                          <span className="text-sm font-medium text-[#3B82F6]">v{version.version}</span>
+                        </div>
+                        <div>
+                          <p className="text-sm text-white font-medium">Version {version.version}</p>
+                          <p className="text-xs text-[#666666] flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {new Date(version.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => viewVersionDetails(version.version)}
+                          className="border-[#333333] text-white hover:bg-[#333333]"
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          View
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleRollback(version.version)}
+                          disabled={isRollingBack}
+                          className="bg-[#10B981] hover:bg-[#059669]"
+                        >
+                          <RotateCcw className="w-3 h-3 mr-1" />
+                          Restore
+                        </Button>
+                      </div>
+                    </div>
+                    {version.versionNote && (
+                      <p className="text-xs text-[#888888] mt-2 ml-11">{version.versionNote}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end px-4 py-3 border-t border-[#333333]">
+          <Button onClick={onClose} variant="outline" className="border-[#333333] text-white">
+            Close
           </Button>
         </div>
       </div>
