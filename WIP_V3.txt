@@ -79,13 +79,22 @@
 
 ### CTO Agent (Gold Tier)
 **Goal:** Full app development partner with dashboard + chat
-**Status:** ✅ COMPLETE
+**Status:** ✅ COMPLETE (Backend v2.7.6, Frontend v2.9.0)
 
-**Features:**
+**Backend Features:**
 - Project-based tracking through 5 phases
 - Pain points by area (security, database, API, etc.)
 - Blockers with resolution tracking
 - Analytics integration for weekly insights
+
+**Frontend (v2.9.0):**
+- GoldTierDashboard component
+- CTO Agent project management UI
+- Create/list projects
+- Phase progress tracking
+- SDK section with npm instructions
+- CLI documentation
+- Genesis NFT verification gate
 
 **Phases:**
 planning → architecture → development → testing → launch

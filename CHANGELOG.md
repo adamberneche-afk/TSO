@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
 
+## [2.9.0] - 2026-02-24
+
+### Added
+- **Gold Tier Dashboard**
+  - Secure area requiring Genesis NFT access
+  - CTO Agent UI (create/manage projects, track phases)
+  - SDK section with npm install instructions
+  - CLI commands documentation
+  - Links to npm package and docs
+
 ## [2.8.2] - 2026-02-24
 
 ### Added
