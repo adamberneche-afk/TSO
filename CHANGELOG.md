@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - SDK section with npm install instructions
   - CLI commands documentation
   - Links to npm package and docs
+  - tais-sdk-assistant CLI published to npm
+
+### Changed
+- Updated SDK section in Gold Tier Dashboard to show tais-sdk-assistant CLI
 
 ## [2.8.2] - 2026-02-24
 

@@ -93,6 +93,7 @@
 - Create/list projects
 - Phase progress tracking
 - SDK section with npm instructions
+- tais-sdk-assistant CLI published to npm
 - CLI documentation
 - Genesis NFT verification gate
 
