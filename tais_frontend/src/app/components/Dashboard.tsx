@@ -60,6 +60,7 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
   const [showKnowledgePicker, setShowKnowledgePicker] = useState(false);
   const {
     documents: publicDocuments,
+    communityDocuments,
     isLoading: isLoadingRAG,
     isInitialized,
     initialize
@@ -1014,7 +1015,7 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
         <KnowledgePickerModal
           isOpen={showKnowledgePicker}
           onClose={() => setShowKnowledgePicker(false)}
-          documents={publicDocuments}
+          documents={[...publicDocuments, ...(communityDocuments || [])]}
           onSelect={addKnowledgeSourceFromPicker}
           existingSources={knowledgeSources}
           isLoading={isLoadingRAG}
