@@ -122,7 +122,7 @@ export const ConversationUI: React.FC = () => {
         </div>
 
         {/* Previous Sessions */}
-        {sessions.length > 0 && (
+        {sessions && sessions.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

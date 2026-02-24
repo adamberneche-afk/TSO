@@ -418,7 +418,7 @@ function AgentCard({ agent, onView, onDownload, onCopy, onDelete }: AgentCardPro
               {goal}
             </Badge>
           ))}
-          {config.agent.goals.length > 3 && (
+          {config.agent.goals && config.agent.goals.length > 3 && (
             <Badge
               variant="secondary"
               className="bg-[#222222] text-[#888888] text-xs"
@@ -432,7 +432,7 @@ function AgentCard({ agent, onView, onDownload, onCopy, onDelete }: AgentCardPro
         <div className="flex items-center gap-4 text-xs text-[#888888]">
           <span className="flex items-center gap-1">
             <Zap className="w-3 h-3" />
-            {config.agent.skills.length} skills
+            {config.agent.skills?.length || 0} skills
           </span>
           <span className="flex items-center gap-1">
             <Calendar className="w-3 h-3" />
@@ -643,8 +643,8 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
               {isEditing ? 'Edit: ' : ''}{(isEditing ? editedConfig : agent.config).agent.name}
             </h2>
             <p className="text-sm text-[#888888]">
-              Last modified: {formattedDate} • {(isEditing ? editedConfig : agent.config).agent.skills.length} skills
-              {knowledgeSources.length > 0 && ` • ${knowledgeSources.length} knowledge sources`}
+              Last modified: {formattedDate} • {(isEditing ? editedConfig : agent.config).agent.skills?.length || 0} skills
+              {(knowledgeSources || []).length > 0 && ` • ${knowledgeSources.length} knowledge sources`}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -898,12 +898,12 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
                           <Plus className="w-3 h-3" /> Add Source
                         </button>
                       )}
-                      {knowledgeSources.length > 0 && (
+                      {(knowledgeSources || []).length > 0 && (
                         <span className="text-xs text-[#3B82F6]">{knowledgeSources.length} sources</span>
                       )}
                     </div>
                     
-                    {knowledgeSources.length === 0 ? (
+                    {(knowledgeSources || []).length === 0 ? (
                       <div className="px-4 py-6 text-center">
                         <Database className="w-8 h-8 text-[#555555] mx-auto mb-2" />
                         <p className="text-sm text-[#888888]">No knowledge sources configured</p>
