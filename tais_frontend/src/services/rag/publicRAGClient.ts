@@ -281,12 +281,18 @@ export class PublicRAGClient {
     if (isPublicDoc) {
       // Try community decryption first for public docs
       try {
+        console.log('[DEBUG] Attempting community decrypt for public doc, salt:', doc.salt?.slice(0, 20));
         content = await this.encryptionService.decryptCommunity(doc.encryptedData, doc.iv, doc.salt);
-      } catch {
+        console.log('[DEBUG] Community decrypt SUCCESS');
+      } catch (e: any) {
+        console.log('[DEBUG] Community decrypt failed:', e.message);
         // Fallback to wallet key for old public docs
         try {
+          console.log('[DEBUG] Attempting wallet decrypt for public doc');
           content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
-        } catch (e) {
+          console.log('[DEBUG] Wallet decrypt SUCCESS');
+        } catch (e2: any) {
+          console.log('[DEBUG] Wallet decrypt also failed:', e2.message);
           throw new Error('This document was uploaded with old encryption and cannot be decrypted by others. Please re-upload it as a new public document.');
         }
       }
