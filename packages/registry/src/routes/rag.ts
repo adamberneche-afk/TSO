@@ -70,28 +70,25 @@ export function createRAGRoutes(
         });
       }
 
-      // Store document in S3/R2
+      // Store document - store content directly in DB instead of S3 key
       const documentId = crypto.randomUUID();
-      const stored = await storage.storeDocument(wallet, documentId, encryptedData, {
-        size: dataSize,
-      });
-
-      // Create document record
+      
+      // Create document record with actual encrypted content
       const doc = await prisma.rAGDocument.create({
         data: {
           id: documentId,
           walletAddress: wallet.toLowerCase(),
           ownerPublicKey,
-          encryptedData: stored.key, // Store S3 key, not the data
+          encryptedData: encryptedData, // Store actual encrypted content in DB
           encryptedMetadata,
           iv,
           salt,
-          title: tags?.[0] || 'Untitled', // Optional
+          title: tags?.[0] || 'Untitled',
           isPublic: isPublic || false,
           tags: tags || [],
           size: dataSize,
           chunkCount: chunks?.length || 0,
-          storageUrl: stored.url,
+          storageUrl: null, // Not using S3
           allowedViewers: isPublic ? [] : [ownerPublicKey],
         },
       });
@@ -221,32 +218,7 @@ export function createRAGRoutes(
         return res.status(403).json({ error: 'Access denied' });
       }
 
-      // Return encrypted content directly (already stored in DB)
-      // OR fetch from chunks if it's a storage key
-      let encryptedContent = doc.encryptedData;
-      
-      // If encryptedData looks like a storage key, fetch from there or chunks
-      if (doc.encryptedData.startsWith('rag/') || doc.encryptedData.startsWith('database://')) {
-        try {
-          const contentBuffer = await storage.getDocument(doc.encryptedData);
-          encryptedContent = contentBuffer.toString('base64');
-        } catch {
-          // Fallback: try chunks
-          try {
-            const chunks = await prisma.rAGChunk.findMany({
-              where: { documentId: doc.id },
-              orderBy: { index: 'asc' }
-            });
-            if (chunks.length > 0) {
-              encryptedContent = chunks.map((c: any) => c.encryptedContent).join('');
-            }
-          } catch (e) {
-            logger.error('Failed to fetch content from chunks:', e);
-          }
-        }
-      }
-
-      // Fetch chunks for decryption
+      // Content is stored directly in DB, just return it
       const chunkList = await prisma.rAGChunk.findMany({
         where: { documentId: id },
         orderBy: { index: 'asc' },
@@ -261,7 +233,7 @@ export function createRAGRoutes(
       res.json({
         id: doc.id,
         walletAddress: doc.walletAddress,
-        encryptedData: encryptedContent,
+        encryptedData: doc.encryptedData,
         encryptedMetadata: doc.encryptedMetadata,
         iv: doc.iv,
         salt: doc.salt,
