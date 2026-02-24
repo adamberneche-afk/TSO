@@ -30,6 +30,8 @@ import {
   Lock,
   Code,
   FileCode,
+  CheckCircle2,
+  Circle,
 } from 'lucide-react';
 import { AgentConfig } from '../../types/agent';
 import { motion, AnimatePresence } from 'motion/react';
@@ -37,6 +39,7 @@ import { toast } from 'sonner';
 import { configApi } from '../../services/configApi';
 import { authApi } from '../../services/authApi';
 import { useWallet } from '../../hooks/useWallet';
+import { usePublicRAG } from '../../hooks/usePublicRAG';
 import { generateConfigSummary, generateBulletSummary } from '../../lib/config-summary';
 
 interface DashboardProps {
@@ -54,11 +57,19 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
   const [walletMismatch, setWalletMismatch] = useState<boolean>(false);
   const [needsReAuth, setNeedsReAuth] = useState<boolean>(false);
   const { address: currentWallet, isConnected, connect } = useWallet();
+  const [showKnowledgePicker, setShowKnowledgePicker] = useState(false);
+  const {
+    documents: publicDocuments,
+    isLoading: isLoadingRAG,
+    isInitialized,
+    initialize
+  } = usePublicRAG();
 
   useEffect(() => {
-    // Load saved agents from backend API
-    loadSavedAgents();
-  }, [currentWallet]); // Reload when wallet changes
+    if (!isInitialized) {
+      initialize();
+    }
+  }, [isInitialized, initialize]);
 
   const handleReconnect = async () => {
     authApi.logout();
@@ -591,6 +602,37 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
     }));
   };
 
+  const addKnowledgeSourceFromPicker = (doc: any) => {
+    const sourceId = `public-rag-${doc.id}`;
+    const existingSources = (isEditing ? editedConfig : selectedAgent?.config).agent.knowledge?.sources || [];
+    
+    if (existingSources.some((s: any) => s.documentId === doc.id && s.type === 'public-rag')) {
+      toast.info('This document is already added');
+      return;
+    }
+
+    const newSource = {
+      id: sourceId,
+      type: 'public-rag' as const,
+      documentId: doc.id,
+      title: doc.title || 'Untitled',
+      enabled: true,
+      priority: 5
+    };
+    
+    setEditedConfig(prev => ({
+      ...prev,
+      agent: {
+        ...prev.agent,
+        knowledge: {
+          ...prev.agent.knowledge,
+          sources: [...(prev.agent.knowledge?.sources || []), newSource]
+        }
+      }
+    }));
+    toast.success(`Added "${doc.title}" to knowledge sources`);
+  };
+
   const removeKnowledgeSource = (sourceId: string) => {
     setEditedConfig(prev => ({
       ...prev,
@@ -892,7 +934,7 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
                       </h5>
                       {isEditing && (
                         <button
-                          onClick={() => addKnowledgeSource({ id: `manual-${Date.now()}`, title: 'New Source' })}
+                          onClick={() => setShowKnowledgePicker(true)}
                           className="text-xs text-[#3B82F6] hover:underline flex items-center gap-1"
                         >
                           <Plus className="w-3 h-3" /> Add Source
@@ -968,6 +1010,15 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
             )}
           </div>
         </div>
+
+        <KnowledgePickerModal
+          isOpen={showKnowledgePicker}
+          onClose={() => setShowKnowledgePicker(false)}
+          documents={publicDocuments}
+          onSelect={addKnowledgeSourceFromPicker}
+          existingSources={knowledgeSources}
+          isLoading={isLoadingRAG}
+        />
       </motion.div>
     </motion.div>
   );
@@ -1001,6 +1052,120 @@ function EmptyState({ onCreateNew, hasAgents }: EmptyStateProps) {
           Create Your First Agent
         </Button>
       )}
+    </div>
+  );
+}
+
+function KnowledgePickerModal({ 
+  isOpen, 
+  onClose, 
+  documents, 
+  onSelect, 
+  existingSources,
+  isLoading 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  documents: any[]; 
+  onSelect: (doc: any) => void;
+  existingSources: any[];
+  isLoading: boolean;
+}) {
+  const isDocumentSelected = (docId: string) => {
+    return existingSources.some((s: any) => s.documentId === docId && s.type === 'public-rag');
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#1a1a1a] border border-[#333333] rounded-lg w-full max-w-2xl max-h-[80vh] overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#333333]">
+          <h3 className="text-lg font-semibold text-white">Select Knowledge Source</h3>
+          <button onClick={onClose} className="text-[#888888] hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="p-4 overflow-y-auto max-h-[60vh]">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" />
+            </div>
+          ) : documents.length === 0 ? (
+            <div className="text-center py-12">
+              <Database className="w-12 h-12 text-[#555555] mx-auto mb-4" />
+              <p className="text-[#888888] mb-4">No documents in your knowledge base</p>
+              <Button
+                variant="outline"
+                onClick={() => window.location.href = '/#rag'}
+                className="border-[#333333] text-[#888888]"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Documents
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {documents.map((doc) => (
+                <div
+                  key={doc.id}
+                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                    isDocumentSelected(doc.id)
+                      ? 'border-[#3B82F6] bg-[#3B82F6]/10'
+                      : 'border-[#333333] bg-[#252525] hover:border-white/30'
+                  }`}
+                  onClick={() => {
+                    if (!isDocumentSelected(doc.id)) {
+                      onSelect(doc);
+                    }
+                  }}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      {isDocumentSelected(doc.id) ? (
+                        <CheckCircle2 className="w-5 h-5 text-[#3B82F6]" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-[#555555]" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-white">{doc.title || 'Untitled'}</p>
+                        <p className="text-xs text-[#666666] mt-1">
+                          {doc.chunkCount || 0} chunks • {doc.size ? (doc.size / 1024).toFixed(1) : 0} KB
+                        </p>
+                      </div>
+                    </div>
+                    {doc.isPublic && (
+                      <Globe className="w-4 h-4 text-[#3B82F6]" />
+                    )}
+                  </div>
+                  {(doc.tags || []).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-3">
+                      {(doc.tags || []).slice(0, 3).map((tag: string) => (
+                        <span
+                          key={tag}
+                          className="text-[8px] uppercase tracking-tighter bg-[#0A0A0B] border border-[#333333] px-1.5 py-0.5 rounded text-[#717171]"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {isDocumentSelected(doc.id) && (
+                    <p className="text-xs text-[#3B82F6] mt-2">Already added</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <div className="flex justify-end px-4 py-3 border-t border-[#333333]">
+          <Button onClick={onClose} variant="outline" className="border-[#333333] text-white">
+            Done
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
