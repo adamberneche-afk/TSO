@@ -322,32 +322,14 @@ security, database, api-design, frontend, backend, infrastructure, testing, moni
 
 ### Medium Priority (Release 2)
 
-#### 5. Configuration Templates Gallery
+#### 5. Configuration Templates Gallery ❌ DECLINED
 **Goal:** Pre-built agent configuration templates
-**Status:** 📋 Planned for Release 2
+**Status:** ❌ NOT IMPLEMENTED - Decision: Guided Discovery replaces need for templates
 
-**Tasks:**
-- [ ] Design template schema
-- [ ] Create 10 starter templates
-- [ ] Build template gallery UI
-- [ ] Add one-click template import
-- [ ] Template rating/review system
-
-**Starter Templates:**
-1. Customer Support Agent
-2. Code Review Assistant
-3. Research Assistant
-4. Data Analyst
-5. Content Writer
-6. Project Manager
-7. Sales Assistant
-8. Technical Writer
-9. QA Tester
-10. DevOps Assistant
-
-**Dependencies:** None
-**Estimated Effort:** 1 week
-**Team:** Beta (Frontend)
+**Rationale:** 
+- Guided Discovery (15-question interview) provides personalized configuration
+- Templates remove human agency - Discovery preserves it
+- Templates would require ongoing curation/maintenance
 
 ---
 
