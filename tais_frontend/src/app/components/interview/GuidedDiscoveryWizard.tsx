@@ -663,7 +663,7 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
           </Button>
 
           <div className="flex gap-2">
-            {QUESTIONS.slice(0, 5).map((q, i) => (
+            {(QUESTIONS || []).slice(0, 5).map((q, i) => (
               <div 
                 key={q.id}
                 className={`w-2 h-2 rounded-full ${

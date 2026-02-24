@@ -325,7 +325,7 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
               <div>
                 <h5 className="text-xs text-[#888888] uppercase tracking-wider mb-2">Quick Stats</h5>
                 <div className="grid grid-cols-2 gap-2">
-                  {bulletSummary.slice(0, 4).map((item, index) => (
+                  {(bulletSummary || []).slice(0, 4).map((item, index) => (
                     <div key={index} className="bg-[#252525] rounded p-3 border border-[#333333]">
                       <dt className="text-xs text-[#888888] mb-1">{item.label}</dt>
                       <dd className="text-sm text-white font-medium truncate">{item.value}</dd>
@@ -355,8 +355,8 @@ export function ConfigPreview({ config, onUpdate, editable = false, onSaveSucces
                   </h5>
                   <div className="p-3">
                     <pre className="text-xs text-[#e0e0e0] whitespace-pre-wrap font-mono">
-                      {config.agent.personalityMd.slice(0, 500)}
-                      {config.agent.personalityMd.length > 500 && '...'}
+                      {(config.agent.personalityMd || '').slice(0, 500)}
+                      {(config.agent.personalityMd || '').length > 500 && '...'}
                     </pre>
                   </div>
                 </div>

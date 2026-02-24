@@ -185,7 +185,7 @@ function SkillCard({ skill, isSelected, onToggle }: SkillCardProps) {
 
         {skill.categories && skill.categories.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1">
-            {skill.categories.slice(0, 2).map((cat) => (
+            {(skill.categories || []).slice(0, 2).map((cat) => (
               <Badge
                 key={cat.id}
                 variant="outline"

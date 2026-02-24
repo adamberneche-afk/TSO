@@ -133,7 +133,7 @@ export const ConversationUI: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {sessions.slice(0, 5).map(session => (
+                {(sessions || []).slice(0, 5).map(session => (
                   <div
                     key={session.id}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -141,7 +141,7 @@ export const ConversationUI: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <MessageSquare className="w-4 h-4 text-gray-400" />
                       <div>
-                        <p className="font-medium text-sm">Session {session.id}</p>
+                        <p className="font-medium text-sm">Session {(session.id || '').slice(0, 8)}</p>
                         <p className="text-xs text-gray-500">
                           {session.messages.length} messages • {new Date(session.updatedAt).toLocaleDateString()}
                         </p>
