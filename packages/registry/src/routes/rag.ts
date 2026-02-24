@@ -188,7 +188,7 @@ export function createRAGRoutes(
 
   /**
    * GET /api/v1/rag/documents/:id
-   * Get document metadata
+   * Get document metadata and content
    */
   router.get('/documents/:id', async (req: Request, res: Response) => {
     try {
@@ -221,10 +221,22 @@ export function createRAGRoutes(
         return res.status(403).json({ error: 'Access denied' });
       }
 
+      // Fetch actual encrypted content from storage
+      let encryptedContent = doc.encryptedData;
+      if (doc.encryptedData.startsWith('rag/') || doc.encryptedData.startsWith('database://')) {
+        try {
+          const contentBuffer = await storage.getDocument(doc.encryptedData);
+          encryptedContent = contentBuffer.toString('base64');
+        } catch (err) {
+          logger.error('Failed to fetch document content:', err);
+          // Return S3 key as fallback so frontend can handle error
+        }
+      }
+
       res.json({
         id: doc.id,
         walletAddress: doc.walletAddress,
-        encryptedData: doc.encryptedData, // S3 key
+        encryptedData: encryptedContent,
         encryptedMetadata: doc.encryptedMetadata,
         iv: doc.iv,
         salt: doc.salt,
