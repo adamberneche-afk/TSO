@@ -1,5 +1,5 @@
 {
-  "name": "@tais/sdk-assistant",
+  "name": "tais-sdk-assistant",
   "version": "1.0.0",
   "description": "TAIS SDK Assistant - CLI tool for integrating with TAIS platform",
   "main": "dist/index.js",
