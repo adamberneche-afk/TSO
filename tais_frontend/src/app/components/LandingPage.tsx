@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { ArrowRight, Zap, Shield, Code, Users, CheckCircle, Upload, ClipboardCheck, ExternalLink, Sparkles } from 'lucide-react';
+import { ArrowRight, Zap, Shield, Code, Users, CheckCircle, Upload, ClipboardCheck, ExternalLink, Sparkles, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface LandingPageProps {
@@ -15,6 +15,7 @@ interface LandingPageProps {
   onViewPrivateRAG?: () => void;
   onViewConversation?: () => void;
   onViewLLMSettings?: () => void;
+  onViewGoldTier?: () => void;
   onViewDoc?: (doc: string) => void;
 }
 
@@ -27,6 +28,7 @@ export function LandingPage({
   onViewPrivateRAG,
   onViewConversation,
   onViewLLMSettings,
+  onViewGoldTier,
   onViewDoc
 }: LandingPageProps) {
   const [nftStats, setNftStats] = useState({
@@ -91,6 +93,13 @@ export function LandingPage({
               className="text-xs uppercase tracking-widest text-[#A1A1A1] hover:text-white transition-colors"
             >
               My Agents
+            </button>
+            <button
+              onClick={onViewGoldTier}
+              className="text-xs uppercase tracking-widest text-[#FFD700] hover:text-[#FFD700] transition-colors flex items-center gap-1"
+            >
+              <Lock className="w-3 h-3" />
+              Gold Tier
             </button>
             <button
               onClick={onStartInterview}

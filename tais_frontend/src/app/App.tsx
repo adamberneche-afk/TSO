@@ -8,13 +8,14 @@ import { PublicRAGManager } from './components/rag/PublicRAGManager';
 import { PrivateRAGManager } from './components/rag/PrivateRAGManager';
 import { DynamicConversationContainer } from './components/conversation/DynamicConversationContainer';
 import { LLMSettingsPanel } from './components/llm/LLMSettings';
+import { GoldTierDashboard } from './components/GoldTierDashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 import { useInterviewStore } from '../hooks/useInterview';
 import { GuidedDiscoveryDoc, NFTIntegrationDoc, ConfigurationDoc, SkillsRegistryDoc } from './docs';
 
-type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry';
+type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('landing');
@@ -53,6 +54,7 @@ export default function App() {
             onViewPrivateRAG={() => setCurrentView('privateRAG')}
             onViewConversation={() => setCurrentView('conversation')}
             onViewLLMSettings={() => setCurrentView('llmSettings')}
+            onViewGoldTier={() => setCurrentView('goldTier')}
             onViewDoc={(doc) => setCurrentView(doc as View)}
           />
           <Toaster position="top-right" />
@@ -171,6 +173,13 @@ export default function App() {
       )}
       {currentView === 'doc-skills-registry' && (
         <SkillsRegistryDoc onBack={() => setCurrentView('landing')} />
+      )}
+
+      {currentView === 'goldTier' && (
+        <>
+          <GoldTierDashboard onBack={() => setCurrentView('landing')} />
+          <Toaster position="top-right" />
+        </>
       )}
     </ErrorBoundary>
   );
