@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
 
+## [2.8.1] - 2026-02-24
+
+### Fixed
+- **My Agents Dashboard TypeError Crashes**
+  - Added null guards for .slice() calls on potentially undefined arrays
+  - Fixed: goals, bulletSummary, personalityMd, sessions, knowledgeSources
+  - Files: Dashboard.tsx, ConversationUI.tsx, GuidedDiscoveryWizard.tsx, SkillSelector.tsx
+
+- **Knowledge Source Picker**
+  - Added KnowledgePickerModal for selecting RAG documents
+  - Now shows public + community documents
+  - Shows "Already added" for existing sources
+  - Links to RAG page for adding new documents
+
 ## [2.8.0] - 2026-02-24
 
 ### Added

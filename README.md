@@ -1,4 +1,4 @@
-# TAIS Platform v2.8.0 🚀
+# TAIS Platform v2.8.1 🚀
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -664,4 +664,4 @@ MIT License - see [LICENSE](LICENSE) file
 
 **Built with ❤️ by the TAIS Team**  
 **© 2026 - LIVE AND OPERATIONAL**  
-**Last Updated:** February 20, 2026
+**Last Updated:** February 24, 2026
