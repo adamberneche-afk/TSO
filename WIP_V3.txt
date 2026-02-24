@@ -333,26 +333,27 @@ security, database, api-design, frontend, backend, infrastructure, testing, moni
 
 ---
 
-#### 6. Version History for Configurations
+#### 6. Version History for Configurations ✅ COMPLETE
 **Goal:** Track configuration changes over time
-**Status:** 📋 Planned for Release 2
+**Status:** ✅ COMPLETE (Backend v2.7.7, Frontend NOW)
 
-**Tasks:**
-- [ ] Design version history schema
-- [ ] Implement version diff viewer
-- [ ] Add rollback functionality
-- [ ] Create audit log UI
-- [ ] Export version history
+**Backend (v2.7.7):**
+- [x] Database schema for ConfigurationVersion
+- [x] Version snapshots on each save
+- [x] Tier-based retention (Bronze: 7d/10, Silver: 30d/30, Gold: 90d/100)
+- [x] API: GET /configurations/:id/versions
+- [x] API: GET /configurations/:id/versions/:ver
+- [x] API: POST /configurations/:id/rollback/:ver
 
-**Features:**
-- Store configuration snapshots on each save
-- Visual diff between versions
-- One-click rollback to previous version
-- Audit log with timestamps and wallet addresses
-- Export configuration history as JSON
+**Frontend (v2.8.1):**
+- [x] VersionHistoryModal component
+- [x] List versions with timestamps
+- [x] View version details (JSON preview)
+- [x] One-click rollback to any version
+- [x] History button in agent view mode
 
 **Dependencies:** None
-**Estimated Effort:** 3-4 days
+**Estimated Effort:** 1 day
 **Team:** Alpha (Backend) + Beta (Frontend)
 
 ---

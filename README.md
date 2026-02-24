@@ -1,4 +1,4 @@
-# TAIS Platform v2.8.1 🚀
+# TAIS Platform v2.8.2 🚀
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
