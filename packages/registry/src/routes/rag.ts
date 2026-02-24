@@ -221,41 +221,42 @@ export function createRAGRoutes(
         return res.status(403).json({ error: 'Access denied' });
       }
 
-      // Fetch actual encrypted content from storage or chunks
+      // Return encrypted content directly (already stored in DB)
+      // OR fetch from chunks if it's a storage key
       let encryptedContent = doc.encryptedData;
       
-      // If encryptedData is a storage key, fetch from storage
+      // If encryptedData looks like a storage key, fetch from there or chunks
       if (doc.encryptedData.startsWith('rag/') || doc.encryptedData.startsWith('database://')) {
         try {
           const contentBuffer = await storage.getDocument(doc.encryptedData);
           encryptedContent = contentBuffer.toString('base64');
-        } catch (err) {
-          logger.error('Failed to fetch document from storage:', err);
-          // Try fetching from chunks as fallback
-          const chunks = await prisma.rAGChunk.findMany({
-            where: { documentId: doc.id },
-            orderBy: { index: 'asc' }
-          });
-          if (chunks.length > 0) {
-            // Reconstruct content from chunks
-            const decryptedChunks = chunks.map((c: any) => c.encryptedContent).join('');
-            encryptedContent = decryptedChunks;
+        } catch {
+          // Fallback: try chunks
+          try {
+            const chunks = await prisma.rAGChunk.findMany({
+              where: { documentId: doc.id },
+              orderBy: { index: 'asc' }
+            });
+            if (chunks.length > 0) {
+              encryptedContent = chunks.map((c: any) => c.encryptedContent).join('');
+            }
+          } catch (e) {
+            logger.error('Failed to fetch content from chunks:', e);
           }
-        }
-      } else if (doc.encryptedData.length < 200) {
-        // It's a key, not actual content - try chunks
-        try {
-          const chunks = await prisma.rAGChunk.findMany({
-            where: { documentId: doc.id },
-            orderBy: { index: 'asc' }
-          });
-          if (chunks.length > 0) {
-            encryptedContent = chunks.map((c: any) => c.encryptedContent).join('');
-          }
-        } catch (err) {
-          logger.error('Failed to fetch chunks:', err);
         }
       }
+
+      // Fetch chunks for decryption
+      const chunkList = await prisma.rAGChunk.findMany({
+        where: { documentId: id },
+        orderBy: { index: 'asc' },
+        select: {
+          id: true,
+          index: true,
+          encryptedContent: true,
+          iv: true,
+        },
+      });
 
       res.json({
         id: doc.id,
@@ -269,7 +270,7 @@ export function createRAGRoutes(
         tags: doc.tags,
         size: doc.size,
         chunkCount: doc.chunkCount,
-        chunks: doc.chunks,
+        chunks: chunkList,
         createdAt: doc.createdAt,
       });
     } catch (error) {
