@@ -107,8 +107,8 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
       
       if (currentQuestionIndex < FIXED_QUESTIONS.length - 1) {
         // Acknowledge the response and move to next question
-        const entitiesFound = entities.length > 0 
-          ? `I noted your experience with ${entities.slice(0, 3).map(e => e.value).join(', ')}. `
+        const entitiesFound = entities && entities.length > 0 
+          ? `I noted your experience with ${entities.map(e => e.value).join(', ')}. `
           : '';
         
         response = `${entitiesFound}Thank you for sharing that. `;

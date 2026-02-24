@@ -180,8 +180,8 @@ export function ConversationalGoalsStep({ onComplete }: ConversationalGoalsStepP
           response = `Creative projects are exciting! What kind of creative work - writing, design, music, or something else?`;
         } else if (lowerInput.includes('organize') || lowerInput.includes('productivity') || lowerInput.includes('schedule')) {
           response = `Organization is key! What areas of your life need the most help - calendar, tasks, projects, or everything?`;
-        } else if (entities.length > 0) {
-          response = `I see you're interested in ${entities.slice(0, 2).map(e => e.value).join(' and ')}. Tell me more about how you'd like your agent to help with that.`;
+        } else if (entities && entities.length > 0) {
+          response = `I see you're interested in ${entities.map(e => e.value).join(' and ')}. Tell me more about how you'd like your agent to help with that.`;
         } else if (messages.length > 6) {
           response = `Based on our conversation, I think I have a good understanding of what you need. Shall I proceed with this configuration?`;
         } else {
