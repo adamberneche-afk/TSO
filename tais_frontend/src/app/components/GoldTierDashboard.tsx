@@ -487,33 +487,42 @@ function SDKSection() {
               <label className="text-xs text-[#888888] uppercase tracking-wider">Install</label>
               <div className="flex items-center gap-2 mt-1">
                 <code className="flex-1 bg-[#1a1a1a] border border-[#333333] rounded px-3 py-2 text-sm text-[#10B981] font-mono">
-                  npm install tais-rag-sdk
+                  npm install -g tais-sdk-assistant
                 </code>
-                <Button variant="outline" size="sm" onClick={() => copyToClipboard('npm install tais-rag-sdk')} className="border-[#333333] text-white">
+                <Button variant="outline" size="sm" onClick={() => copyToClipboard('npm install -g tais-sdk-assistant')} className="border-[#333333] text-white">
                   <Code className="w-3 h-3" />
                 </Button>
               </div>
             </div>
             
             <div>
-              <label className="text-xs text-[#888888] uppercase tracking-wider">Quick Start</label>
-              <pre className="mt-1 bg-[#1a1a1a] border border-[#333333] rounded p-3 text-xs text-[#A1A1A1] font-mono overflow-x-auto">
-{`import { TAISClient } from 'tais-rag-sdk';
-
-const client = new TAISClient({ 
-  walletAddress: '0x...' 
-});
-
-await client.authenticateWithSignature(
-  async (msg) => await wallet.signMessage(msg)
-);
-
-// Upload document
-const doc = await client.uploadDocument(
-  'My Document', 
-  encryptedContent
-);`}
-              </pre>
+              <label className="text-xs text-[#888888] uppercase tracking-wider">Usage</label>
+              <ul className="mt-2 space-y-1 text-sm text-[#A1A1A1]">
+                <li className="flex items-center gap-2">
+                  <Code className="w-3 h-3 text-[#8B5CF6]" />
+                  <code>tais-assistant init</code> - Initialize new project
+                </li>
+                <li className="flex items-center gap-2">
+                  <Code className="w-3 h-3 text-[#8B5CF6]" />
+                  <code>tais-assistant start</code> - Interactive onboarding
+                </li>
+                <li className="flex items-center gap-2">
+                  <Code className="w-3 h-3 text-[#8B5CF6]" />
+                  <code>tais-assistant test</code> - Test API integration
+                </li>
+                <li className="flex items-center gap-2">
+                  <Code className="w-3 h-3 text-[#8B5CF6]" />
+                  <code>tais-assistant config</code> - View/update config
+                </li>
+                <li className="flex items-center gap-2">
+                  <Code className="w-3 h-3 text-[#8B5CF6]" />
+                  <code>tais-assistant status</code> - Check SDK status
+                </li>
+                <li className="flex items-center gap-2">
+                  <Code className="w-3 h-3 text-[#8B5CF6]" />
+                  <code>tais-assistant analytics</code> - View integration metrics
+                </li>
+              </ul>
             </div>
 
             <a 
