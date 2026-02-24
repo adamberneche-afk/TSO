@@ -11,6 +11,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
 
+## [2.8.0] - 2026-02-24
+
+### Added
+- **Community RAG Encryption** - Shared encryption key for public documents
+  - Anyone can view public community documents
+  - Private docs still use wallet-specific keys
+  - Added `COMMUNITY_SALT` for shared key derivation
+  
+- **Guided Discovery Updates**
+  - Review step after 15 questions
+  - Wallet eligibility check displayed
+  - Config JSON preview before saving
+  - "Export JSON" option for non-holders
+  
+- **My Agents Page**
+  - Wallet connect button added to header
+
+### Fixed
+- **Public RAG Document Viewing**
+  - Fixed decryption issue where only uploader could view documents
+  - Backend now stores encrypted content directly in DB (not S3 keys)
+  - Added chunks endpoint for encrypted chunk retrieval
+  
+- **Guided Discovery Crash**
+  - Fixed null category error on review step
+
 ## [2.7.9] - 2026-02-23
 
 ### Added

@@ -1,8 +1,57 @@
 # TAIS Platform - Development Planning V3
 **Created:** February 20, 2026  
-**Last Updated:** February 23, 2026
-**Status:** v2.7.9 - Guided Discovery Complete  
-**Version:** 2.7.9 (Current Production)
+**Last Updated:** February 24, 2026
+**Status:** v2.8.0 - Community RAG Fix + Guided Discovery Update  
+**Version:** 2.8.0 (Current Production)
+
+---
+
+## 🎯 COMPLETED TODAY (Feb 24, 2026)
+
+### Community RAG Encryption Fix
+**Goal:** Fix public document viewing for all users
+**Status:** ✅ COMPLETE
+
+**Problem:** Public documents encrypted with uploader's wallet key - only uploader could decrypt
+**Solution:** Introduced shared community encryption key for all public documents
+
+**Changes:**
+- Added `COMMUNITY_SALT` constant for shared key derivation
+- New methods: `encryptForCommunity()`, `decryptCommunity()`, `isCommunitySalt()`
+- Public docs now use community key (anyone can view)
+- Private docs still use wallet-specific keys (owner only)
+- Backend now stores encrypted content directly in DB instead of S3 keys
+
+**Files Changed:**
+- `e2eeEncryption.ts` - Community encryption methods
+- `publicRAGClient.ts` - Auto-detect and use correct decryption
+- `rag.ts` - Store content in DB, return chunks in document fetch
+
+---
+
+### Guided Discovery Wizard Updates
+**Goal:** Better UX for agent creation
+**Status:** ✅ COMPLETE
+
+**Changes:**
+- Added Review step after 15 questions
+- Shows wallet eligibility (THINK Agent Bundle check)
+- Displays config JSON for review
+- "Save Agent" button if eligible, "Export JSON" if not
+- Added wallet connect button to My Agents page
+- Fixed null category crash on review step
+
+---
+
+### Backend Fixes
+**Goal:** Fix document retrieval
+**Status:** ✅ COMPLETE
+
+**Changes:**
+- Removed S3 key storage - now stores encrypted content directly in PostgreSQL
+- Added `/documents/:id/chunks` endpoint for encrypted chunk retrieval
+- Document fetch now returns chunks with encrypted content
+- Fallback to chunks if main content fetch fails
 
 ---
 
