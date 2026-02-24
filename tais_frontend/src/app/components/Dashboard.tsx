@@ -196,12 +196,12 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
                 <Wallet className="w-4 h-4 mr-2" />
                 Connect Wallet
               </Button>
-            ) : (
+            ) : currentWallet ? (
               <div className="flex items-center gap-2 text-sm text-[#888888]">
                 <Wallet className="w-4 h-4" />
-                <span className="font-mono">{currentWallet?.slice(0, 6)}...{currentWallet?.slice(-4)}</span>
+                <span className="font-mono">{currentWallet.slice(0, 6)}...{currentWallet.slice(-4)}</span>
               </div>
-            )}
+            ) : null}
             <Button
               onClick={onStartNewInterview}
               className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
