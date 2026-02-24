@@ -1,7 +1,7 @@
 // TAIS Platform - Guided Discovery Wizard
 // 15 progressive questions for agent creation
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
@@ -18,7 +18,9 @@ import {
   Sparkles,
   ChevronRight,
   ChevronLeft,
-  Loader2
+  Loader2,
+  Download,
+  Wallet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AgentConfig } from '../../../types/agent';
@@ -244,12 +246,22 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
   const [responses, setResponses] = useState<Record<string, any>>({});
   const [agentName, setAgentName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [generatedConfig, setGeneratedConfig] = useState<AgentConfig | null>(null);
+  const [saveStatus, setSaveStatus] = useState<{
+    allowed: boolean;
+    isHolder: boolean;
+    limit: number;
+    currentCount: number;
+  } | null>(null);
 
-  const question = QUESTIONS[currentStep];
-  const progress = ((currentStep + 1) / QUESTIONS.length) * 100;
-  const category = CATEGORIES[question.category as keyof typeof CATEGORIES];
+  const totalSteps = QUESTIONS.length + 1; // +1 for review step
+  const isReviewStep = currentStep === QUESTIONS.length;
+  const question = isReviewStep ? null : QUESTIONS[currentStep];
+  const progress = ((currentStep + 1) / totalSteps) * 100;
+  const category = question ? CATEGORIES[question.category as keyof typeof CATEGORIES] : null;
 
   const canProceed = () => {
+    if (isReviewStep) return true;
     if (question.required) {
       const val = responses[question.id];
       if (question.type === 'multi') return val && (val as string[]).length > 0;
@@ -259,11 +271,35 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
     return true;
   };
 
+  // Check save eligibility when entering review step
+  useEffect(() => {
+    if (isReviewStep && !saveStatus) {
+      checkSaveEligibility();
+    }
+  }, [isReviewStep]);
+
+  const checkSaveEligibility = async () => {
+    try {
+      const status = await configApi.getStatus();
+      setSaveStatus({
+        allowed: status.allowed,
+        isHolder: status.tokenCount > 0,
+        limit: status.limit,
+        currentCount: status.currentCount
+      });
+    } catch (error) {
+      console.error('Failed to check eligibility:', error);
+    }
+  };
+
   const handleNext = () => {
     if (currentStep < QUESTIONS.length - 1) {
       setCurrentStep(currentStep + 1);
-    } else {
-      generateConfig();
+    } else if (currentStep === QUESTIONS.length - 1) {
+      // Generate config and go to review step
+      const config = generateConfig();
+      setGeneratedConfig(config);
+      setCurrentStep(currentStep + 1);
     }
   };
 
@@ -274,10 +310,46 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
   };
 
   const handleResponse = (value: any) => {
-    setResponses({ ...responses, [question.id]: value });
+    if (question) {
+      setResponses({ ...responses, [question.id]: value });
+    }
   };
 
-  const generateConfig = () => {
+  const handleDownload = () => {
+    if (!generatedConfig) return;
+    const json = JSON.stringify(generatedConfig, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${generatedConfig.agent.name}-config.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSave = async () => {
+    if (!generatedConfig) return;
+    
+    const name = generatedConfig.agent.name;
+    
+    setIsSaving(true);
+    try {
+      await configApi.saveConfiguration(
+        name,
+        generatedConfig,
+        `Created via Guided Discovery`
+      );
+      toast.success('Agent created successfully!');
+      onComplete(generatedConfig);
+    } catch (err) {
+      console.error('Failed to save config:', err);
+      toast.error('Failed to save agent. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const generateConfig = (): AgentConfig => {
     const r = responses;
     
     // Generate agent name from primary function if not set
@@ -325,26 +397,7 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
       },
     };
 
-    // Save to backend
-    setIsSaving(true);
-    try {
-      configApi.saveConfiguration(
-        name,
-        config,
-        `Created via Guided Discovery - ${r.primary_function}`
-      ).then(() => {
-        toast.success('Agent created successfully!');
-        onComplete(config);
-      }).catch((err) => {
-        console.error('Failed to save config:', err);
-        toast.error('Failed to save agent. Please try again.');
-        setIsSaving(false);
-      });
-    } catch (err) {
-      console.error('Error saving config:', err);
-      toast.error('Failed to save agent. Please try again.');
-      setIsSaving(false);
-    }
+    return config;
   };
 
   const generatePersonalityMarkdown = (r: Record<string, any>): string => {
@@ -450,16 +503,74 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
         </div>
       )}
 
-      {/* Question */}
+      {/* Question or Review Step */}
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <AnimatePresence mode="wait">
+        {isReviewStep && generatedConfig ? (
           <motion.div
-            key={question.id}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
             className="space-y-6"
           >
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Review Your Agent</h2>
+              <p className="text-[#888888]">Review your agent configuration before saving</p>
+            </div>
+
+            {/* Wallet Eligibility */}
+            <div className="bg-[#141415] border border-[#262626] rounded-lg p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <Wallet className="w-5 h-5 text-[#3B82F6]" />
+                <span className="font-bold">Save Eligibility</span>
+              </div>
+              {saveStatus ? (
+                saveStatus.isHolder ? (
+                  <div className="text-sm">
+                    <p className="text-[#4ADE80] mb-1">✓ THINK Agent Bundle holder</p>
+                    <p className="text-[#888888]">
+                      You can save {saveStatus.remaining} more configurations ({saveStatus.currentCount}/{saveStatus.limit} used)
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-sm">
+                    <p className="text-[#F59E0B] mb-1">⚠ No THINK Agent Bundle detected</p>
+                    <p className="text-[#888888]">
+                      Save locally or export as JSON to use later
+                    </p>
+                  </div>
+                )
+              ) : (
+                <p className="text-sm text-[#888888]">Checking eligibility...</p>
+              )}
+            </div>
+
+            {/* Config Preview */}
+            <div className="bg-[#141415] border border-[#262626] rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-bold">Agent Configuration</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDownload}
+                  className="text-[#3B82F6] hover:text-white"
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Download JSON
+                </Button>
+              </div>
+              <pre className="text-xs text-[#888888] overflow-auto max-h-64 bg-[#0A0A0B] p-3 rounded">
+                {JSON.stringify(generatedConfig, null, 2)}
+              </pre>
+            </div>
+          </motion.div>
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={question.id}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
+            >
             <div>
               <h2 className="text-2xl font-bold mb-2">{question.question}</h2>
               <p className="text-[#888888]">{question.description}</p>
@@ -531,8 +642,9 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
                 })}
               </div>
             )}
-          </motion.div>
-        </AnimatePresence>
+            </motion.div>
+          </AnimatePresence>
+        )}
       </div>
 
       {/* Navigation */}
@@ -559,11 +671,16 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
                 }`}
               />
             ))}
-            <span className="text-[#555555] text-xs">...</span>
+            <div 
+              className={`w-2 h-2 rounded-full ${
+                isReviewStep ? 'bg-[#3B82F6]' :
+                'bg-[#262626]'
+              }`}
+            />
           </div>
 
           <Button
-            onClick={handleNext}
+            onClick={isReviewStep ? handleSave : handleNext}
             disabled={!canProceed() || isSaving}
             className="bg-white text-black hover:bg-white/90"
           >
@@ -572,9 +689,21 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
                 <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                 Saving...
               </>
+            ) : isReviewStep ? (
+              saveStatus?.allowed ? (
+                <>
+                  Save Agent
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </>
+              ) : (
+                <>
+                  Export JSON
+                  <Download className="w-4 h-4 ml-1" />
+                </>
+              )
             ) : currentStep === QUESTIONS.length - 1 ? (
               <>
-                Create Agent
+                Review
                 <ChevronRight className="w-4 h-4 ml-1" />
               </>
             ) : (
