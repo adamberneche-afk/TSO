@@ -141,7 +141,7 @@ export const ConversationUI: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <MessageSquare className="w-4 h-4 text-gray-400" />
                       <div>
-                        <p className="font-medium text-sm">Session {session.id.slice(0, 8)}</p>
+                        <p className="font-medium text-sm">Session {session.id}</p>
                         <p className="text-xs text-gray-500">
                           {session.messages.length} messages • {new Date(session.updatedAt).toLocaleDateString()}
                         </p>

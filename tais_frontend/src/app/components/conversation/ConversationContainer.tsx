@@ -142,7 +142,7 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `conversation-${currentSessionId?.slice(0, 8)}.json`;
+    a.download = `conversation-${currentSessionId || 'export'}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -198,7 +198,7 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
               <div className="flex items-center gap-2 mt-0.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse" />
                 <p className="text-[10px] font-mono text-[#717171] uppercase tracking-widest">
-                  {currentSessionId ? `SES_ID: ${currentSessionId.slice(0, 8)}` : 'ESTABLISHING...'}
+                  {currentSessionId ? `SES_ID: ${currentSessionId}` : 'ESTABLISHING...'}
                 </p>
               </div>
             </div>
