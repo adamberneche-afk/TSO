@@ -221,15 +221,39 @@ export function createRAGRoutes(
         return res.status(403).json({ error: 'Access denied' });
       }
 
-      // Fetch actual encrypted content from storage
+      // Fetch actual encrypted content from storage or chunks
       let encryptedContent = doc.encryptedData;
+      
+      // If encryptedData is a storage key, fetch from storage
       if (doc.encryptedData.startsWith('rag/') || doc.encryptedData.startsWith('database://')) {
         try {
           const contentBuffer = await storage.getDocument(doc.encryptedData);
           encryptedContent = contentBuffer.toString('base64');
         } catch (err) {
-          logger.error('Failed to fetch document content:', err);
-          // Return S3 key as fallback so frontend can handle error
+          logger.error('Failed to fetch document from storage:', err);
+          // Try fetching from chunks as fallback
+          const chunks = await prisma.rAGChunk.findMany({
+            where: { documentId: doc.id },
+            orderBy: { index: 'asc' }
+          });
+          if (chunks.length > 0) {
+            // Reconstruct content from chunks
+            const decryptedChunks = chunks.map((c: any) => c.encryptedContent).join('');
+            encryptedContent = decryptedChunks;
+          }
+        }
+      } else if (doc.encryptedData.length < 200) {
+        // It's a key, not actual content - try chunks
+        try {
+          const chunks = await prisma.rAGChunk.findMany({
+            where: { documentId: doc.id },
+            orderBy: { index: 'asc' }
+          });
+          if (chunks.length > 0) {
+            encryptedContent = chunks.map((c: any) => c.encryptedContent).join('');
+          }
+        } catch (err) {
+          logger.error('Failed to fetch chunks:', err);
         }
       }
 
@@ -251,6 +275,51 @@ export function createRAGRoutes(
     } catch (error) {
       logger.error('Error getting document:', error);
       res.status(500).json({ error: 'Failed to get document' });
+    }
+  });
+
+  /**
+   * GET /api/v1/rag/documents/:id/chunks
+   * Get document chunks with encrypted content
+   */
+  router.get('/documents/:id/chunks', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { wallet } = req.query;
+
+      const doc = await prisma.rAGDocument.findUnique({
+        where: { id },
+      });
+
+      if (!doc) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+
+      // Check access
+      const isOwner = doc.walletAddress === (wallet as string)?.toLowerCase();
+      const isPublic = doc.isPublic;
+      const isAllowedViewer = doc.allowedViewers.includes(wallet as string);
+
+      if (!isOwner && !isPublic && !isAllowedViewer) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      // Get chunks with encrypted content
+      const chunks = await prisma.rAGChunk.findMany({
+        where: { documentId: id },
+        orderBy: { index: 'asc' },
+        select: {
+          id: true,
+          index: true,
+          encryptedContent: true,
+          iv: true,
+        },
+      });
+
+      res.json(chunks);
+    } catch (error) {
+      logger.error('Error getting document chunks:', error);
+      res.status(500).json({ error: 'Failed to get document chunks' });
     }
   });
 
