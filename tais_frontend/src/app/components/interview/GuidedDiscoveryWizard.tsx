@@ -472,11 +472,13 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-[#888888] uppercase tracking-wider">
-              Question {currentStep + 1} of {QUESTIONS.length}
+              {isReviewStep ? 'Review' : `Question ${currentStep + 1} of ${QUESTIONS.length}`}
             </span>
-            <Badge className={`${category.color} text-white text-[10px]`}>
-              {category.label}
-            </Badge>
+            {!isReviewStep && category && (
+              <Badge className={`${category.color} text-white text-[10px]`}>
+                {category.label}
+              </Badge>
+            )}
           </div>
           <div className="h-1 bg-[#262626] rounded-full overflow-hidden">
             <motion.div 
