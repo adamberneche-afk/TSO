@@ -8,6 +8,7 @@ import { MessageBubble } from './MessageBubble';
 import { InputArea } from './InputArea';
 import { FixedQuestions } from './FixedQuestions';
 import { useConversationStore } from '../../../hooks/useConversation';
+import { useWorkingMemory } from '../../../hooks/useWorkingMemory';
 import { extractEntities, analyzeSemantics } from '../../../services/entityExtraction';
 import { calculateSimilarity, classifyIntent } from '../../../services/tensorflow';
 import { FIXED_QUESTIONS } from '../../../types/conversation';
@@ -53,6 +54,9 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
     createSession
   } = useConversationStore();
 
+  // Memory: Track conversation for persistent memory
+  const { addUserMessage, addAssistantMessage, endSession } = useWorkingMemory(currentSessionId || undefined);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -89,6 +93,9 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
 
     // Add user message
     addMessage(content, 'user', entities.map(e => ({ ...e, intent, sentiment: semantics.sentiment })));
+    
+    // Memory: Track user message
+    addUserMessage(content);
 
     // Check similarity with current question
     const currentQuestion = getCurrentQuestion();
@@ -126,10 +133,13 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
       }
 
       addMessage(response, 'assistant');
+      
+      // Memory: Track assistant response
+      addAssistantMessage(response);
     }, 1000);
 
     return () => clearTimeout(processingTimeout);
-  }, [addMessage, advanceQuestion, currentQuestionIndex, getCurrentQuestion, isProcessing]);
+  }, [addMessage, addUserMessage, addAssistantMessage, advanceQuestion, currentQuestionIndex, getCurrentQuestion, isProcessing]);
 
   const handleExport = () => {
     const data = JSON.stringify({
@@ -151,8 +161,10 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
     toast.success('Conversation exported');
   };
 
-  const handleClear = () => {
+  const handleClear = async () => {
     if (confirm('Are you sure you want to clear this conversation?')) {
+      // Memory: Save session before clearing
+      await endSession();
       useConversationStore.getState().reset();
       createSession();
       toast.success('Conversation cleared');

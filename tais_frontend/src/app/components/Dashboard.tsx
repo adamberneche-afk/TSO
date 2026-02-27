@@ -43,6 +43,7 @@ import { configApi } from '../../services/configApi';
 import { authApi } from '../../services/authApi';
 import { useWallet } from '../../hooks/useWallet';
 import { usePublicRAG } from '../../hooks/usePublicRAG';
+import { TodayActivityWidget } from './memory/TodayActivityWidget';
 import { generateConfigSummary, generateBulletSummary } from '../../lib/config-summary';
 
 interface DashboardProps {
@@ -275,6 +276,11 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
             label="Skills Used"
             value={agents.reduce((sum, a) => sum + (a.config.agent.skills?.length || 0), 0)}
           />
+        </div>
+
+        {/* Today's Activity Memory Widget */}
+        <div className="mb-8">
+          <TodayActivityWidget />
         </div>
 
         {/* Search and Filters */}
