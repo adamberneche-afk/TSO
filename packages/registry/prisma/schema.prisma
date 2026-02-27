@@ -564,3 +564,195 @@ model WeeklyInsightsReport {
   @@index([emailStatus])
   @@map("weekly_insights_reports")
 }
+
+// ============================================
+// Cross-App Agent Portability (v3.0.0) - Phase 1
+// ============================================
+
+enum AppTier {
+  BASIC
+  VERIFIED
+  CERTIFIED
+}
+
+enum MemoryEntryType {
+  PREFERENCE
+  ACTION
+  FACT
+  CONVERSATION
+}
+
+// Registered third-party applications
+model AgentApp {
+  id            String   @id @default(uuid())
+  appId        String   @unique // e.g., "notion", "slack", "linear"
+  name         String
+  description  String?
+  iconUrl      String?  @map("icon_url")
+  websiteUrl   String?  @map("website_url")
+  
+  // OAuth credentials
+  redirectUris String[] @map("redirect_uris")
+  appSecret   String   @map("app_secret") // hashed
+  
+  // Tier and status
+  tier        AppTier  @default(BASIC)
+  isActive    Boolean  @default(true)
+  
+  // Developer info
+  developerEmail String? @map("developer_email")
+  developerName  String? @map("developer_name")
+  
+  // Timestamps
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  permissions  AgentAppPermission[]
+  sessions     AgentSession[]
+  usageMetrics AppUsageMetric[]
+  
+  @@index([appId])
+  @@index([tier])
+  @@map("agent_apps")
+}
+
+// User permissions granted to apps (OAuth grants)
+model AgentAppPermission {
+  id            String   @id @default(uuid())
+  walletAddress String   @map("wallet_address")
+  appId         String   @map("app_id")
+  app           AgentApp @relation(fields: [appId], references: [id], onDelete: Cascade)
+  
+  // Scopes granted
+  scopes        String[] // e.g., ["agent:identity:read", "agent:memory:write"]
+  
+  // OAuth tokens (encrypted)
+  accessToken   String   @map("access_token") // encrypted
+  refreshToken  String?  @map("refresh_token") // encrypted
+  
+  // Expiration
+  expiresAt     DateTime @map("expires_at")
+  
+  // Status
+  grantedAt     DateTime @default(now()) @map("granted_at")
+  revokedAt     DateTime? @map("revoked_at")
+  
+  @@unique([walletAddress, appId])
+  @@index([walletAddress])
+  @@index([appId])
+  @@map("agent_app_permissions")
+}
+
+// Cross-app agent sessions
+model AgentSession {
+  id             String   @id @default(uuid())
+  sessionId      String   @unique @map("session_id")
+  walletAddress  String   @map("wallet_address")
+  appId          String   @map("app_id")
+  app            AgentApp @relation(fields: [appId], references: [id], onDelete: Cascade)
+  
+  // Session linking (for handoff)
+  parentSessionId String? @map("parent_session_id") // If agent came from another app
+  
+  // Metadata
+  userAgent     String?  @map("user_agent")
+  ipAddress     String?  @map("ip_address")
+  
+  // Status
+  startedAt     DateTime @default(now()) @map("started_at")
+  lastActiveAt DateTime @updatedAt @map("last_active_at")
+  endedAt       DateTime? @map("ended_at")
+  
+  // Relations
+  messages      AgentSessionMessage[]
+  
+  @@index([walletAddress])
+  @@index([appId])
+  @@index([startedAt])
+  @@map("agent_sessions")
+}
+
+// Session messages for context continuity
+model AgentSessionMessage {
+  id          String        @id @default(uuid())
+  sessionId   String        @map("session_id")
+  session    AgentSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  role        String        // "user", "assistant", "system"
+  content     String
+  appContext  Json?         @map("app_context") // App-specific metadata
+  
+  createdAt   DateTime      @default(now()) @map("created_at")
+  
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("agent_session_messages")
+}
+
+// Agent memory entries (learned context across apps)
+model AgentMemoryEntry {
+  id            String        @id @default(uuid())
+  walletAddress String        @map("wallet_address")
+  appId         String        @map("app_id")
+  
+  type          MemoryEntryType
+  
+  summary       String        // Brief description
+  details       Json          // Structured data
+  
+  createdAt     DateTime      @default(now()) @map("created_at")
+  
+  @@index([walletAddress])
+  @@index([appId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("agent_memory_entries")
+}
+
+// Usage metrics for billing
+model AppUsageMetric {
+  id                String     @id @default(uuid())
+  appId             String     @map("app_id")
+  app               AgentApp   @relation(fields: [appId], references: [id], onDelete: Cascade)
+  walletAddress     String     @map("wallet_address")
+  
+  interactionType   String     @map("interaction_type") // "chat", "context_read", "memory_write"
+  tokensUsed        Int        @default(0) @map("tokens_used")
+  cost              Float      @default(0) // Calculated cost
+  
+  // Metadata
+  sessionId         String?    @map("session_id")
+  metadata          Json?
+  
+  timestamp         DateTime   @default(now()) @map("timestamp")
+  
+  @@index([appId])
+  @@index([walletAddress])
+  @@index([timestamp])
+  @@index([appId, timestamp])
+  @@map("app_usage_metrics")
+}
+
+// Enterprise organization config
+model AgentAppOrganization {
+  id              String   @id @default(uuid())
+  orgId           String   @unique @map("org_id")
+  name            String
+  
+  // Enterprise controls
+  approvedApps    String[] @default([]) @map("approved_apps") // Whitelist
+  blockedApps     String[] @default([]) @map("blocked_apps") // Blocklist
+  requireApprovalFor String[] @default([]) @map("require_approval_for") // Scopes requiring approval
+  
+  // Admin
+  adminWalletAddress String @map("admin_wallet_address")
+  
+  // Timestamps
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  @@index([orgId])
+  @@index([adminWalletAddress])
+  @@map("agent_app_organizations")
+}

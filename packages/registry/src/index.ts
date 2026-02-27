@@ -288,6 +288,22 @@ import { createSDKAuthRoutes } from './routes/sdkAuth';
 apiV1Router.use('/sdk/auth', createSDKAuthRoutes(prisma, logger));
 
 // ============================================
+// OAuth Routes (v3.0.0 - Cross-App Agent Portability)
+// Third-party app authorization
+// ============================================
+import { createOAuthRoutes } from './routes/oauth';
+
+apiV1Router.use('/oauth', createOAuthRoutes(prisma, logger));
+
+// ============================================
+// Agent Context Routes (v3.0.0)
+// Cross-app agent context, memory, sessions
+// ============================================
+import { createAgentRoutes } from './routes/agent';
+
+apiV1Router.use('/agent', createAgentRoutes(prisma, logger));
+
+// ============================================
 // Analytics Routes
 // SDK integration tracking for weekly insights
 // ============================================
