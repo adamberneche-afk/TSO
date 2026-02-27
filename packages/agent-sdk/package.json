@@ -1,0 +1,39 @@
+{
+  "name": "@tais/agent-sdk",
+  "version": "1.0.0",
+  "description": "TAIS Agent SDK - Cross-App Agent Portability for third-party integrations",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "lint": "eslint src/**/*.ts"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "keywords": [
+    "tais",
+    "ai-agent",
+    "memory",
+    "cross-app",
+    "notion",
+    "slack",
+    "linear"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adamberneche-afk/TSO"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
