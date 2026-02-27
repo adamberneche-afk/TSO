@@ -258,17 +258,18 @@ export function LandingPage({
                 </p>
                 <div className="flex gap-4 pt-4">
                   <button
+                    onClick={onViewGoldTier}
+                    className="bg-[#FFD700] text-black font-bold text-xs uppercase tracking-widest px-8 py-3 rounded-md hover:bg-[#FFD700]/90 transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    <Lock className="w-3 h-3" />
+                    Access Dashboard
+                  </button>
+                  <button
                     onClick={() => window.open('https://opensea.io/collection/think-agent-bundle', '_blank')}
-                    className="bg-white text-black font-bold text-xs uppercase tracking-widest px-8 py-3 rounded-md hover:bg-white/90 transition-all active:scale-95 flex items-center gap-2"
+                    className="bg-transparent text-white border border-[#262626] font-bold text-xs uppercase tracking-widest px-8 py-3 rounded-md hover:bg-white/5 transition-all active:scale-95 flex items-center gap-2"
                   >
                     OpenSea
                     <ExternalLink className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={onStartInterview}
-                    className="bg-transparent text-white border border-[#262626] font-bold text-xs uppercase tracking-widest px-8 py-3 rounded-md hover:bg-white/5 transition-all active:scale-95"
-                  >
-                    Benefits
                   </button>
                 </div>
               </div>
