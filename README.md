@@ -61,10 +61,17 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 - 📈 **Monitoring** - Prometheus metrics, health checks
 - 🔄 **CI/CD** - Automated testing and deployment
 
-### 🧠 Memory System v3.0 (Phase 1)
+### 🧠 Memory System v3.0 (All Phases Complete)
 - 💾 **Local-First Storage** - IndexedDB, zero server knowledge
 - 📝 **Working Memory** - Session context, ephemeral (RAM)
 - 📋 **Active Memory** - Raw session logs (0-24h)
+- 🔍 **Citation Validation** - Verify sources (file, API, RAG, user)
+- 🎯 **Relevance Filtering** - 5-factor scoring (>0.6 threshold)
+- 💡 **LLM Reflection** - Automatic insight synthesis (midnight cron)
+- ⭐ **Core Memory** - User-promoted critical preferences
+- 🎚️ **Mutability Levels** - Eternal, Stable, Adaptive, Experimental
+- 🗂️ **Memory Archive** - Search, filter, export
+- ⚠️ **Drift Detection** - 3 challenge levels (nudge, socratic, strong)
 - 📊 **Today Activity Widget** - Dashboard integration
 - 🔒 **Privacy by Default** - All memory stored locally
 
@@ -644,13 +651,15 @@ ADMIN_WALLET_ADDRESSES=0x...
 - [ ] General availability launch
 
 ### Phase 7 ✅ v3.0 COMPLETE (Feb 27, 2026)
-- [x] ✅ Memory System Phase 1 - Local-first architecture
-- [x] ✅ Working/Active Memory APIs
-- [x] ✅ TodayActivityWidget
+- [x] ✅ Memory System Phase 1 - Working/Active Memory, IndexedDB
+- [x] ✅ Memory System Phase 2 - Citation validation, relevance filtering, LLM reflection
+- [x] ✅ Memory System Phase 3 - Core Memory promotion, Archive page, Export
+- [x] ✅ Memory System Phase 4 - Drift detection with 3 challenge levels
 - [x] ✅ Cross-App Agent Portability Phase 1
 - [x] ✅ OAuth authorization flow
 - [x] ✅ Agent Context API
 - [x] ✅ Session handoff protocol
+- [x] ✅ @tais/agent-sdk npm package
 
 ---
 

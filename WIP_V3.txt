@@ -577,6 +577,7 @@ Low Impact     │  Prometheus✅ │  R2 Storage
 - [x] OAuth routes (/oauth/authorize, /oauth/token, /oauth/revoke, /oauth/register-app)
 - [x] Agent Context API (/agent/context, /agent/memory, /agent/chat, /agent/sessions)
 - [x] Session handoff with parent session support
+- [x] @tais/agent-sdk npm package
 
 **Planned:**
 - [ ] Developer Portal (Phase 2)
@@ -584,7 +585,7 @@ Low Impact     │  Prometheus✅ │  R2 Storage
 - [ ] Integration examples (Notion, Slack, Linear)
 
 ### Memory System v3.0
-**Status:** Phase 1 Complete
+**Status:** ALL PHASES COMPLETE ✅
 
 **Completed:**
 - [x] IndexedDB storage architecture
@@ -593,20 +594,25 @@ Low Impact     │  Prometheus✅ │  R2 Storage
 - [x] TodayActivityWidget component
 - [x] useWorkingMemory hook integration
 - [x] Conversation integration (messages tracked automatically)
+- [x] Citation validation (file, API, RAG, user statement)
+- [x] Relevance filtering (>0.6 threshold, 5 factors)
+- [x] LLM reflection synthesis (midnight cron)
+- [x] Reflective memory promotion
+- [x] Core Memory promotion UI
+- [x] Mutability classification (eternal, stable, adaptive, experimental)
+- [x] Memory Archive page with search/filters
+- [x] Export all memories as JSON
+- [x] Delete individual memories
+- [x] Drift detection engine
+- [x] Gentle nudges (low severity)
+- [x] Socratic challenges (medium severity)
+- [x] Strong challenges (high severity)
 
-**Planned (Phase 2):**
-- [ ] Citation validation
-- [ ] Relevance filtering (>0.6 threshold)
-- [ ] LLM reflection synthesis (midnight cron)
-- [ ] Reflective memory promotion
-
-**Planned (Phase 3):**
-- [ ] Core Memory promotion UI
-- [ ] Mutability classification (eternal, stable, adaptive, experimental)
-
-**Planned (Phase 4):**
-- [ ] Drift detection engine
-- [ ] Gentle nudges, Socratic challenges, Strong challenges
+**Remaining:**
+- [ ] Immutable memory (7d+ lock)
+- [ ] Weekly reconciliation report
+- [ ] E2EE cloud backup (optional)
+- [ ] Memory templates
 
 ---
 

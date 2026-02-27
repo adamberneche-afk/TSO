@@ -21,20 +21,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Database schema for AgentApp, AgentAppPermission, AgentSession, AgentMemoryEntry
   - Endpoints: `/api/v1/oauth/*`, `/api/v1/agent/*`
   - App registration and listing
+  - @tais/agent-sdk npm package
 
-- **Memory System v3.0 (Phase 1)**
-  - Local-first IndexedDB storage architecture
-  - Working Memory API (session context, ephemeral)
-  - Active Memory API (raw session logs, 0-24h)
+- **Memory System v3.0 (All Phases Complete)**
+  - Phase 1: Working/Active Memory with IndexedDB storage
+  - Phase 2: Citation validation, relevance filtering (>0.6), LLM reflection synthesis
+  - Phase 3: Core Memory promotion UI, Memory Archive page, Export/delete
+  - Phase 4: Drift detection engine with 3 challenge levels
+    - Gentle nudge (low severity)
+    - Socratic challenge (medium severity)
+    - Strong challenge (high severity)
   - TodayActivityWidget for Dashboard
   - useWorkingMemory hook for conversation integration
+  - Midnight reflection cron job
   - Full lifecycle types: Working, Active, Reflective, Immutable, Core, MetaMemory
 
 ### Planned
-- Memory Phase 2: Citation validation, relevance filtering, LLM reflection synthesis
-- Memory Phase 3: Core Memory promotion, drift detection
+- Immutable memory (7d+ lock)
+- Weekly reconciliation report
+- E2EE cloud backup (optional)
+- Memory templates
 - Developer Portal for app registration
 - Usage tracking and billing APIs
+- Integration examples (Notion, Slack, Linear)
 
 ## [2.9.1] - 2026-02-24
 
