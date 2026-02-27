@@ -9,6 +9,8 @@ import {
   MetaMemory,
   ReflectiveMemory,
 } from './types';
+import { citationValidator, relevanceFilter } from './citationValidator';
+import { reflectionSynthesizer } from './reflectionSynthesizer';
 
 const MAX_WORKING_MESSAGES = 10;
 const MAX_WORKING_SIZE_KB = 50;
@@ -290,28 +292,81 @@ export class ActiveMemoryAPI {
 }
 
 export class ReflectiveMemoryAPI {
-  async promote(activeMemory: ActiveMemory): Promise<ReflectiveMemory> {
+  async promote(activeMemory: ActiveMemory, userProfile?: string): Promise<{ promoted: boolean; reason?: string; memory?: ReflectiveMemory }> {
     const db = await getMemoryDB();
+
+    // Step 1: Validate citations
+    const validationStatus = await citationValidator.validate(activeMemory);
+    
+    // If citations are invalid (< 50%), apply penalty later
+    const validationPenalty = validationStatus.reliable ? 1.0 : 0.5;
+
+    // Step 2: Filter relevance
+    const filtered = await relevanceFilter.filter(activeMemory);
+    
+    // Apply validation penalty to relevance score
+    const adjustedScore = filtered.score * validationPenalty;
+
+    // Step 3: Check if should promote
+    if (!filtered.shouldPromote && adjustedScore < relevanceFilter.getThreshold()) {
+      return {
+        promoted: false,
+        reason: `Relevance score ${adjustedScore.toFixed(2)} below threshold ${relevanceFilter.getThreshold()}`,
+      };
+    }
+
+    // Step 4: Generate reflection (LLM synthesis)
+    let reflection = null;
+    try {
+      reflection = await reflectionSynthesizer.generate(activeMemory, userProfile);
+    } catch (error) {
+      console.error('Reflection generation failed:', error);
+      // Continue without reflection if LLM fails
+    }
 
     const reflectiveMemory: ReflectiveMemory = {
       ...activeMemory,
       maturityState: 'reflective',
-      validationStatus: {
-        citationsChecked: 0,
-        citationsValid: 0,
-        validPercentage: 1,
-        reliable: true,
-        checkedAt: new Date(),
-      },
-      relevanceScore: 0.7,
-      reflection: null,
+      validationStatus,
+      relevanceScore: adjustedScore,
+      reflection,
       transitionedAt: new Date(),
     };
 
     await db.put('reflectiveMemory', reflectiveMemory);
     await db.delete('activeMemory', activeMemory.memoryId);
 
-    return reflectiveMemory;
+    return {
+      promoted: true,
+      memory: reflectiveMemory,
+    };
+  }
+
+  async promoteWithValidation(activeMemory: ActiveMemory): Promise<{
+    validation: typeof activeMemory.validationStatus;
+    filtering: { score: number; shouldPromote: boolean };
+    reflection: typeof activeMemory.reflection;
+    result: ReflectiveMemory | null;
+  }> {
+    // Run all steps and return detailed results
+    const validation = await citationValidator.validate(activeMemory);
+    const filtering = await relevanceFilter.filter(activeMemory);
+    
+    let reflection = null;
+    try {
+      reflection = await reflectionSynthesizer.generate(activeMemory);
+    } catch (e) {
+      console.error('Reflection failed:', e);
+    }
+
+    const result = filtering.shouldPromote ? await this.promote(activeMemory) : { promoted: false };
+
+    return {
+      validation,
+      filtering: { score: filtering.score, shouldPromote: filtering.shouldPromote },
+      reflection,
+      result: result.memory || null,
+    };
   }
 
   async get(memoryId: string): Promise<ReflectiveMemory | undefined> {
