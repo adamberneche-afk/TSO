@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
 
+## [2.9.1] - 2026-02-24
+
+### Added
+- **Gold Tier Access Button** - Prominent "Access Dashboard" button in Genesis Access section
+
+### Fixed
+- Gold Tier Dashboard now accessible from landing page header and Genesis section
+
 ## [2.9.0] - 2026-02-24
 
 ### Added
