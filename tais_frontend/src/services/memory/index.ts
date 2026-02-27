@@ -3,6 +3,8 @@ export * from './memoryAPI';
 export * from './citationValidator';
 export * from './reflectionSynthesizer';
 export * from './midnightReflection';
+export * from './driftDetector';
 export { TodayActivityWidget } from './TodayActivityWidget';
 export { PromoteToCoreDialog, CoreMemoryCard } from './PromoteToCoreDialog';
 export { MemoryArchivePage } from './MemoryArchivePage';
+export { DriftAlertWidget } from './DriftAlertWidget';
