@@ -4,3 +4,5 @@ export * from './citationValidator';
 export * from './reflectionSynthesizer';
 export * from './midnightReflection';
 export { TodayActivityWidget } from './TodayActivityWidget';
+export { PromoteToCoreDialog, CoreMemoryCard } from './PromoteToCoreDialog';
+export { MemoryArchivePage } from './MemoryArchivePage';

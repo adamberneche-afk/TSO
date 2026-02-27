@@ -9,13 +9,14 @@ import { PrivateRAGManager } from './components/rag/PrivateRAGManager';
 import { DynamicConversationContainer } from './components/conversation/DynamicConversationContainer';
 import { LLMSettingsPanel } from './components/llm/LLMSettings';
 import { GoldTierDashboard } from './components/GoldTierDashboard';
+import { MemoryArchivePage } from './components/memory/MemoryArchivePage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 import { useInterviewStore } from '../hooks/useInterview';
 import { GuidedDiscoveryDoc, NFTIntegrationDoc, ConfigurationDoc, SkillsRegistryDoc } from './docs';
 
-type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier';
+type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier' | 'memory';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('landing');
@@ -78,6 +79,7 @@ export default function App() {
           <Dashboard
             onBackToLanding={() => setCurrentView('landing')}
             onStartNewInterview={startNewInterview}
+            onViewMemory={() => setCurrentView('memory')}
           />
           <Toaster position="top-right" />
         </>
@@ -178,6 +180,13 @@ export default function App() {
       {currentView === 'goldTier' && (
         <>
           <GoldTierDashboard onBack={() => setCurrentView('landing')} />
+          <Toaster position="top-right" />
+        </>
+      )}
+
+      {currentView === 'memory' && (
+        <>
+          <MemoryArchivePage />
           <Toaster position="top-right" />
         </>
       )}

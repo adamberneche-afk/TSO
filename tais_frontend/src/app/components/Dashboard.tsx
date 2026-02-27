@@ -35,6 +35,7 @@ import {
   History,
   RotateCcw,
   Clock,
+  Brain,
 } from 'lucide-react';
 import { AgentConfig } from '../../types/agent';
 import { motion, AnimatePresence } from 'motion/react';
@@ -49,9 +50,10 @@ import { generateConfigSummary, generateBulletSummary } from '../../lib/config-s
 interface DashboardProps {
   onBackToLanding: () => void;
   onStartNewInterview: () => void;
+  onViewMemory?: () => void;
 }
 
-export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardProps) {
+export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }: DashboardProps) {
   const [agents, setAgents] = useState<SavedAgent[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'archived'>('all');
@@ -205,6 +207,15 @@ export function Dashboard({ onBackToLanding, onStartNewInterview }: DashboardPro
             <h1 className="text-2xl font-bold text-white">My Agents</h1>
           </div>
           <div className="flex items-center gap-3">
+            {onViewMemory && (
+              <Button
+                variant="outline"
+                onClick={onViewMemory}
+              >
+                <Brain className="w-4 h-4 mr-2" />
+                Memory
+              </Button>
+            )}
             <Button
               onClick={isConnected ? onStartNewInterview : connect}
               className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
