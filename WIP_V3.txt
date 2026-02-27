@@ -567,6 +567,49 @@ Low Impact     │  Prometheus✅ │  R2 Storage
 
 ---
 
+## 🎯 ACTIVE DEVELOPMENT
+
+### Cross-App Agent Portability (v3.0.0)
+**Status:** Phase 1 Complete
+
+**Completed:**
+- [x] Database schema (AgentApp, AgentAppPermission, AgentSession, AgentMemoryEntry, AppUsageMetric)
+- [x] OAuth routes (/oauth/authorize, /oauth/token, /oauth/revoke, /oauth/register-app)
+- [x] Agent Context API (/agent/context, /agent/memory, /agent/chat, /agent/sessions)
+- [x] Session handoff with parent session support
+
+**Planned:**
+- [ ] Developer Portal (Phase 2)
+- [ ] Usage tracking & billing (Phase 3)
+- [ ] Integration examples (Notion, Slack, Linear)
+
+### Memory System v3.0
+**Status:** Phase 1 Complete
+
+**Completed:**
+- [x] IndexedDB storage architecture
+- [x] WorkingMemory API (session context, ephemeral)
+- [x] ActiveMemory API (raw session logs, 0-24h)
+- [x] TodayActivityWidget component
+- [x] useWorkingMemory hook integration
+- [x] Conversation integration (messages tracked automatically)
+
+**Planned (Phase 2):**
+- [ ] Citation validation
+- [ ] Relevance filtering (>0.6 threshold)
+- [ ] LLM reflection synthesis (midnight cron)
+- [ ] Reflective memory promotion
+
+**Planned (Phase 3):**
+- [ ] Core Memory promotion UI
+- [ ] Mutability classification (eternal, stable, adaptive, experimental)
+
+**Planned (Phase 4):**
+- [ ] Drift detection engine
+- [ ] Gentle nudges, Socratic challenges, Strong challenges
+
+---
+
 ## 🔗 QUICK ACCESS
 
 ### Live Services
@@ -584,9 +627,11 @@ Low Impact     │  Prometheus✅ │  R2 Storage
 - **Changelog:** `CHANGELOG.md`
 - **SDK README:** `packages/rag-sdk/README.md`
 - **Archive:** `archive/completed-sprints/`
+- **Cross-App Plan:** `docs/CROSS_APP_AGENT_PORTABILITY_PLAN.md`
+- **Memory PRD:** `docs/MEMORY_SYSTEM_PRD.md` (see notes)
 
 ---
 
 **Document Owner:** Development Team  
-**Last Updated:** February 24, 2026  
-**Next Review:** March 2, 2026
+**Last Updated:** February 27, 2026  
+**Next Review:** March 6, 2026

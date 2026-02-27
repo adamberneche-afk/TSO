@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
 
+## [3.0.0] - 2026-02-27
+
+### Added
+- **Cross-App Agent Portability (Phase 1)**
+  - OAuth authorization flow for third-party apps
+  - Agent Context API with scope-based permissions
+  - Session management with parent session handoff
+  - Database schema for AgentApp, AgentAppPermission, AgentSession, AgentMemoryEntry
+  - Endpoints: `/api/v1/oauth/*`, `/api/v1/agent/*`
+  - App registration and listing
+
+- **Memory System v3.0 (Phase 1)**
+  - Local-first IndexedDB storage architecture
+  - Working Memory API (session context, ephemeral)
+  - Active Memory API (raw session logs, 0-24h)
+  - TodayActivityWidget for Dashboard
+  - useWorkingMemory hook for conversation integration
+  - Full lifecycle types: Working, Active, Reflective, Immutable, Core, MetaMemory
+
+### Planned
+- Memory Phase 2: Citation validation, relevance filtering, LLM reflection synthesis
+- Memory Phase 3: Core Memory promotion, drift detection
+- Developer Portal for app registration
+- Usage tracking and billing APIs
+
 ## [2.9.1] - 2026-02-24
 
 ### Added
