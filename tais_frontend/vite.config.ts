@@ -53,10 +53,12 @@ export default defineConfig({
           'vendor-motion': ['motion', 'framer-motion'],
           'vendor-charts': ['recharts'],
           'vendor-ethers': ['ethers'],
-          'vendor-tensorflow': ['@tensorflow/tfjs', '@tensorflow-models/universal-sentence-encoder'],
         },
       },
     },
   },
   assetsInclude: ['**/*.svg', '**/*.csv'],
+  optimizeDeps: {
+    include: ['react', 'react-dom'],
+  },
 })
