@@ -657,11 +657,16 @@ ADMIN_WALLET_ADDRESSES=0x...
 - [ ] Fiat on-ramp (Stripe)
 - [ ] General availability launch
 
-### Phase 7 ✅ v3.0 COMPLETE (Feb 27, 2026)
+### Phase 7 ✅ v3.2 COMPLETE (Feb 28, 2026)
 - [x] ✅ Memory System Phase 1 - Working/Active Memory, IndexedDB
 - [x] ✅ Memory System Phase 2 - Citation validation, relevance filtering, LLM reflection
 - [x] ✅ Memory System Phase 3 - Core Memory promotion, Archive page, Export
 - [x] ✅ Memory System Phase 4 - Drift detection with 3 challenge levels
+- [x] ✅ Memory System Phase 5 - Immutable memory (7d auto-lock), weight adjustment
+- [x] ✅ Memory System Phase 6 - Local encrypted backup/restore
+- [x] ✅ Memory System Phase 7 - Alignment index, weekly reports
+- [x] ✅ Memory System Phase 8 - Admin aggregates, outlier detection, flagging
+- [x] ✅ Platform Settings page
 - [x] ✅ Cross-App Agent Portability Phase 1
 - [x] ✅ OAuth authorization flow
 - [x] ✅ Agent Context API
