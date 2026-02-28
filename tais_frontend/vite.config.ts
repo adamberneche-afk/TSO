@@ -13,8 +13,6 @@ export default defineConfig({
       '@/components/ui': path.resolve(__dirname, './src/app/components/ui'),
       '@/components': path.resolve(__dirname, './src/app/components'),
       '@': path.resolve(__dirname, './src'),
-      'react': path.resolve(__dirname, 'node_modules/react'),
-      'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
     },
   },
   build: {
@@ -58,7 +56,4 @@ export default defineConfig({
     },
   },
   assetsInclude: ['**/*.svg', '**/*.csv'],
-  optimizeDeps: {
-    include: ['react', 'react-dom'],
-  },
 })
