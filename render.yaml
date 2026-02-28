@@ -38,8 +38,19 @@ services:
         value: false
       - key: CORS_ORIGIN
         value: "*"
+      - key: CRON_SECRET
+        generateValue: true
     healthCheckPath: /api/health
     autoDeploy: true
+
+cron:
+  - name: memory-reports
+    schedule: "0 1 * * *"
+    url: https://tso.onrender.com/api/v1/cron/memory-reports
+    method: POST
+    headers:
+      - key: Authorization
+        value: "Bearer {{ .Envs.CRON_SECRET }}"
 
 databases:
   - name: tais-db
