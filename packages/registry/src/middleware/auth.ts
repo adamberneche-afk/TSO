@@ -20,29 +20,22 @@ export const authenticateToken = (
   authService: AuthService
 ) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    console.log('[AUTH] Middleware called for path:', req.path);
-    console.log('[AUTH] Authorization header:', req.headers.authorization ? 'Present' : 'Missing');
-    
     try {
       const authHeader = req.headers.authorization;
       const token = authService.extractTokenFromHeader(authHeader);
 
       if (!token) {
-        console.log('[AUTH] ❌ No token found in header');
         return res.status(401).json({ 
           error: 'Authentication required',
           message: 'No token provided. Please login first.'
         });
       }
 
-      console.log('[AUTH] Token extracted, validating...');
       const decoded = authService.validateToken(token);
-      console.log('[AUTH] ✅ Token valid, wallet:', decoded.walletAddress);
       req.user = { walletAddress: decoded.walletAddress };
 
       next();
     } catch (error) {
-      console.log('[AUTH] ❌ Token validation failed:', error instanceof Error ? error.message : 'Unknown error');
       return res.status(401).json({ 
         error: 'Authentication failed',
         message: error instanceof Error ? error.message : 'Invalid token'

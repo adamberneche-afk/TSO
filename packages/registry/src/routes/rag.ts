@@ -305,6 +305,10 @@ export function createRAGRoutes(
       const { id } = req.params;
       const { wallet } = req.body;
 
+      if (!wallet) {
+        return res.status(400).json({ error: 'wallet is required' });
+      }
+
       const doc = await prisma.rAGDocument.findUnique({
         where: { id },
       });

@@ -24,8 +24,9 @@ config:
       useDistinctRequestCount: true
 
 scenarios:
+  # Core endpoints
   - name: "Health Check"
-    weight: 10
+    weight: 5
     flow:
       - get:
           url: "/health"
@@ -34,15 +35,84 @@ scenarios:
             - contentType: json
 
   - name: "Skills API"
-    weight: 20
+    weight: 10
     flow:
       - get:
           url: "/api/v1/skills"
           expect:
             - statusCode: 200
 
+  # OAuth endpoints
+  - name: "OAuth Apps List"
+    weight: 8
+    flow:
+      - get:
+          url: "/api/v1/oauth/apps"
+          expect:
+            - statusCode: 200
+
+  - name: "OAuth Permissions"
+    weight: 8
+    flow:
+      - get:
+          url: "/api/v1/oauth/permissions?wallet=0x8f49701734bfe3f3331c6f8ffeb814f73e4f5102"
+          expect:
+            - statusCode: 200
+
+  - name: "OAuth Sandbox Status"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/v1/oauth/sandbox/status?wallet=0x8f49701734bfe3f3331c6f8ffeb814f73e4f5102"
+          expect:
+            - statusCode: 200
+
+  # Agent endpoints
+  - name: "Agent Configurations"
+    weight: 12
+    flow:
+      - get:
+          url: "/api/v1/agent/configurations?wallet=0x8f49701734bfe3f3331c6f8ffeb814f73e4f5102"
+          expect:
+            - statusCode: 200
+
+  - name: "Agent Public List"
+    weight: 8
+    flow:
+      - get:
+          url: "/api/v1/agent/public"
+          expect:
+            - statusCode: 200
+
+  # Billing endpoints
+  - name: "Billing Plans"
+    weight: 8
+    flow:
+      - get:
+          url: "/api/v1/billing/plans"
+          expect:
+            - statusCode: 200
+
+  - name: "Billing Usage"
+    weight: 8
+    flow:
+      - get:
+          url: "/api/v1/billing/usage?wallet=0x8f49701734bfe3f3331c6f8ffeb814f73e4f5102"
+          expect:
+            - statusCode: 200
+
+  # Enterprise endpoints
+  - name: "Enterprise Agents"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/v1/enterprise/agents?wallet=0x8f49701734bfe3f3331c6f8ffeb814f73e4f5102"
+          expect:
+            - statusCode: 200
+
+  # RAG endpoints
   - name: "RAG Stats"
-    weight: 25
+    weight: 10
     flow:
       - get:
           url: "/api/v1/rag/stats?wallet=0x8f49701734bfe3f3331c6f8ffeb814f73e4f5102"
@@ -50,7 +120,7 @@ scenarios:
             - statusCode: 200
 
   - name: "RAG Documents"
-    weight: 20
+    weight: 8
     flow:
       - get:
           url: "/api/v1/rag/documents?wallet=0x8f49701734bfe3f3331c6f8ffeb814f73e4f5102"
@@ -58,17 +128,9 @@ scenarios:
             - statusCode: 200
 
   - name: "RAG Community"
-    weight: 15
+    weight: 5
     flow:
       - get:
           url: "/api/v1/rag/community?limit=10"
-          expect:
-            - statusCode: 200
-
-  - name: "Monitoring Dashboard"
-    weight: 10
-    flow:
-      - get:
-          url: "/monitoring/dashboard"
           expect:
             - statusCode: 200

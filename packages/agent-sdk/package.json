@@ -1,6 +1,6 @@
 {
-  "name": "@tais/agent-sdk",
-  "version": "1.0.0",
+  "name": "tais-agent-sdk",
+  "version": "1.0.1",
   "description": "TAIS Agent SDK - Cross-App Agent Portability for third-party integrations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

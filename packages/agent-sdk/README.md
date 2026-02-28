@@ -1,4 +1,4 @@
-# @tais/agent-sdk
+# tais-agent-sdk
 
 TAIS Agent SDK - Cross-App Agent Portability for third-party integrations.
 
@@ -7,15 +7,15 @@ This SDK enables developers to integrate TAIS agents into their applications (No
 ## Installation
 
 ```bash
-npm install @tais/agent-sdk
+npm install tais-agent-sdk
 # or
-yarn add @tais/agent-sdk
+yarn add tais-agent-sdk
 ```
 
 ## Quick Start
 
 ```typescript
-import { TAISAgent, VALID_SCOPES } from '@tais/agent-sdk';
+import { TAISAgent, VALID_SCOPES } from 'tais-agent-sdk';
 
 // Initialize the SDK
 const tais = new TAISAgent({
@@ -57,6 +57,44 @@ await tais.updateMemory({
 });
 ```
 
+## Prerequisites
+
+1. **Register your app** at https://taisplatform.vercel.app/developer
+2. **Obtain credentials** - Get your `appId` and `appSecret`
+3. **Configure redirect URI** - Add your OAuth callback URL
+
+## Authentication Flow
+
+The SDK uses OAuth 2.0 with wallet-based authentication:
+
+```
+┌─────────┐     ┌──────────────┐     ┌─────────────┐
+│  User   │────▶│   Your App  │────▶│  TAIS API   │
+│         │◀────│              │◀────│             │
+└─────────┘     └──────────────┘     └─────────────┘
+   Wallet          Redirect           Exchange Code
+   Signature       to Auth URL       for Token
+```
+
+### Step-by-Step:
+
+1. **Generate Authorization URL**
+   ```typescript
+   const authUrl = tais.getAuthorizationUrl({
+     scopes: ['agent:identity:read', 'agent:memory:read'],
+     state: userId,
+   });
+   ```
+
+2. **User authenticates** - Redirect to authUrl, user signs with wallet
+
+3. **Exchange Code for Token**
+   ```typescript
+   const tokens = await tais.exchangeCode(codeFromCallback);
+   ```
+
+4. **Store tokens securely** - Use encrypted storage
+
 ## API Reference
 
 ### Constructor
@@ -72,7 +110,7 @@ Config:
 - `redirectUri` - OAuth callback URL
 - `baseUrl` - Optional, defaults to `https://tso.onrender.com`
 
-### Authentication
+### Authentication Methods
 
 #### `getAuthorizationUrl(options)`
 
@@ -110,19 +148,7 @@ Retrieve the user's agent context based on granted permissions.
 
 ```typescript
 const context = await tais.getContext();
-// Returns:
-// {
-//   agentId: '...',
-//   walletAddress: '0x...',
-//   tier: 'gold',
-//   config: {
-//     soul: '...',      // personality
-//     profile: '...',  // user preferences
-//     memory: '...'    // accumulated context
-//   },
-//   permissions: { scopes: [...], ... },
-//   capabilities: { canExecuteCode: false, ... }
-// }
+// Returns: { agentId, walletAddress, tier, config, permissions, capabilities }
 ```
 
 ### Chat
@@ -134,12 +160,8 @@ Send a message and get a response. Supports session handoff.
 ```typescript
 const response = await tais.chat({
   context,
-  messages: [
-    { role: 'user', content: 'Create a roadmap' },
-  ],
-  appContext: {
-    currentDocument: 'Q2 Planning',
-  },
+  messages: [{ role: 'user', content: 'Create a roadmap' }],
+  appContext: { currentDocument: 'Q2 Planning' },
   parentSession: 'optional_session_id', // For continuing from another app
 });
 ```
@@ -181,14 +203,14 @@ const { sessions } = await tais.getSessions(10);
 
 ## Available Scopes
 
-| Scope | Description |
-|-------|-------------|
-| `agent:identity:read` | Read SOUL.md and PROFILE.md |
-| `agent:identity:soul:read` | Read SOUL.md only |
-| `agent:identity:profile:read` | Read PROFILE.md only |
-| `agent:memory:read` | Read MEMORY.md |
-| `agent:memory:write` | Write to MEMORY.md |
-| `agent:config:read` | Read agent.json constraints |
+| Scope | Description | Sensitivity |
+|-------|-------------|-------------|
+| `agent:identity:read` | Read SOUL.md and PROFILE.md | Medium |
+| `agent:identity:soul:read` | Read SOUL.md only | Medium |
+| `agent:identity:profile:read` | Read PROFILE.md only | Low |
+| `agent:memory:read` | Read MEMORY.md | Medium |
+| `agent:memory:write` | Write to MEMORY.md | High |
+| `agent:config:read` | Read agent.json constraints | Low |
 
 ## Session Handoff
 
@@ -212,12 +234,142 @@ const response2 = await tais.chat({
 });
 ```
 
+## Security Best Practices
+
+### 1. Token Storage
+
+Never store tokens in plain text. Use encrypted storage:
+
+```typescript
+// Good: Encrypted storage
+const encrypted = encrypt(tokens, userKey);
+localStorage.setItem('tais_tokens', encrypted);
+
+// Bad: Plain text storage (DO NOT)
+localStorage.setItem('tais_tokens', JSON.stringify(tokens));
+```
+
+### 2. App Secret
+
+- Store `appSecret` in environment variables, not in code
+- Never commit secrets to version control
+- Rotate secrets periodically
+
+```typescript
+// Good
+const tais = new TAISAgent({
+  appSecret: process.env.TAIS_APP_SECRET,
+});
+
+// Bad
+const tais = new TAISAgent({
+  appSecret: 'my-secret-in-code', // Never do this!
+});
+```
+
+### 3. HTTPS Only
+
+Always use HTTPS in production:
+
+```typescript
+const tais = new TAISAgent({
+  baseUrl: 'https://tso.onrender.com', // HTTPS required
+});
+```
+
+### 4. Scope Minimization
+
+Request only the scopes you need:
+
+```typescript
+// Good: Minimal scopes
+scopes: ['agent:identity:read']
+
+// Excessive: More access than needed
+scopes: ['agent:identity:read', 'agent:memory:read', 'agent:memory:write']
+```
+
+### 5. Token Expiry
+
+Handle token expiry gracefully:
+
+```typescript
+try {
+  const response = await tais.chat({ context, messages });
+} catch (error) {
+  if (error.message.includes('expired')) {
+    const newTokens = await tais.refreshToken();
+    // Retry with new token
+  }
+}
+```
+
+## Error Handling
+
+```typescript
+import { TAISError, TAISAuthError, TAISScopeError } from 'tais-agent-sdk';
+
+try {
+  await tais.chat({ context, messages });
+} catch (error) {
+  if (error instanceof TAISAuthError) {
+    // Redirect to auth
+    window.location.href = authUrl;
+  } else if (error instanceof TAISScopeError) {
+    // Request additional scope
+    console.log('Missing scope:', error.requiredScope);
+  } else {
+    // Handle other errors
+    console.error('SDK Error:', error.message);
+  }
+}
+```
+
+## Rate Limiting
+
+The API implements rate limiting. Handle 429 responses:
+
+```typescript
+async function withRetry(fn, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error.status === 429 && i < maxRetries - 1) {
+        const delay = Math.pow(2, i) * 1000;
+        await new Promise(r => setTimeout(r, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+```
+
 ## Example Integrations
 
-See the `packages/` directory for example integrations:
+See the `packages/` directory for complete examples:
 - `notion-integration/` - Document creation
 - `slack-integration/` - Smart replies
 - `linear-integration/` - Task creation
+
+## TypeScript Support
+
+The SDK is written in TypeScript and includes full type definitions:
+
+```typescript
+import {
+  TAISAgent,
+  TAISAgentConfig,
+  AgentContext,
+  ChatMessage,
+  MemoryEntry,
+  Session,
+} from 'tais-agent-sdk';
+
+const context: AgentContext = await tais.getContext();
+const messages: ChatMessage[] = context.config.soul ? [{ role: 'user', content: 'Hi' }] : [];
+```
 
 ## License
 

@@ -20,7 +20,7 @@
 
 | Component | Description |
 |-----------|-------------|
-| **@tais/agent-sdk** | npm package for third-party devs |
+| **tais-agent-sdk** | npm package for third-party devs |
 | **OAuth Flow** | Permission grants (like GitHub OAuth) |
 | **Session Handoff** | Continue conversations across apps |
 | **Memory Sharing** | Agent learns across apps |
@@ -61,7 +61,7 @@ App A (Notion)    App B (Slack)    App C (Linear)
 | Phase | Duration | Key Deliverables |
 |-------|----------|-----------------|
 | 1. Core Infrastructure | Week 1-2 | DB schema, OAuth API, Context API |
-| 2. Agent SDK | Week 2-3 | @tais/agent-sdk npm package |
+| 2. Agent SDK | Week 2-3 | tais-agent-sdk npm package |
 | 3. Session Management | Week 3 | Chat endpoint, memory API, handoff |
 | 4. Developer Portal | Week 3-4 | App registration, usage dashboard |
 | 5. Revenue & Billing | Week 4 | Usage tracking, invoicing |

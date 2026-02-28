@@ -4,7 +4,8 @@ export * from './citationValidator';
 export * from './reflectionSynthesizer';
 export * from './midnightReflection';
 export * from './driftDetector';
-export { TodayActivityWidget } from './TodayActivityWidget';
-export { PromoteToCoreDialog, CoreMemoryCard } from './PromoteToCoreDialog';
-export { MemoryArchivePage } from './MemoryArchivePage';
-export { DriftAlertWidget } from './DriftAlertWidget';
+
+export { TodayActivityWidget } from '../../app/components/memory/TodayActivityWidget';
+export { PromoteToCoreDialog, CoreMemoryCard } from '../../app/components/memory/PromoteToCoreDialog';
+export { MemoryArchivePage } from '../../app/components/memory/MemoryArchivePage';
+export { DriftAlertWidget } from '../../app/components/memory/DriftAlertWidget';

@@ -2,6 +2,13 @@
 // Agent configuration persistence routes for genesis holders
 
 import { Router, Request, Response } from 'express';
+import winston from 'winston';
+
+const logger = winston.createLogger({
+  level: 'error',
+  transports: [new winston.transports.Console()]
+});
+
 import {
   canCreateConfiguration,
   getWalletConfigurations,
@@ -56,7 +63,7 @@ router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
     });
     
   } catch (error) {
-    console.error('Error checking configuration status', error);
+    logger.error('Error checking configuration status', error);
     res.status(500).json({
       error: 'Failed to check configuration status',
       allowed: false
@@ -89,7 +96,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     });
     
   } catch (error) {
-    console.error('Error fetching configurations', error);
+    logger.error('Error fetching configurations', error);
     res.status(500).json({
       error: 'Failed to fetch configurations'
     });
@@ -101,22 +108,16 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
  * Save a new configuration
  */
 router.post('/', async (req: AuthenticatedRequest, res: Response) => {
-  console.log('[SAVE CONFIG] POST /api/configurations received');
-  console.log('[SAVE CONFIG] Headers:', JSON.stringify(req.headers, null, 2));
-  
   try {
     const walletAddress = req.user?.walletAddress;
-    console.log('[SAVE CONFIG] Wallet from JWT:', walletAddress);
     
     if (!walletAddress) {
-      console.log('[SAVE CONFIG] ❌ No wallet address in JWT - returning 401');
       return res.status(401).json({
         error: 'Authentication required'
       });
     }
     
     const { name, configData, description, personalityMd } = req.body;
-    console.log('[SAVE CONFIG] Request body:', { name, hasConfigData: !!configData, description, hasPersonalityMd: !!personalityMd });
     
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -155,20 +156,15 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     }
     
     // Check limits
-    console.log('[SAVE CONFIG] Checking configuration limits...');
     const check = await canCreateConfiguration(walletAddress);
-    console.log('[SAVE CONFIG] Limit check result:', JSON.stringify(check, null, 2));
     
     if (!check.allowed) {
-      console.log('[SAVE CONFIG] ❌ Save blocked:', check.error);
       return res.status(403).json({
         error: check.error || 'Configuration limit reached',
         limit: check.limit,
         used: check.currentCount
       });
     }
-    
-    console.log('[SAVE CONFIG] ✅ Limits check passed');
     
     // Save configuration
     const result = await saveConfiguration(
@@ -179,12 +175,6 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       personalityMd
     );
     
-    console.log('Configuration saved', {
-      walletAddress,
-      configId: result.config.id,
-      name: result.config.name
-    });
-    
     res.status(201).json({
       success: true,
       configuration: result.config,
@@ -193,7 +183,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     });
     
   } catch (error) {
-    console.error('Error saving configuration', error);
+    logger.error('Error saving configuration', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Failed to save configuration'
     });
@@ -274,20 +264,12 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
     // Update configuration
     const config = await updateConfiguration(id, walletAddress, updates);
     
-    console.log('Configuration updated', {
-      walletAddress,
-      configId: id,
-      name: config.name,
-      personalityVersion: config.personalityVersion
-    });
-    
     res.json({
       success: true,
       configuration: config
     });
     
   } catch (error) {
-    console.error('Error updating configuration', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Failed to update configuration'
     });
@@ -315,7 +297,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
     // Get updated status
     const status = await canCreateConfiguration(walletAddress);
     
-    console.log('Configuration deleted', {
+    logger.info('Configuration deleted', {
       walletAddress,
       configId: id
     });
@@ -327,7 +309,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
     });
     
   } catch (error) {
-    console.error('Error deleting configuration', error);
+    logger.error('Error deleting configuration', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Failed to delete configuration'
     });
@@ -362,7 +344,7 @@ router.get('/nft/verify', async (req: AuthenticatedRequest, res: Response) => {
     });
     
   } catch (error) {
-    console.error('Error verifying NFT ownership', error);
+    logger.error('Error verifying NFT ownership', error);
     res.status(500).json({
       error: 'Failed to verify NFT ownership'
     });
@@ -400,7 +382,7 @@ router.get('/:id/versions', async (req: AuthenticatedRequest, res: Response) => 
     });
     
   } catch (error) {
-    console.error('Error getting versions', error);
+    logger.error('Error getting versions', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Failed to get versions'
     });
@@ -433,7 +415,7 @@ router.get('/:id/versions/:ver', async (req: AuthenticatedRequest, res: Response
     res.json(versionData);
     
   } catch (error) {
-    console.error('Error getting version', error);
+    logger.error('Error getting version', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Failed to get version'
     });
@@ -470,7 +452,7 @@ router.post('/:id/rollback/:ver', async (req: AuthenticatedRequest, res: Respons
     });
     
   } catch (error) {
-    console.error('Error rolling back version', error);
+    logger.error('Error rolling back version', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Failed to rollback'
     });

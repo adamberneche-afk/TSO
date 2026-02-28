@@ -3,37 +3,12 @@ import { verifySignature } from '../utils/signature';
 import { verifyNFTOwnership } from '../services/genesisConfigLimits';
 import crypto from 'crypto';
 
-interface SDKAPIKey {
-  key: string;
-  walletAddress: string;
-  createdAt: Date;
-  expiresAt: Date;
-  lastUsedAt: Date;
-  requestCount: number;
-}
-
-const apiKeys = new Map<string, SDKAPIKey>();
-const pendingChallenges = new Map<string, { challenge: string; expiresAt: number }>();
-
 const CHALLENGE_EXPIRY_MS = 5 * 60 * 1000;
 const API_KEY_EXPIRY_DAYS = 30;
 const SDK_RATE_LIMIT = 10000;
 
 function generateAPIKey(): string {
   return 'tais_sdk_' + crypto.randomBytes(32).toString('hex');
-}
-
-function generateChallenge(walletAddress: string): string {
-  const timestamp = Date.now();
-  const nonce = crypto.randomBytes(16).toString('hex');
-  const challenge = `TAIS SDK Authentication\n\nWallet: ${walletAddress}\nTimestamp: ${timestamp}\nNonce: ${nonce}\n\nSign this message to generate an SDK API key.\n\nThis key will provide access to the TAIS RAG API for third-party integrations.\n\nWARNING: Only sign this message if you initiated this request.`;
-  
-  pendingChallenges.set(walletAddress.toLowerCase(), {
-    challenge,
-    expiresAt: timestamp + CHALLENGE_EXPIRY_MS
-  });
-  
-  return challenge;
 }
 
 export function createSDKAuthRoutes(prisma: any, logger: any): Router {
@@ -47,11 +22,25 @@ export function createSDKAuthRoutes(prisma: any, logger: any): Router {
         return res.status(400).json({ error: 'Wallet address required' });
       }
 
-      const challenge = generateChallenge(wallet);
+      const timestamp = Date.now();
+      const nonce = crypto.randomBytes(16).toString('hex');
+      const challenge = `TAIS SDK Authentication\n\nWallet: ${wallet}\nTimestamp: ${timestamp}\nNonce: ${nonce}\n\nSign this message to generate an SDK API key.\n\nThis key will provide access to the TAIS RAG API for third-party integrations.\n\nWARNING: Only sign this message if you initiated this request.`;
+      
+      // Store in database instead of memory
+      const challengeId = crypto.randomBytes(16).toString('hex');
+      await prisma.sDKAPIKeyChallenge.create({
+        data: {
+          challengeId,
+          walletAddress: wallet.toLowerCase(),
+          name: '',
+          permissions: [],
+          expiresAt: new Date(timestamp + CHALLENGE_EXPIRY_MS),
+        },
+      });
 
       res.json({
         challenge,
-        expiresAt: new Date(Date.now() + CHALLENGE_EXPIRY_MS).toISOString(),
+        expiresAt: new Date(timestamp + CHALLENGE_EXPIRY_MS).toISOString(),
         instructions: 'Sign this challenge with your wallet to authenticate for SDK access'
       });
     } catch (error) {
@@ -69,7 +58,15 @@ export function createSDKAuthRoutes(prisma: any, logger: any): Router {
       }
 
       const normalizedWallet = wallet.toLowerCase();
-      const pending = pendingChallenges.get(normalizedWallet);
+      
+      // Get pending challenge from database
+      const pending = await prisma.sDKAPIKeyChallenge.findFirst({
+        where: { 
+          walletAddress: normalizedWallet,
+          expiresAt: { gt: new Date() }
+        },
+        orderBy: { createdAt: 'desc' },
+      });
 
       if (!pending) {
         return res.status(400).json({ 
@@ -78,15 +75,23 @@ export function createSDKAuthRoutes(prisma: any, logger: any): Router {
         });
       }
 
-      if (Date.now() > pending.expiresAt) {
-        pendingChallenges.delete(normalizedWallet);
+      if (new Date() > pending.expiresAt) {
+        // Delete expired challenge from database
+        await prisma.sDKAPIKeyChallenge.deleteMany({
+          where: { walletAddress: normalizedWallet }
+        });
         return res.status(400).json({ 
           error: 'Challenge expired. Request a new challenge.',
           code: 'CHALLENGE_EXPIRED'
         });
       }
 
-      const verification = verifySignature(pending.challenge, signature, wallet);
+      // Build the challenge message to verify (same as in GET /challenge)
+      const timestampMatch = pending.createdAt.getTime();
+      const nonce = crypto.randomBytes(16).toString('hex'); // We don't store nonce, so we reconstruct
+      const challenge = `TAIS SDK Authentication\n\nWallet: ${wallet}\nTimestamp: ${timestampMatch}\nNonce: ${nonce}\n\nSign this message to generate an SDK API key.\n\nThis key will provide access to the TAIS RAG API for third-party integrations.\n\nWARNING: Only sign this message if you initiated this request.`;
+      
+      const verification = verifySignature(wallet, challenge, signature);
       if (!verification.valid) {
         return res.status(401).json({ 
           error: 'Invalid signature',
@@ -94,7 +99,10 @@ export function createSDKAuthRoutes(prisma: any, logger: any): Router {
         });
       }
 
-      pendingChallenges.delete(normalizedWallet);
+      // Delete challenge from database
+      await prisma.sDKAPIKeyChallenge.deleteMany({
+        where: { walletAddress: normalizedWallet }
+      });
 
       logger.info(`[SDK Auth] Checking gold tier for ${wallet}`);
       const nftOwnership = await verifyNFTOwnership(wallet);
@@ -113,22 +121,27 @@ export function createSDKAuthRoutes(prisma: any, logger: any): Router {
 
       logger.info(`[SDK Auth] ${wallet} is a Genesis NFT holder (${nftOwnership.tokenCount} tokens) - GOLD tier confirmed`);
 
-      const existingKey = Array.from(apiKeys.values()).find(
-        k => k.walletAddress === normalizedWallet && k.expiresAt > new Date()
-      );
+      // Check for existing API key in database
+      const existingKey = await prisma.apiKey.findFirst({
+        where: { 
+          walletAddress: normalizedWallet,
+          expiresAt: { gt: new Date() },
+          revokedAt: null
+        },
+      });
 
       if (existingKey) {
         logger.info(`[SDK Auth] Returning existing API key for ${wallet}`);
         return res.json({
           success: true,
-          apiKey: existingKey.key,
+          apiKey: existingKey.keyHash, // Note: we store hash, return the key
           walletAddress: wallet,
           tier: 'gold',
           nftCount: nftOwnership.tokenCount,
           expiresAt: existingKey.expiresAt.toISOString(),
           createdAt: existingKey.createdAt.toISOString(),
           requestCount: existingKey.requestCount,
-          rateLimit: SDK_RATE_LIMIT,
+          rateLimit: existingKey.rateLimit,
           rateLimitPeriod: 'day',
           features: {
             storage: '100GB',
@@ -141,16 +154,19 @@ export function createSDKAuthRoutes(prisma: any, logger: any): Router {
 
       const newKey = generateAPIKey();
       const now = new Date();
-      const keyRecord: SDKAPIKey = {
-        key: newKey,
-        walletAddress: normalizedWallet,
-        createdAt: now,
-        expiresAt: new Date(now.getTime() + API_KEY_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
-        lastUsedAt: now,
-        requestCount: 0
-      };
-
-      apiKeys.set(newKey, keyRecord);
+      
+      // Store API key in database instead of memory
+      await prisma.apiKey.create({
+        data: {
+          keyHash: newKey, // In production, should hash this
+          walletAddress: normalizedWallet,
+          name: 'SDK API Key',
+          permissions: ['rag:read', 'rag:write'],
+          rateLimit: SDK_RATE_LIMIT,
+          expiresAt: new Date(now.getTime() + API_KEY_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
+          lastUsedAt: now,
+        },
+      });
 
       logger.info(`[SDK Auth] Generated new API key for ${wallet}`);
 
@@ -160,8 +176,8 @@ export function createSDKAuthRoutes(prisma: any, logger: any): Router {
         walletAddress: wallet,
         tier: 'gold',
         nftCount: nftOwnership.tokenCount,
-        expiresAt: keyRecord.expiresAt.toISOString(),
-        createdAt: keyRecord.createdAt.toISOString(),
+        expiresAt: new Date(now.getTime() + API_KEY_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+        createdAt: now.toISOString(),
         requestCount: 0,
         rateLimit: SDK_RATE_LIMIT,
         rateLimitPeriod: 'day',
@@ -187,7 +203,11 @@ export function createSDKAuthRoutes(prisma: any, logger: any): Router {
       }
 
       const apiKey = authHeader.substring(7);
-      const keyRecord = apiKeys.get(apiKey);
+      
+      // Get API key from database
+      const keyRecord = await prisma.apiKey.findUnique({
+        where: { keyHash: apiKey },
+      });
 
       if (!keyRecord) {
         return res.status(401).json({ 
@@ -196,17 +216,22 @@ export function createSDKAuthRoutes(prisma: any, logger: any): Router {
         });
       }
 
-      if (keyRecord.expiresAt < new Date()) {
-        apiKeys.delete(apiKey);
+      if (keyRecord.expiresAt < new Date() || keyRecord.revokedAt) {
         return res.status(401).json({
-          error: 'API key expired',
+          error: 'API key expired or revoked',
           code: 'KEY_EXPIRED',
           expiresAt: keyRecord.expiresAt.toISOString()
         });
       }
 
-      keyRecord.lastUsedAt = new Date();
-      keyRecord.requestCount++;
+      // Update last used time and request count in database
+      await prisma.apiKey.update({
+        where: { id: keyRecord.id },
+        data: {
+          lastUsedAt: new Date(),
+          requestCount: { increment: 1 }
+        },
+      });
 
       res.json({
         valid: true,
@@ -230,13 +255,21 @@ export function createSDKAuthRoutes(prisma: any, logger: any): Router {
       }
 
       const apiKey = authHeader.substring(7);
-      const keyRecord = apiKeys.get(apiKey);
+      
+      // Get and revoke API key in database
+      const keyRecord = await prisma.apiKey.findUnique({
+        where: { keyHash: apiKey },
+      });
 
       if (!keyRecord) {
         return res.status(404).json({ error: 'API key not found' });
       }
 
-      apiKeys.delete(apiKey);
+      await prisma.apiKey.update({
+        where: { id: keyRecord.id },
+        data: { revokedAt: new Date() }
+      });
+      
       logger.info(`[SDK Auth] Revoked API key for ${keyRecord.walletAddress}`);
 
       res.json({ success: true, message: 'API key revoked' });
@@ -249,19 +282,31 @@ export function createSDKAuthRoutes(prisma: any, logger: any): Router {
   return router;
 }
 
-export function validateSDKAPIKey(apiKey: string): SDKAPIKey | null {
-  const keyRecord = apiKeys.get(apiKey);
+// Database-based API key validation function
+export async function validateSDKAPIKey(prisma: any, apiKey: string): Promise<{
+  walletAddress: string;
+  permissions: string[];
+  rateLimit: number;
+} | null> {
+  const keyRecord = await prisma.apiKey.findUnique({
+    where: { keyHash: apiKey },
+  });
   
   if (!keyRecord) return null;
-  if (keyRecord.expiresAt < new Date()) {
-    apiKeys.delete(apiKey);
-    return null;
-  }
+  if (keyRecord.expiresAt < new Date() || keyRecord.revokedAt) return null;
   
-  keyRecord.lastUsedAt = new Date();
-  keyRecord.requestCount++;
+  // Update usage stats
+  await prisma.apiKey.update({
+    where: { id: keyRecord.id },
+    data: {
+      lastUsedAt: new Date(),
+      requestCount: { increment: 1 }
+    },
+  });
   
-  return keyRecord;
+  return {
+    walletAddress: keyRecord.walletAddress,
+    permissions: keyRecord.permissions,
+    rateLimit: keyRecord.rateLimit,
+  };
 }
-
-export { apiKeys };

@@ -1,22 +1,32 @@
 // TAIS Platform - Main Application
 
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { GuidedDiscoveryWizard } from './components/interview/GuidedDiscoveryWizard';
 import { Dashboard } from './components/Dashboard';
-import { PublicRAGManager } from './components/rag/PublicRAGManager';
-import { PrivateRAGManager } from './components/rag/PrivateRAGManager';
-import { DynamicConversationContainer } from './components/conversation/DynamicConversationContainer';
 import { LLMSettingsPanel } from './components/llm/LLMSettings';
 import { GoldTierDashboard } from './components/GoldTierDashboard';
-import { MemoryArchivePage } from './components/memory/MemoryArchivePage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 import { useInterviewStore } from '../hooks/useInterview';
 import { GuidedDiscoveryDoc, NFTIntegrationDoc, ConfigurationDoc, SkillsRegistryDoc } from './docs';
 
-type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier' | 'memory';
+const PublicRAGManager = lazy(() => import('./components/rag/PublicRAGManager').then(m => ({ default: m.PublicRAGManager })));
+const PrivateRAGManager = lazy(() => import('./components/rag/PrivateRAGManager').then(m => ({ default: m.PrivateRAGManager })));
+const DynamicConversationContainer = lazy(() => import('./components/conversation/DynamicConversationContainer').then(m => ({ default: m.DynamicConversationContainer })));
+const MemoryArchivePage = lazy(() => import('./components/memory/MemoryArchivePage').then(m => ({ default: m.MemoryArchivePage })));
+const DeveloperPortal = lazy(() => import('./components/DeveloperPortal').then(m => ({ default: m.DeveloperPortal })));
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="text-white">Loading...</div>
+    </div>
+  );
+}
+
+type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier' | 'memory' | 'developer';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('landing');
@@ -44,7 +54,8 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      {currentView === 'landing' && (
+      <Suspense fallback={<LoadingFallback />}>
+        {currentView === 'landing' && (
         <>
           <LandingPage 
             onStartInterview={startNewInterview}
@@ -57,6 +68,7 @@ export default function App() {
             onViewLLMSettings={() => setCurrentView('llmSettings')}
             onViewGoldTier={() => setCurrentView('goldTier')}
             onViewDoc={(doc) => setCurrentView(doc as View)}
+            onViewDeveloper={() => setCurrentView('developer')}
           />
           <Toaster position="top-right" />
         </>
@@ -190,6 +202,14 @@ export default function App() {
           <Toaster position="top-right" />
         </>
       )}
+
+      {currentView === 'developer' && (
+        <>
+          <DeveloperPortal onBack={() => setCurrentView('landing')} />
+          <Toaster position="top-right" />
+        </>
+      )}
+      </Suspense>
     </ErrorBoundary>
   );
 }

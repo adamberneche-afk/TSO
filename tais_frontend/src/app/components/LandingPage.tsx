@@ -17,6 +17,7 @@ interface LandingPageProps {
   onViewLLMSettings?: () => void;
   onViewGoldTier?: () => void;
   onViewDoc?: (doc: string) => void;
+  onViewDeveloper?: () => void;
 }
 
 export function LandingPage({ 
@@ -29,7 +30,8 @@ export function LandingPage({
   onViewConversation,
   onViewLLMSettings,
   onViewGoldTier,
-  onViewDoc
+  onViewDoc,
+  onViewDeveloper
 }: LandingPageProps) {
   const [nftStats, setNftStats] = useState({
     totalSupply: '2,022',
@@ -295,6 +297,7 @@ export function LandingPage({
           <div className="flex gap-12">
             <FooterLink href="#" onClick={() => onViewDoc?.('doc-guided-discovery')}>Docs</FooterLink>
             <FooterLink href="#">GitHub</FooterLink>
+            <FooterLink href="#" onClick={onViewDeveloper}>Developer</FooterLink>
             <FooterLink href="#">Support</FooterLink>
           </div>
         </div>

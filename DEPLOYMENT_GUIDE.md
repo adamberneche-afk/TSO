@@ -108,7 +108,7 @@ LOG_LEVEL=info
 
 # Dual-Database Configuration (REQUIRED - WORKING)
 # RAG Database - Stores encrypted documents, chunks, audit logs
-RAG_DATABASE_URL="postgresql://public_rag_user:HIe8HmUXOGyb9S5v9WfKLQQgBMnqWONl@dpg-d6au87vpm1nc73djp6t0-a.oregon-postgres.render.com/public_rag?sslmode=require"
+RAG_DATABASE_URL="postgresql://<username>:<password>@<host>/<database>?sslmode=require"
 
 # Skills Database - Stores skills registry, auth, configurations
 SKILLS_DATABASE_URL="postgresql://user:pass@host/tais_registry?sslmode=require"

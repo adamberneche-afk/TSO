@@ -144,7 +144,7 @@ A production-ready multi-tier Retrieval-Augmented Generation (RAG) system with c
 **Status:** Architecture Complete, Implementation Pending
 
 **Planned Features:**
-- [ ] NPM package (@tais/rag-sdk)
+- [x] NPM package (tais-rag-sdk)
 - [ ] Pluggable storage backends
 - [ ] Embedding model abstraction
 - [ ] Documentation and examples
@@ -243,7 +243,7 @@ STAKING_CONTRACT_ADDRESS=0x08071901A5C4D2950888Ce2b299bBd0e3087d101
 **✅ DEPLOYED CONFIGURATION:**
 ```bash
 # Working Production Environment Variables
-RAG_DATABASE_URL="postgresql://public_rag_user:HIe8HmUXOGyb9S5v9WfKLQQgBMnqWONl@dpg-d6au87vpm1nc73djp6t0-a.oregon-postgres.render.com/public_rag?sslmode=require"
+RAG_DATABASE_URL="postgresql://<username>:<password>@<host>/<database>?sslmode=require"
 SKILLS_DATABASE_URL="postgresql://user:pass@host/tais_registry?sslmode=require"
 RAG_STORAGE_PROVIDER=database
 JWT_SECRET="your-secret"

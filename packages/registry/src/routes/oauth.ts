@@ -6,18 +6,19 @@ import { verifyNFTOwnership } from '../services/genesisConfigLimits';
 
 const TOKEN_EXPIRY_DAYS = 30;
 const CHALLENGE_EXPIRY_MS = 5 * 60 * 1000;
-const ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY || 'tais-default-encryption-key-32b';
 
-interface PendingAuthorization {
-  walletAddress: string;
-  appId: string;
-  scopes: string[];
-  redirectUri: string;
-  state: string;
-  expiresAt: number;
+function getEncryptionKey(): string {
+  const key = process.env.TOKEN_ENCRYPTION_KEY;
+  if (!key) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('TOKEN_ENCRYPTION_KEY environment variable is required in production');
+    }
+    return 'tais-default-encryption-key-32b';
+  }
+  return key;
 }
 
-const pendingAuthorizations = new Map<string, PendingAuthorization>();
+const ENCRYPTION_KEY = getEncryptionKey();
 
 function encryptToken(token: string): string {
   return cryptoJS.AES.encrypt(token, ENCRYPTION_KEY).toString();
@@ -77,9 +78,14 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
         return res.status(400).json({ error: 'wallet is required' });
       }
 
-      const scopes = scopesParam ? (Array.isArray(scopesParam) ? scopesParam : (scopesParam as string).split(',')) : [];
+      const scopes = scopesParam 
+        ? (Array.isArray(scopesParam) 
+            ? (scopesParam as string[]) 
+            : (scopesParam as string).split(','))
+        : [];
       
-      const { valid, invalid } = validateScopes(scopes);
+      const validScopes = scopes as string[];
+      const { valid, invalid } = validateScopes(validScopes);
       if (!valid) {
         return res.status(400).json({ error: `Invalid scopes: ${invalid.join(', ')}` });
       }
@@ -101,13 +107,17 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
       }
 
       const authorizationId = generateAuthorizationId();
-      pendingAuthorizations.set(authorizationId, {
-        walletAddress: wallet.toLowerCase(),
-        appId: app_id,
-        scopes,
-        redirectUri: redirect_uri,
-        state: state as string || '',
-        expiresAt: Date.now() + CHALLENGE_EXPIRY_MS,
+      
+      // Store in database for persistence across server restarts
+      await prisma.oAuthPendingAuthorization.create({
+        data: {
+          state: authorizationId,
+          walletAddress: wallet.toLowerCase(),
+          appId: app_id,
+          scopes,
+          redirectUri: redirect_uri,
+          expiresAt: new Date(Date.now() + CHALLENGE_EXPIRY_MS),
+        },
       });
 
       const appInfo = {
@@ -137,7 +147,11 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
         return res.status(400).json({ error: 'authorizationId, signature, and wallet required' });
       }
 
-      const pending = pendingAuthorizations.get(authorizationId);
+      // Retrieve from database
+      const pending = await prisma.oAuthPendingAuthorization.findUnique({
+        where: { state: authorizationId },
+      });
+      
       if (!pending) {
         return res.status(400).json({ error: 'Authorization not found or expired' });
       }
@@ -146,8 +160,8 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
         return res.status(403).json({ error: 'Wallet mismatch' });
       }
 
-      if (Date.now() > pending.expiresAt) {
-        pendingAuthorizations.delete(authorizationId);
+      if (new Date() > pending.expiresAt) {
+        await prisma.oAuthPendingAuthorization.delete({ where: { state: authorizationId } });
         return res.status(400).json({ error: 'Authorization expired' });
       }
 
@@ -187,7 +201,8 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
         },
       });
 
-      pendingAuthorizations.delete(authorizationId);
+      // Delete from database after successful approval
+      await prisma.oAuthPendingAuthorization.delete({ where: { state: authorizationId } });
 
       const params = new URLSearchParams({
         code: accessToken,
@@ -367,7 +382,7 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
       });
 
       res.json({
-        permissions: permissions.map(p => ({
+        permissions: permissions.map((p: { app: { appId: string; name: string }; scopes: string[]; grantedAt: Date; expiresAt: Date | null }) => ({
           appId: p.app.appId,
           appName: p.app.name,
           scopes: p.scopes,
@@ -410,8 +425,9 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
         return res.status(401).json({ error: 'Invalid signature' });
       }
 
-      const tier = await verifyNFTOwnership(wallet);
-      const isGold = tier !== 'free';
+      const nftResult = await verifyNFTOwnership(wallet);
+      const tier = nftResult.isHolder ? (nftResult.tokenCount >= 3 ? 'gold' : 'silver') : 'free';
+      const isGold = tier === 'gold';
 
       const app = await prisma.agentApp.create({
         data: {
@@ -452,7 +468,8 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
         return res.status(400).json({ error: 'wallet is required' });
       }
 
-      const tier = await verifyNFTOwnership(wallet);
+      const nftResult = await verifyNFTOwnership(wallet);
+      const tier = nftResult.isHolder ? (nftResult.tokenCount >= 3 ? 'gold' : 'silver') : 'free';
       if (tier === 'free') {
         return res.status(403).json({ error: 'Genesis NFT required to list apps' });
       }
@@ -477,6 +494,147 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
     } catch (error) {
       logger.error('OAuth apps error:', error);
       res.status(500).json({ error: 'Failed to fetch apps' });
+    }
+  });
+
+  // ============================================
+  // Sandbox Environment (for testing)
+  // ============================================
+
+  // Create sandbox app for testing
+  router.post('/sandbox/create', async (req: Request, res: Response) => {
+    try {
+      const { wallet, name } = req.body;
+
+      if (!wallet || !name) {
+        return res.status(400).json({ error: 'wallet and name are required' });
+      }
+
+      const sandboxAppId = 'sandbox_' + crypto.randomBytes(8).toString('hex');
+      const sandboxSecret = crypto.randomBytes(24).toString('hex');
+
+      const app = await prisma.agentApp.create({
+        data: {
+          appId: sandboxAppId,
+          name: `${name} (Sandbox)`,
+          description: 'Sandbox test environment',
+          websiteUrl: 'https://sandbox.local',
+          redirectUris: ['http://localhost:3000/callback', 'http://localhost:5173/callback'],
+          appSecret: hashSecret(sandboxSecret),
+          tier: 'BASIC',
+          isActive: true,
+        },
+      });
+
+      logger.info(`Sandbox app created: ${sandboxAppId} for wallet ${wallet}`);
+
+      res.json({
+        success: true,
+        sandbox: true,
+        app: {
+          appId: app.appId,
+          name: app.name,
+          appSecret: sandboxSecret,
+          redirectUris: app.redirectUris,
+        },
+        message: 'Sandbox app created. Store the secret securely - it will not be shown again.',
+      });
+    } catch (error) {
+      logger.error('Sandbox create error:', error);
+      res.status(500).json({ error: 'Failed to create sandbox app' });
+    }
+  });
+
+  // Get sandbox status
+  router.get('/sandbox/status', async (req: Request, res: Response) => {
+    try {
+      const { wallet } = req.query;
+
+      if (!wallet || typeof wallet !== 'string') {
+        return res.status(400).json({ error: 'wallet is required' });
+      }
+
+      const sandboxApps = await prisma.agentApp.findMany({
+        where: {
+          appId: { startsWith: 'sandbox_' },
+          developerEmail: wallet.toLowerCase(),
+        },
+        select: {
+          appId: true,
+          name: true,
+          isActive: true,
+          createdAt: true,
+        },
+      });
+
+      res.json({
+        wallet,
+        sandboxApps,
+        rateLimit: {
+          requestsPerMinute: 60,
+          maxRequests: 1000,
+        },
+        features: {
+          mockOAuth: true,
+          testTokens: true,
+          debugMode: true,
+        },
+      });
+    } catch (error) {
+      logger.error('Sandbox status error:', error);
+      res.status(500).json({ error: 'Failed to fetch sandbox status' });
+    }
+  });
+
+  // Generate test token for sandbox
+  router.post('/sandbox/token', async (req: Request, res: Response) => {
+    try {
+      const { wallet, appId } = req.body;
+
+      if (!wallet || !appId) {
+        return res.status(400).json({ error: 'wallet and appId are required' });
+      }
+
+      if (!appId.startsWith('sandbox_')) {
+        return res.status(400).json({ error: 'App must be a sandbox app' });
+      }
+
+      const testToken = 'sandbox_tk_' + crypto.randomBytes(24).toString('hex');
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await prisma.agentAppPermission.upsert({
+        where: {
+          walletAddress_appId: {
+            walletAddress: wallet.toLowerCase(),
+            appId,
+          },
+        },
+        update: {
+          accessToken: encryptToken(testToken),
+          expiresAt,
+        },
+        create: {
+          walletAddress: wallet.toLowerCase(),
+          appId,
+          scopes: ['agent:identity:read', 'agent:memory:read', 'agent:memory:write'],
+          accessToken: encryptToken(testToken),
+          expiresAt,
+        },
+      });
+
+      res.json({
+        success: true,
+        sandbox: true,
+        access_token: testToken,
+        token_type: 'Bearer',
+        expires_in: 86400,
+        walletAddress: wallet,
+        scopes: ['agent:identity:read', 'agent:memory:read', 'agent:memory:write'],
+        note: 'This is a test token valid for 24 hours',
+      });
+    } catch (error) {
+      logger.error('Sandbox token error:', error);
+      res.status(500).json({ error: 'Failed to generate test token' });
     }
   });
 

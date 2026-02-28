@@ -1,0 +1,26 @@
+{
+  "name": "tais-notion-integration",
+  "version": "1.0.0",
+  "description": "TAIS Agent integration for Notion - Document creation and management",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "tais-agent-sdk": "^1.0.0",
+    "@notionhq/client": "^2.2.14"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "tais",
+    "notion",
+    "agent",
+    "ai"
+  ],
+  "license": "MIT"
+}

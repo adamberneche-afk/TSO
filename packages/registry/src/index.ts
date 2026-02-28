@@ -304,6 +304,22 @@ import { createAgentRoutes } from './routes/agent';
 apiV1Router.use('/agent', createAgentRoutes(prisma, logger));
 
 // ============================================
+// Billing Routes (v3.0.0 - Cross-App Agent Portability)
+// Usage tracking, invoices, and billing
+// ============================================
+import { createBillingRoutes } from './routes/billing';
+
+apiV1Router.use('/billing', rateLimiters.authenticated, authMiddleware, createBillingRoutes(prisma, logger));
+
+// ============================================
+// Enterprise Routes (v3.0.0 - Cross-App Agent Portability)
+// User permissions, org management, audit logs
+// ============================================
+import { createEnterpriseRoutes } from './routes/enterprise';
+
+apiV1Router.use('/enterprise', rateLimiters.authenticated, authMiddleware, createEnterpriseRoutes(prisma, logger));
+
+// ============================================
 // Analytics Routes
 // SDK integration tracking for weekly insights
 // ============================================

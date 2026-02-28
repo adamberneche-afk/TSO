@@ -4,7 +4,18 @@ import cryptoJS from 'crypto-js';
 import { verifySignature } from '../utils/signature';
 import { verifyNFTOwnership } from '../services/genesisConfigLimits';
 
-const ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY || 'tais-default-encryption-key-32b';
+function getEncryptionKey(): string {
+  const key = process.env.TOKEN_ENCRYPTION_KEY;
+  if (!key) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('TOKEN_ENCRYPTION_KEY environment variable is required in production');
+    }
+    return 'tais-default-encryption-key-32b';
+  }
+  return key;
+}
+
+const ENCRYPTION_KEY = getEncryptionKey();
 
 function encryptToken(token: string): string {
   return cryptoJS.AES.encrypt(token, ENCRYPTION_KEY).toString();
@@ -67,8 +78,9 @@ export function createAgentRoutes(prisma: any, logger: any): Router {
 
       const { walletAddress, scopes } = auth;
 
-      const tier = await verifyNFTOwnership(walletAddress);
-      const isGold = tier !== 'free';
+      const nftResult = await verifyNFTOwnership(walletAddress);
+      const tier = nftResult.isHolder ? (nftResult.tokenCount >= 3 ? 'gold' : 'silver') : 'free';
+      const isGold = tier === 'gold';
 
       const configs = await prisma.agentConfiguration.findMany({
         where: {
@@ -127,7 +139,7 @@ export function createAgentRoutes(prisma: any, logger: any): Router {
         });
 
         context.config.memory = memoryEntries
-          .map(entry => `- ${entry.summary}`)
+          .map((entry: any) => `- ${entry.summary}`)
           .join('\n');
       }
 
@@ -170,7 +182,7 @@ export function createAgentRoutes(prisma: any, logger: any): Router {
       });
 
       res.json({
-        memories: memories.map(m => ({
+        memories: memories.map((m: any) => ({
           id: m.id,
           type: m.type,
           summary: m.summary,
@@ -251,9 +263,9 @@ export function createAgentRoutes(prisma: any, logger: any): Router {
 
       let inheritedMessages: any[] = [];
       
-     Id) {
+      if (parentSessionId) {
         const parentSession = await prisma.agentSession.findUnique({
- if (parentSession          where: { sessionId: parentSessionId },
+          where: { sessionId: parentSessionId },
           include: {
             messages: {
               orderBy: { createdAt: 'desc' },
@@ -289,7 +301,8 @@ export function createAgentRoutes(prisma: any, logger: any): Router {
         });
       }
 
-      const tier = await verifyNFTOwnership(walletAddress);
+      const nftResult = await verifyNFTOwnership(walletAddress);
+      const tier = nftResult.isHolder ? (nftResult.tokenCount >= 3 ? 'gold' : 'silver') : 'free';
       
       const configs = await prisma.agentConfiguration.findMany({
         where: {
@@ -358,7 +371,7 @@ export function createAgentRoutes(prisma: any, logger: any): Router {
       });
 
       res.json({
-        sessions: sessions.map(s => ({
+        sessions: sessions.map((s: any) => ({
           sessionId: s.sessionId,
           appId: s.app.appId,
           appName: s.app.name,

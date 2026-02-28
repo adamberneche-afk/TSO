@@ -1,0 +1,27 @@
+{
+  "name": "tais-slack-integration",
+  "version": "1.0.0",
+  "description": "TAIS Agent integration for Slack - Smart replies and context",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "tais-agent-sdk": "^1.0.0",
+    "@slack/web-api": "^6.11.0",
+    "@slack/oauth": "^2.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "tais",
+    "slack",
+    "agent",
+    "ai"
+  ],
+  "license": "MIT"
+}

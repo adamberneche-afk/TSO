@@ -2,13 +2,35 @@ const https = require('https');
 
 const BASE_URL = 'tso.onrender.com';
 const TEST_WALLET = '0x8f49701734bfe3f3331c6f8ffeb814f73e4f5102';
+const TEST_APP_ID = 'sandbox_testapp123';
 
 const endpoints = [
+  // Core endpoints
   { name: 'health', path: '/health' },
   { name: 'skills', path: '/api/v1/skills' },
+  
+  // RAG endpoints
   { name: 'rag-stats', path: `/api/v1/rag/stats?wallet=${TEST_WALLET}` },
   { name: 'rag-docs', path: `/api/v1/rag/documents?wallet=${TEST_WALLET}` },
   { name: 'rag-community', path: '/api/v1/rag/community?limit=10' },
+  
+  // OAuth endpoints
+  { name: 'oauth-apps', path: '/api/v1/oauth/apps' },
+  { name: 'oauth-permissions', path: `/api/v1/oauth/permissions?wallet=${TEST_WALLET}` },
+  { name: 'oauth-sandbox-status', path: `/api/v1/oauth/sandbox/status?wallet=${TEST_WALLET}` },
+  
+  // Agent endpoints
+  { name: 'agent-configs', path: `/api/v1/agent/configurations?wallet=${TEST_WALLET}` },
+  { name: 'agent-public', path: '/api/v1/agent/public' },
+  
+  // Billing endpoints
+  { name: 'billing-plans', path: '/api/v1/billing/plans' },
+  { name: 'billing-usage', path: `/api/v1/billing/usage?wallet=${TEST_WALLET}` },
+  
+  // Enterprise endpoints
+  { name: 'enterprise-agents', path: `/api/v1/enterprise/agents?wallet=${TEST_WALLET}` },
+  
+  // Monitoring
   { name: 'monitoring', path: '/monitoring/dashboard' },
 ];
 
@@ -146,6 +168,9 @@ function generateReport(results) {
   console.log('|----------|------------|------------|------------|');
   console.log('| GET /health | < 20ms | < 50ms | < 100ms |');
   console.log('| GET /api/v1/skills | < 100ms | < 200ms | < 500ms |');
+  console.log('| GET /api/v1/oauth/* | < 100ms | < 200ms | < 500ms |');
+  console.log('| GET /api/v1/agent/* | < 100ms | < 200ms | < 500ms |');
+  console.log('| GET /api/v1/billing/* | < 100ms | < 200ms | < 500ms |');
   console.log('| GET /api/v1/rag/* | < 200ms | < 500ms | < 1000ms |');
   console.log('| POST /api/v1/configurations | < 100ms | < 200ms | < 500ms |');
   

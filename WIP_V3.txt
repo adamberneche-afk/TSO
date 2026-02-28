@@ -1,15 +1,76 @@
 # TAIS Platform - Development Planning V3
 **Created:** February 20, 2026  
-**Last Updated:** February 24, 2026
-**Status:** v2.9.1 - Gold Tier Dashboard + CLI Published  
-**Version:** 2.9.1 (Current Production)
+**Last Updated:** February 27, 2026
+**Status:** v3.1.3 - Build Optimization Complete  
+**Version:** 3.1.3 (Current Production)
 
 ---
 
-## 🎯 COMPLETED TODAY (Feb 24, 2026)
+## 🎯 COMPLETED TODAY (Feb 27, 2026)
 
-### My Agents Dashboard Fixes
-**Goal:** Fix TypeError crashes on My Agents page
+### Cross-App Agent Portability - Full Release v3.1
+
+**Goal:** Complete all 8 phases + bug fixes + tests
+**Status:** ✅ COMPLETE
+
+**Phase 4-6 Completed:**
+- Developer Portal with App registration
+- Billing & Usage tabs
+- Integration examples (Notion, Slack, Linear)
+
+**New Additions (v3.1.1):**
+
+**Sandbox Environment:**
+- `POST /oauth/sandbox/create` - Create sandbox app
+- `GET /oauth/sandbox/status` - Check sandbox status
+- `POST /oauth/sandbox/token` - Generate test tokens
+- Sandbox tab in Developer Portal UI
+
+**SDK Tests:**
+- `packages/agent-sdk/tests/agent.test.ts` - Unit tests
+- Constructor, authorization URL, token management, scope validation
+
+**Bug Fixes:**
+- Fixed `routes/agent.ts` corrupted code (parent session lookup)
+- Fixed `NFTOwnershipResult` type usage in billing, oauth, agent routes
+- Fixed `driftDetector.ts` malformed export syntax
+
+**Documentation:**
+- Enhanced SDK README with security best practices
+- `docs/INTEGRATION_TUTORIAL.md` - Step-by-step guide
+- `docs/API.md` - Complete API reference
+
+**Files Changed:**
+- `packages/registry/src/routes/oauth.ts` - Added sandbox endpoints
+- `packages/registry/src/routes/agent.ts` - Fixed corrupted code
+- `packages/registry/src/routes/billing.ts` - Fixed NFTOwnership type
+- `packages/registry/src/routes/enterprise.ts` - NEW
+- `packages/agent-sdk/tests/agent.test.ts` - NEW
+- `tais_frontend/src/services/oauthApi.ts` - Added sandbox methods
+- `tais_frontend/src/app/components/DeveloperPortal.tsx` - Sandbox tab
+- `tais_frontend/src/services/memory/driftDetector.ts` - Fixed syntax
+
+**E2E Tests Created:**
+- `packages/registry/src/__tests__/routes/oauth.e2e.test.ts` - OAuth flow tests
+- `packages/registry/src/__tests__/routes/agent.e2e.test.ts` - Session/chat tests
+- `packages/registry/src/__tests__/routes/billing.e2e.test.ts` - Billing/enterprise tests
+
+**Build Optimization (v3.1.3):**
+- Added code splitting in vite.config.ts with manualChunks
+- Lazy loading for heavy components (RAG, Conversation, Developer Portal, Memory)
+- Fixed @/components/ui alias resolution
+- Fixed services/memory component exports
+- Installed missing idb dependency
+- Build reduced from OOM to successful 1m build
+
+**Integration Packages Created:**
+- `packages/notion-integration/` - NEW
+- `packages/slack-integration/` - NEW
+- `packages/linear-integration/` - NEW
+
+---
+
+## 🎯 COMPLETED (Feb 24-27, 2026)
 **Status:** ✅ COMPLETE
 
 **Problem:** Multiple "Cannot read properties of undefined" errors on initial render
@@ -438,7 +499,7 @@ security, database, api-design, frontend, backend, infrastructure, testing, moni
 
 **SDK Features Implemented:**
 ```typescript
-import { TAISClient } from '@tais/rag-sdk';
+import { TAISClient } from 'tais-rag-sdk';
 
 const client = new TAISClient({ walletAddress: '0x...' });
 
@@ -570,19 +631,41 @@ Low Impact     │  Prometheus✅ │  R2 Storage
 ## 🎯 ACTIVE DEVELOPMENT
 
 ### Cross-App Agent Portability (v3.0.0)
-**Status:** Phase 1 Complete
+**Status:** ALL 8 PHASES COMPLETE ✅ v3.1.3 FULL RELEASE
 
 **Completed:**
 - [x] Database schema (AgentApp, AgentAppPermission, AgentSession, AgentMemoryEntry, AppUsageMetric)
 - [x] OAuth routes (/oauth/authorize, /oauth/token, /oauth/revoke, /oauth/register-app)
 - [x] Agent Context API (/agent/context, /agent/memory, /agent/chat, /agent/sessions)
 - [x] Session handoff with parent session support
-- [x] @tais/agent-sdk npm package
+- [x] tais-agent-sdk npm package
+- [x] Developer Portal (Phase 4) - FE COMPLETE
+  - [x] App registration form with wallet signature
+  - [x] Redirect URI management
+  - [x] Authorized apps list (permissions view)
+  - [x] SDK documentation tab
+  - [x] Navigation link in footer
+- [x] Billing & Usage (Phase 5) - COMPLETE
+  - [x] GET /billing/usage endpoint - Usage by app/day
+  - [x] GET /billing/invoices endpoint - Invoice history
+  - [x] GET /billing/summary endpoint - Dashboard data
+  - [x] Billing tab in Developer Portal with usage stats
+- [x] Integration Examples (Phase 6) - COMPLETE
+  - [x] tais-notion-integration - Document creation, structure generation, database sync
+  - [x] tais-slack-integration - Smart replies, thread context, session handoff
+  - [x] tais-linear-integration - Task creation, batch tasks, sprint planning
+- [x] Enterprise Features (Phase 7) - COMPLETE
+  - [x] User permissions management endpoints
+  - [x] GET /enterprise/permissions/:appId/activity - Activity per app
+  - [x] PATCH /enterprise/permissions/:appId - Update scopes
+  - [x] GET /enterprise/activity - Overall activity log
+  - [x] POST /enterprise/organization - Create/update org config
+  - [x] GET/PATCH /enterprise/organization/:orgId - Org management
+  - [x] GET /enterprise/audit-log - Audit log endpoint
+  - [x] Activity tab in Developer Portal
 
 **Planned:**
-- [ ] Developer Portal (Phase 2)
-- [ ] Usage tracking & billing (Phase 3)
-- [ ] Integration examples (Notion, Slack, Linear)
+- [x] Testing & documentation (Phase 8) - COMPLETE ✅
 
 ### Memory System v3.0
 **Status:** ALL PHASES COMPLETE ✅

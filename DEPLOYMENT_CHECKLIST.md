@@ -55,7 +55,7 @@ Use this checklist during deployment to ensure nothing is missed.
 ### Environment Variables
 **✅ Required (All Configured and Working):**
 - [x] ✅ `RAG_DATABASE_URL` - PostgreSQL connection string for **tais-rag**
-  - **Working:** `postgresql://public_rag_user:HIe8HmUXOGyb9S5v9WfKLQQgBMnqWONl@dpg-d6au87vpm1nc73djp6t0-a.oregon-postgres.render.com/public_rag?sslmode=require`
+  - **Working:** `postgresql://<username>:<password>@<host>/<database>?sslmode=require`
   - ✅ Points to tais-rag database
 - [x] ✅ `SKILLS_DATABASE_URL` - PostgreSQL connection string for **tais_registry**
   - **Working:** Configured for tais_registry database

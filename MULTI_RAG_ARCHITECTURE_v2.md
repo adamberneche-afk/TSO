@@ -59,7 +59,7 @@ Document → Chunking → Client Embeddings (TF.js)
 
 **SDK Design:**
 ```typescript
-import { createRAG } from '@tais/rag-sdk';
+import { createRAG } from 'tais-rag-sdk';
 
 const rag = createRAG({
   appId: 'my-app',

@@ -12,8 +12,8 @@ export interface DriftAnalysis {
   evidence: DriftEvidence;
 }
 
-export {
-  type: interface DriftAnomaly 'core_contradiction' | 'pattern_deviation';
+export interface DriftAnomaly {
+  type: 'core_contradiction' | 'pattern_deviation';
   memory?: CoreMemory;
   pattern?: BehaviorPattern;
   severity: Severity;
@@ -267,7 +267,7 @@ export class DriftDetector {
         .map(a => ({
           memoryId: a.memory!.memoryId,
           content: a.memory!.content,
-          promotedAt: a.memory!.promotedAt,
+          promotedAt: a.memory!.promotedAt instanceof Date ? a.memory!.promotedAt.toISOString() : a.memory!.promotedAt,
           mutability: a.memory!.mutability,
         })),
       recentPattern: this.analyzePattern(),

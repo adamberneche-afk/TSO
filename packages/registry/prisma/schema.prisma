@@ -756,3 +756,37 @@ model AgentAppOrganization {
   @@index([adminWalletAddress])
   @@map("agent_app_organizations")
 }
+
+// OAuth Pending Authorization - stores in-progress OAuth flows in DB for persistence
+model OAuthPendingAuthorization {
+  id            String   @id @default(uuid())
+  state         String   @unique // OAuth state parameter
+  walletAddress String   @map("wallet_address")
+  appId         String   @map("app_id")
+  scopes        String[] // OAuth scopes requested
+  redirectUri   String   @map("redirect_uri")
+  expiresAt     DateTime @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([state])
+  @@index([walletAddress])
+  @@index([appId])
+  @@index([expiresAt]) // For cleanup queries
+  @@map("oauth_pending_authorizations")
+}
+
+// SDK API Key Challenge - stores pending API key creation challenges
+model SDKAPIKeyChallenge {
+  id            String   @id @default(uuid())
+  challengeId   String   @unique @map("challenge_id")
+  walletAddress String   @map("wallet_address")
+  name          String
+  permissions   String[]
+  expiresAt     DateTime @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([challengeId])
+  @@index([walletAddress])
+  @@index([expiresAt])
+  @@map("sdk_api_key_challenges")
+}

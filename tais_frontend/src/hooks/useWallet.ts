@@ -67,6 +67,12 @@ export function useWallet(): UseWalletReturn {
       console.log('[Wallet] Starting direct auth flow...');
       console.log('[Wallet] MetaMask detected:', window.ethereum.isMetaMask);
       
+      // Force MetaMask to refresh its accounts
+      await window.ethereum.request({ method: 'eth_accounts' });
+      
+      // Small delay to let MetaMask initialize
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // Step 1: Request accounts from MetaMask (only once!)
       console.log('[Wallet] Step 1: Requesting accounts from MetaMask...');
       toast.info('Connecting wallet...', { description: 'Please approve the connection in MetaMask' });
@@ -80,7 +86,7 @@ export function useWallet(): UseWalletReturn {
       
       console.log('[Wallet] Accounts received:', accounts);
       
-      if (!accounts || accounts.length === 0) {
+      if (!accounts || !Array.isArray(accounts) || accounts.length === 0) {
         throw new Error('No accounts selected. Please select an account in MetaMask.');
       }
 
@@ -93,7 +99,21 @@ export function useWallet(): UseWalletReturn {
       // Step 2: Get nonce from backend
       console.log('[Wallet] Step 2: Getting nonce from backend...');
       toast.info('Authenticating...', { description: 'Getting authentication nonce' });
-      const { nonce, message } = await authApi.getNonce(walletAddress);
+      
+      let nonceResponse;
+      try {
+        nonceResponse = await authApi.getNonce(walletAddress);
+      } catch (nonceError) {
+        console.error('[Wallet] Failed to get nonce:', nonceError);
+        throw new Error('Failed to connect to server. Please check if the server is running.');
+      }
+      
+      const { nonce, message } = nonceResponse;
+      
+      if (!nonce || !message) {
+        throw new Error('Invalid response from server. Please try again.');
+      }
+      
       console.log('[Wallet] Nonce received:', nonce);
       
       // Step 3: Sign the message

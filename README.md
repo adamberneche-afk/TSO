@@ -659,7 +659,7 @@ ADMIN_WALLET_ADDRESSES=0x...
 - [x] ✅ OAuth authorization flow
 - [x] ✅ Agent Context API
 - [x] ✅ Session handoff protocol
-- [x] ✅ @tais/agent-sdk npm package
+- [x] ✅ tais-agent-sdk npm package
 
 ---
 
