@@ -142,6 +142,7 @@ export interface ImmutableMemory extends ReflectiveMemory {
   maturityState: 'immutable';
   lockedAt: Date;
   citationSnapshots: CitationSnapshot[];
+  weight: number;
 }
 
 export interface CitationSnapshot {

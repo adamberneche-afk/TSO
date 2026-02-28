@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Slider } from '@/components/ui/slider';
 import { 
   Search, 
   Download, 
@@ -15,9 +16,11 @@ import {
   Clock, 
   Brain,
   ChevronRight,
-  Loader2
+  Loader2,
+  Lock,
+  Scale
 } from 'lucide-react';
-import { ReflectiveMemoryAPI, CoreMemoryAPI, ActiveMemoryAPI } from '@/services/memory';
+import { ReflectiveMemoryAPI, CoreMemoryAPI, ActiveMemoryAPI, ImmutableMemoryAPI } from '@/services/memory';
 import { PromoteToCoreDialog, CoreMemoryCard } from './PromoteToCoreDialog';
 
 interface MemoryFilter {
@@ -35,9 +38,11 @@ export function MemoryArchivePage() {
   const [loading, setLoading] = useState(true);
   const [activeMemories, setActiveMemories] = useState<any[]>([]);
   const [reflectiveMemories, setReflectiveMemories] = useState<any[]>([]);
+  const [immutableMemories, setImmutableMemories] = useState<any[]>([]);
   const [coreMemories, setCoreMemories] = useState<any[]>([]);
   const [selectedLearning, setSelectedLearning] = useState<{ learning: any; memoryId: string } | null>(null);
   const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
+  const [adjustingWeight, setAdjustingWeight] = useState<string | null>(null);
 
   useEffect(() => {
     loadMemories();
@@ -49,16 +54,19 @@ export function MemoryArchivePage() {
       const activeAPI = new ActiveMemoryAPI();
       const reflectiveAPI = new ReflectiveMemoryAPI();
       const coreAPI = new CoreMemoryAPI();
+      const immutableAPI = new ImmutableMemoryAPI();
 
-      const [active, reflective, core] = await Promise.all([
+      const [active, reflective, core, immutable] = await Promise.all([
         activeAPI.listForUser('', 50),
         reflectiveAPI.listForUser(50),
         coreAPI.list(),
+        immutableAPI.list(50),
       ]);
 
       setActiveMemories(active);
       setReflectiveMemories(reflective);
       setCoreMemories(core);
+      setImmutableMemories(immutable);
     } catch (error) {
       console.error('Failed to load memories:', error);
     } finally {
@@ -100,6 +108,7 @@ export function MemoryArchivePage() {
       memories: {
         active: activeMemories,
         reflective: reflectiveMemories,
+        immutable: immutableMemories,
         core: coreMemories,
       },
     };
@@ -115,7 +124,7 @@ export function MemoryArchivePage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleDeleteMemory = async (memoryId: string, type: 'active' | 'reflective' | 'core') => {
+  const handleDeleteMemory = async (memoryId: string, type: 'active' | 'reflective' | 'immutable' | 'core') => {
     if (!confirm('Are you sure you want to delete this memory? This cannot be undone.')) {
       return;
     }
@@ -126,8 +135,9 @@ export function MemoryArchivePage() {
         await api.delete(memoryId);
         setActiveMemories(prev => prev.filter(m => m.memoryId !== memoryId));
       } else if (type === 'reflective') {
-        // Would need delete method
         setReflectiveMemories(prev => prev.filter(m => m.memoryId !== memoryId));
+      } else if (type === 'immutable') {
+        setImmutableMemories(prev => prev.filter(m => m.memoryId !== memoryId));
       } else if (type === 'core') {
         const api = new CoreMemoryAPI();
         await api.delete(memoryId);
@@ -135,6 +145,19 @@ export function MemoryArchivePage() {
       }
     } catch (error) {
       console.error('Failed to delete memory:', error);
+    }
+  };
+
+  const handleWeightAdjust = async (memoryId: string, newWeight: number) => {
+    try {
+      const api = new ImmutableMemoryAPI();
+      await api.adjustWeight(memoryId, newWeight);
+      setImmutableMemories(prev => 
+        prev.map(m => m.memoryId === memoryId ? { ...m, weight: newWeight } : m)
+      );
+      setAdjustingWeight(null);
+    } catch (error) {
+      console.error('Failed to adjust weight:', error);
     }
   };
 
@@ -148,6 +171,7 @@ export function MemoryArchivePage() {
 
   const filteredActive = filterMemories(activeMemories);
   const filteredReflective = filterMemories(reflectiveMemories);
+  const filteredImmutable = filterMemories(immutableMemories);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -198,6 +222,10 @@ export function MemoryArchivePage() {
             <Brain className="w-4 h-4" />
             Core ({coreMemories.length})
           </TabsTrigger>
+          <TabsTrigger value="immutable" className="gap-1">
+            <Lock className="w-4 h-4" />
+            Immutable ({filteredImmutable.length})
+          </TabsTrigger>
           <TabsTrigger value="reflective" className="gap-1">
             <Clock className="w-4 h-4" />
             Reflective ({filteredReflective.length})
@@ -224,6 +252,98 @@ export function MemoryArchivePage() {
                   memory={memory}
                   onDelete={(id) => handleDeleteMemory(id, 'core')}
                 />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Immutable Memories */}
+        <TabsContent value="immutable" className="space-y-4">
+          {filteredImmutable.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                No immutable memories yet. These are created automatically after 7 days in reflective state.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {filteredImmutable.map((memory) => (
+                <Card key={memory.memoryId} className="p-4 border-l-4 border-l-amber-500">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="outline" className="border-amber-500 text-amber-500">
+                          <Lock className="w-3 h-3 mr-1" />
+                          Immutable
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          Locked: {new Date(memory.lockedAt).toLocaleDateString()}
+                        </span>
+                        <Badge variant="secondary" className="text-xs">
+                          <Scale className="w-3 h-3 mr-1" />
+                          Weight: {memory.weight?.toFixed(1) || '1.0'}
+                        </Badge>
+                      </div>
+                      <p className="text-sm line-clamp-2 mb-2">
+                        {memory.sessionSummary?.conversationSummary || 'Session summary unavailable'}
+                      </p>
+                      {memory.reflection?.learnings?.[0] && (
+                        <div className="mt-2 pt-2 border-t">
+                          <p className="text-xs text-muted-foreground mb-1">Learning:</p>
+                          <p className="text-sm">{memory.reflection.learnings[0].content}</p>
+                        </div>
+                      )}
+                      {adjustingWeight === memory.memoryId ? (
+                        <div className="mt-3 flex items-center gap-3">
+                          <Slider
+                            defaultValue={[memory.weight || 1.0]}
+                            max={2}
+                            min={0.1}
+                            step={0.1}
+                            className="flex-1"
+                            onValueChange={(vals) => {
+                              setImmutableMemories(prev => 
+                                prev.map(m => m.memoryId === memory.memoryId ? { ...m, weight: vals[0] } : m)
+                              );
+                            }}
+                          />
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleWeightAdjust(memory.memoryId, memory.weight || 1.0)}
+                          >
+                            Save
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => setAdjustingWeight(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-3"
+                          onClick={() => setAdjustingWeight(memory.memoryId)}
+                        >
+                          <Scale className="w-3 h-3 mr-1" />
+                          Adjust Weight
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex gap-2 ml-4">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteMemory(memory.memoryId, 'immutable')}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
               ))}
             </div>
           )}

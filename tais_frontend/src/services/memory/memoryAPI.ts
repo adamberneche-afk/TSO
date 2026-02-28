@@ -507,3 +507,59 @@ export class MetaMemoryAPI {
     await db.put('metaMemory', meta);
   }
 }
+
+export class ImmutableMemoryAPI {
+  async get(memoryId: string): Promise<any | undefined> {
+    const db = await getMemoryDB();
+    return db.get('immutableMemory', memoryId);
+  }
+
+  async list(limit: number = 50): Promise<any[]> {
+    const db = await getMemoryDB();
+    const all = await db.getAll('immutableMemory');
+    return all.slice(-limit).reverse();
+  }
+
+  async listByWeightRange(minWeight: number, maxWeight: number): Promise<any[]> {
+    const all = await this.list();
+    return all.filter(m => m.weight >= minWeight && m.weight <= maxWeight);
+  }
+
+  async adjustWeight(memoryId: string, newWeight: number): Promise<boolean> {
+    try {
+      const db = await getMemoryDB();
+      const memory = await db.get('immutableMemory', memoryId);
+      
+      if (!memory) {
+        throw new Error('Memory not found');
+      }
+
+      memory.weight = Math.max(0.1, Math.min(2.0, newWeight));
+      await db.put('immutableMemory', memory);
+      return true;
+    } catch (error) {
+      console.error('Failed to adjust weight:', error);
+      return false;
+    }
+  }
+
+  async getWeight(memoryId: string): Promise<number | null> {
+    try {
+      const memory = await this.get(memoryId);
+      return memory?.weight ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  async getLockedCount(): Promise<number> {
+    const db = await getMemoryDB();
+    const all = await db.getAll('immutableMemory');
+    return all.length;
+  }
+
+  async getMemoriesLockedSince(sinceDate: Date): Promise<any[]> {
+    const all = await this.list();
+    return all.filter(m => new Date(m.lockedAt) >= sinceDate);
+  }
+}
