@@ -33,7 +33,7 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 📈 **Dashboard:** https://tso.onrender.com/monitoring/dashboard  
 📚 **Documentation:** https://tso.onrender.com/api/docs  
 🎨 **Frontend:** https://taisplatform.vercel.app  
-✅ **Status:** LIVE AND OPERATIONAL (February 27, 2026)  
+✅ **Status:** LIVE AND OPERATIONAL (February 28, 2026)  
 🔐 **Access:** Genesis Holders Only
 
 ---
@@ -534,6 +534,7 @@ npm run dev
 # Required
 DATABASE_URL=postgresql://...
 JWT_SECRET=your-secret-key
+TOKEN_ENCRYPTION_KEY=<secure-32-char-key>  # Required for OAuth/Agent APIs (v3.0+)
 
 # IPFS (Pinata)
 IPFS_PROJECT_ID=your-project-id
@@ -698,4 +699,4 @@ MIT License - see [LICENSE](LICENSE) file
 
 **Built with ❤️ by the TAIS Team**  
 **© 2026 - LIVE AND OPERATIONAL**  
-**Last Updated:** February 27, 2026
+**Last Updated:** February 28, 2026

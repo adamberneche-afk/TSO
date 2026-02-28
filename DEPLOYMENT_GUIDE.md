@@ -6,8 +6,8 @@ The Public RAG system has been **successfully deployed to production** on Render
 
 **Status:** ✅ DEPLOYED AND LIVE  
 **Service URL:** https://tso.onrender.com  
-**Deployment Date:** February 19, 2026  
-**Version:** 2.5.0  
+**Deployment Date:** February 28, 2026  
+**Version:** 3.0.0  
 **Port:** 10000  
 **Frontend:** https://taisplatform.vercel.app
 
@@ -161,6 +161,11 @@ CORS_ORIGIN="https://taisplatform.vercel.app"
 # JWT (REQUIRED)
 JWT_SECRET="your-secret"
 JWT_EXPIRES_IN=7d
+
+# Token Encryption (REQUIRED for v3.0+)
+# Used for OAuth and Agent API token encryption
+# Generate with: openssl rand -base64 32
+TOKEN_ENCRYPTION_KEY=<your-secure-32-char-key>
 ```
 
 **Security Notes:**
@@ -607,6 +612,12 @@ npx prisma migrate resolve --rolled-back [migration_name]
 - Include `https://` prefix
 - Add all subdomains used by frontend
 
+**5. Server Crashes on Startup (TOKEN_ENCRYPTION_KEY Required)**
+- Error: "TOKEN_ENCRYPTION_KEY environment variable is required in production"
+- Cause: OAuth and Agent API routes require this for token encryption
+- Fix: Add `TOKEN_ENCRYPTION_KEY` env var in Render dashboard
+- Generate key: `openssl rand -base64 32`
+
 ---
 
 ## Success Criteria
@@ -642,8 +653,8 @@ npx prisma migrate resolve --rolled-back [migration_name]
 
 ---
 
-**Document Version:** 2.0  
-**Last Updated:** February 19, 2026  
+**Document Version:** 3.0.0  
+**Last Updated:** February 28, 2026  
 **Status:** ✅ DEPLOYED AND LIVE  
 **Service URL:** https://tso.onrender.com  
 **Health Check:** https://tso.onrender.com/health
