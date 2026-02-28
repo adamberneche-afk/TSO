@@ -7,7 +7,7 @@ The Public RAG system has been **successfully deployed to production** on Render
 **Status:** ✅ DEPLOYED AND LIVE  
 **Service URL:** https://tso.onrender.com  
 **Deployment Date:** February 28, 2026  
-**Version:** 3.0.0  
+**Version:** 3.2.0  
 **Port:** 10000  
 **Frontend:** https://taisplatform.vercel.app
 
@@ -653,7 +653,7 @@ npx prisma migrate resolve --rolled-back [migration_name]
 
 ---
 
-**Document Version:** 3.0.0  
+**Document Version:** 3.2.0  
 **Last Updated:** February 28, 2026  
 **Status:** ✅ DEPLOYED AND LIVE  
 **Service URL:** https://tso.onrender.com  

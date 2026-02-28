@@ -1,4 +1,4 @@
-# TAIS Platform v3.0.0 🚀
+# TAIS Platform v3.2.0 🚀
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -11,7 +11,7 @@
 [![RAG](https://img.shields.io/badge/RAG-Multi--Tier-orange.svg)]()
 [![Monitoring](https://img.shields.io/badge/Monitoring-Prometheus-blue.svg)]()
 [![Deployment](https://img.shields.io/badge/Deployment-Render-success.svg)]()
-[![Memory](https://img.shields.io/badge/Memory-v3.0-blue.svg)]()
+[![Memory](https://img.shields.io/badge/Memory-v3.2-blue.svg)]()
 [![Cross-App](https://img.shields.io/badge/Cross--App-Portability-v3.0-orange.svg)]()
 
 **Production-Ready • Enterprise Security • NFT-Verified • E2EE Multi-RAG • Hybrid Config Architecture • Prometheus Monitoring • Memory System v3.0 • Cross-App Agent Portability**
@@ -70,10 +70,15 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 - 💡 **LLM Reflection** - Automatic insight synthesis (midnight cron)
 - ⭐ **Core Memory** - User-promoted critical preferences
 - 🎚️ **Mutability Levels** - Eternal, Stable, Adaptive, Experimental
+- 🔒 **Immutable Memory** - Auto-lock at 7 days, content immutable, weights adjustable (0.1x-2.0x)
 - 🗂️ **Memory Archive** - Search, filter, export
 - ⚠️ **Drift Detection** - 3 challenge levels (nudge, socratic, strong)
 - 📊 **Today Activity Widget** - Dashboard integration
-- 🔒 **Privacy by Default** - All memory stored locally
+- 📦 **Local Backup** - Encrypted folder storage with wallet key
+- 📈 **Alignment Reports** - Weekly/monthly alignment index, drift stats, usage patterns
+- 🔔 **Flag Notifications** - Alerts when alignment diverges
+- ⚙️ **Platform Settings** - Configure reports, storage, models, API keys, costs
+- 🔐 **Privacy by Default** - All memory stored locally
 
 ### 🔗 Cross-App Agent Portability (v3.0.0)
 - 🌐 **OAuth Authorization** - Third-party app permissions
@@ -97,6 +102,7 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 - **Private RAG** - 100% local knowledge base
 - **AI Interview** - Conversational interview with LLM integration
 - **LLM Settings** - Configure OpenAI/Anthropic API keys
+- **Platform Settings** - Memory reports, storage folders, model preferences, costs
 
 ### Browse Skills (No Auth Required)
 ```bash
