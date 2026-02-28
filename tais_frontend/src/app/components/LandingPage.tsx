@@ -18,6 +18,7 @@ interface LandingPageProps {
   onViewGoldTier?: () => void;
   onViewDoc?: (doc: string) => void;
   onViewDeveloper?: () => void;
+  onViewSettings?: () => void;
 }
 
 export function LandingPage({ 
@@ -31,7 +32,8 @@ export function LandingPage({
   onViewLLMSettings,
   onViewGoldTier,
   onViewDoc,
-  onViewDeveloper
+  onViewDeveloper,
+  onViewSettings
 }: LandingPageProps) {
   const [nftStats, setNftStats] = useState({
     totalSupply: '2,022',
@@ -298,6 +300,7 @@ export function LandingPage({
             <FooterLink href="#" onClick={() => onViewDoc?.('doc-guided-discovery')}>Docs</FooterLink>
             <FooterLink href="#">GitHub</FooterLink>
             <FooterLink href="#" onClick={onViewDeveloper}>Developer</FooterLink>
+            <FooterLink href="#" onClick={onViewSettings}>Settings</FooterLink>
             <FooterLink href="#">Support</FooterLink>
           </div>
         </div>

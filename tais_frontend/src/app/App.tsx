@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useInterviewStore } from '../hooks/useInterview';
 import { GuidedDiscoveryDoc, NFTIntegrationDoc, ConfigurationDoc, SkillsRegistryDoc } from './docs';
 import { OAuthAuthorize } from './components/oauth/OAuthAuthorize';
+import { PlatformSettingsPage } from './components/settings/PlatformSettings';
 
 const PublicRAGManager = lazy(() => import('./components/rag/PublicRAGManager').then(m => ({ default: m.PublicRAGManager })));
 const PrivateRAGManager = lazy(() => import('./components/rag/PrivateRAGManager').then(m => ({ default: m.PrivateRAGManager })));
@@ -27,7 +28,7 @@ function LoadingFallback() {
   );
 }
 
-type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier' | 'memory' | 'developer' | 'oauth-authorize';
+type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier' | 'memory' | 'developer' | 'oauth-authorize' | 'settings';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>(() => {
@@ -89,6 +90,7 @@ export default function App() {
             onViewGoldTier={() => setCurrentView('goldTier')}
             onViewDoc={(doc) => setCurrentView(doc as View)}
             onViewDeveloper={() => setCurrentView('developer')}
+            onViewSettings={() => setCurrentView('settings')}
           />
           <Toaster position="top-right" />
         </>
@@ -236,6 +238,13 @@ export default function App() {
             window.history.pushState({}, '', '/');
             setCurrentView('landing');
           }} />
+          <Toaster position="top-right" />
+        </>
+      )}
+
+      {currentView === 'settings' && (
+        <>
+          <PlatformSettingsPage onBack={() => setCurrentView('landing')} />
           <Toaster position="top-right" />
         </>
       )}
