@@ -290,8 +290,13 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
         </div>
 
         {/* Today's Activity Memory Widget */}
-        <div className="mb-8">
-          <TodayActivityWidget />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          <div className="lg:col-span-2">
+            <TodayActivityWidget />
+          </div>
+          <div>
+            <ConnectedAppsWidget />
+          </div>
         </div>
 
         {/* Search and Filters */}
@@ -392,6 +397,72 @@ interface StatCardProps {
   icon: React.ReactNode;
   label: string;
   value: number;
+}
+
+function ConnectedAppsWidget() {
+  const [permissions, setPermissions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { address } = useWallet();
+  const { oauthApi } = require('../../services/oauthApi');
+
+  useEffect(() => {
+    if (address) {
+      loadPermissions();
+    }
+  }, [address]);
+
+  const loadPermissions = async () => {
+    try {
+      setLoading(true);
+      const perms = await oauthApi.getPermissions(address);
+      setPermissions(perms || []);
+    } catch (error) {
+      console.error('Failed to load connected apps:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className="bg-[#1a1a1a] border-[#333333] h-full">
+      <div className="p-6 border-b border-[#333333] flex items-center justify-between">
+        <h3 className="text-sm font-bold uppercase tracking-widest flex items-center gap-2 text-white">
+          <Globe className="w-4 h-4 text-blue-500" />
+          Connected Apps
+        </h3>
+        <Badge variant="outline" className="text-[10px] text-[#888888]">{permissions.length}</Badge>
+      </div>
+      <div className="p-4 space-y-3">
+        {loading ? (
+          <div className="text-center py-4 text-[#717171] text-xs">Loading...</div>
+        ) : permissions.length === 0 ? (
+          <div className="text-center py-8 text-[#717171] text-xs italic">
+            No apps connected
+          </div>
+        ) : (
+          permissions.slice(0, 3).map((perm) => (
+            <div key={perm.appId} className="flex items-center justify-between p-2 rounded-md hover:bg-white/5 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded bg-[#0A0A0B] border border-[#333333] flex items-center justify-center text-[10px] font-bold text-[#3B82F6]">
+                  {perm.appName?.charAt(0) || '?'}
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-white">{perm.appName}</div>
+                  <div className="text-[9px] text-[#717171] uppercase">{perm.scopes.length} Scopes</div>
+                </div>
+              </div>
+              <ExternalLink className="w-3 h-3 text-[#717171]" />
+            </div>
+          ))
+        )}
+        {permissions.length > 3 && (
+          <button className="w-full text-center text-[10px] text-[#3B82F6] hover:underline pt-2 uppercase tracking-widest font-bold">
+            View All Connections
+          </button>
+        )}
+      </div>
+    </Card>
+  );
 }
 
 function StatCard({ icon, label, value }: StatCardProps) {

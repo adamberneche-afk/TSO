@@ -68,6 +68,16 @@ export function DeveloperPortal({ onBack }: DeveloperPortalProps) {
   const [sandboxName, setSandboxName] = useState('');
   const [sandboxAppSecret, setSandboxAppSecret] = useState<string | null>(null);
 
+  // Enterprise state
+  const [organization, setOrganization] = useState<any>(null);
+  const [orgLoading, setOrgLoading] = useState(false);
+  const [showOrgDialog, setShowOrgDialog] = useState(false);
+  const [orgForm, setOrgForm] = useState({
+    name: '',
+    approvedApps: '',
+    blockedApps: '',
+  });
+
   useEffect(() => {
     checkWalletConnection();
   }, []);
@@ -79,6 +89,7 @@ export function DeveloperPortal({ onBack }: DeveloperPortalProps) {
       loadBillingSummary();
       loadActivities();
       loadSandboxStatus();
+      loadOrganization();
     }
   }, [wallet.connected, wallet.address]);
 
@@ -86,6 +97,46 @@ export function DeveloperPortal({ onBack }: DeveloperPortalProps) {
     const savedWallet = localStorage.getItem('walletAddress');
     if (savedWallet) {
       setWallet({ connected: true, address: savedWallet });
+    }
+  };
+
+  const loadOrganization = async () => {
+    if (!wallet.address) return;
+    try {
+      setOrgLoading(true);
+      const result = await oauthApi.getOrganization(wallet.address);
+      setOrganization(result);
+      if (result) {
+        setOrgForm({
+          name: result.name,
+          approvedApps: result.approvedApps?.join('\n') || '',
+          blockedApps: result.blockedApps?.join('\n') || '',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load organization:', error);
+    } finally {
+      setOrgLoading(false);
+    }
+  };
+
+  const handleUpdateOrg = async () => {
+    if (!wallet.address) return;
+    try {
+      setOrgLoading(true);
+      await oauthApi.upsertOrganization(
+        wallet.address,
+        orgForm.name,
+        orgForm.approvedApps.split('\n').map(s => s.trim()).filter(Boolean),
+        orgForm.blockedApps.split('\n').map(s => s.trim()).filter(Boolean)
+      );
+      toast.success('Organization updated');
+      loadOrganization();
+      setShowOrgDialog(false);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update organization');
+    } finally {
+      setOrgLoading(false);
     }
   };
 
@@ -308,11 +359,12 @@ export function DeveloperPortal({ onBack }: DeveloperPortalProps) {
           </Card>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-6 bg-[#141415]">
+            <TabsList className="grid w-full grid-cols-7 bg-[#141415]">
               <TabsTrigger value="apps">My Apps</TabsTrigger>
               <TabsTrigger value="sandbox">Sandbox</TabsTrigger>
               <TabsTrigger value="permissions">Authorized</TabsTrigger>
               <TabsTrigger value="activity">Activity</TabsTrigger>
+              <TabsTrigger value="enterprise">Enterprise</TabsTrigger>
               <TabsTrigger value="billing">Billing</TabsTrigger>
               <TabsTrigger value="docs">Docs</TabsTrigger>
             </TabsList>
@@ -761,6 +813,138 @@ export function DeveloperPortal({ onBack }: DeveloperPortalProps) {
                   ))}
                 </div>
               )}
+            </TabsContent>
+
+            {/* Enterprise Tab */}
+            <TabsContent value="enterprise" className="mt-6">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-xl font-semibold">Enterprise Controls</h2>
+                  <p className="text-[#A1A1A1]">
+                    Manage organization-wide policies and application whitelists
+                  </p>
+                </div>
+                <Button onClick={() => setShowOrgDialog(true)}>
+                  {organization ? 'Edit Organization' : 'Setup Organization'}
+                </Button>
+              </div>
+
+              {orgLoading ? (
+                <div className="text-center py-10 text-[#A1A1A1]">
+                  Loading organization...
+                </div>
+              ) : organization ? (
+                <div className="grid gap-6">
+                  <Card className="bg-[#141415] border-[#262626]">
+                    <CardHeader>
+                      <CardTitle>{organization.name}</CardTitle>
+                      <CardDescription>ID: {organization.orgId}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-8">
+                        <div>
+                          <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                            <Badge className="bg-green-500/20 text-green-500 border-green-500/30">Approved Apps</Badge>
+                          </h4>
+                          <div className="space-y-1">
+                            {organization.approvedApps?.length > 0 ? (
+                              organization.approvedApps.map((appId: string) => (
+                                <div key={appId} className="text-sm font-mono bg-black/30 p-1 px-2 rounded border border-[#262626]">
+                                  {appId}
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-xs text-[#717171] italic">No apps whitelisted</p>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                            <Badge className="bg-red-500/20 text-red-500 border-red-500/30">Blocked Apps</Badge>
+                          </h4>
+                          <div className="space-y-1">
+                            {organization.blockedApps?.length > 0 ? (
+                              organization.blockedApps.map((appId: string) => (
+                                <div key={appId} className="text-sm font-mono bg-black/30 p-1 px-2 rounded border border-[#262626]">
+                                  {appId}
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-xs text-[#717171] italic">No apps explicitly blocked</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-blue-900/10 border-blue-500/20">
+                    <CardHeader>
+                      <CardTitle className="text-sm font-semibold">Audit Logs</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-xs text-[#A1A1A1] mb-4">
+                        Organization-wide audit logs are available for all user-agent interactions.
+                      </p>
+                      <Button variant="outline" size="sm" onClick={() => setActiveTab('activity')}>
+                        View Audit Log
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <Card className="bg-[#141415] border-[#262626]">
+                  <CardContent className="py-10 text-center">
+                    <p className="text-[#A1A1A1] mb-4">No organization configured</p>
+                    <Button onClick={() => setShowOrgDialog(true)}>Create Organization</Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Dialog open={showOrgDialog} onOpenChange={setShowOrgDialog}>
+                <DialogContent className="bg-[#141415] border-[#262626] max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>{organization ? 'Edit Organization' : 'Create Organization'}</DialogTitle>
+                    <DialogDescription>
+                      Define policies for all agents in your organization
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Organization Name</Label>
+                      <Input 
+                        value={orgForm.name}
+                        onChange={e => setOrgForm({...orgForm, name: e.target.value})}
+                        placeholder="Acme Corp"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Whitelisted App IDs (one per line)</Label>
+                      <Textarea 
+                        value={orgForm.approvedApps}
+                        onChange={e => setOrgForm({...orgForm, approvedApps: e.target.value})}
+                        placeholder="notion-integration&#10;slack-integration"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Blocked App IDs (one per line)</Label>
+                      <Textarea 
+                        value={orgForm.blockedApps}
+                        onChange={e => setOrgForm({...orgForm, blockedApps: e.target.value})}
+                        placeholder="untrusted-app"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowOrgDialog(false)}>Cancel</Button>
+                    <Button onClick={handleUpdateOrg} disabled={orgLoading || !orgForm.name}>
+                      {orgLoading ? 'Saving...' : 'Save Organization'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </TabsContent>
 
             {/* Billing Tab */}

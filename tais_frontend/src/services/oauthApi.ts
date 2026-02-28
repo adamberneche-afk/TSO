@@ -406,21 +406,37 @@ class OAuthAPI {
   }
 
   /**
+   * Get enterprise organization info
+   */
+  async getOrganization(wallet: string): Promise<any> {
+    const response = await fetch(`${this.baseUrl.replace('oauth', 'enterprise')}/organization/${wallet}?wallet=${wallet}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (response.status === 404) return null;
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch organization');
+    }
+
+    return response.json();
+  }
+
+  /**
    * Create or update enterprise organization
    */
   async upsertOrganization(
     wallet: string,
     name: string,
-    options?: {
-      approvedApps?: string[];
-      blockedApps?: string[];
-      requireApprovalFor?: string[];
-    }
+    approvedApps: string[],
+    blockedApps: string[]
   ): Promise<{ success: boolean; organization: any }> {
     const response = await fetch(`${this.baseUrl.replace('oauth', 'enterprise')}/organization`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ wallet, name, ...options }),
+      body: JSON.stringify({ wallet, name, approvedApps, blockedApps }),
     });
 
     if (!response.ok) {

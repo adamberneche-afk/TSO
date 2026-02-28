@@ -11,6 +11,7 @@ import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 import { useInterviewStore } from '../hooks/useInterview';
 import { GuidedDiscoveryDoc, NFTIntegrationDoc, ConfigurationDoc, SkillsRegistryDoc } from './docs';
+import { OAuthAuthorize } from './components/oauth/OAuthAuthorize';
 
 const PublicRAGManager = lazy(() => import('./components/rag/PublicRAGManager').then(m => ({ default: m.PublicRAGManager })));
 const PrivateRAGManager = lazy(() => import('./components/rag/PrivateRAGManager').then(m => ({ default: m.PrivateRAGManager })));
@@ -26,11 +27,30 @@ function LoadingFallback() {
   );
 }
 
-type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier' | 'memory' | 'developer';
+type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier' | 'memory' | 'developer' | 'oauth-authorize';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<View>('landing');
+  const [currentView, setCurrentView] = useState<View>(() => {
+    // Detect OAuth route on load
+    if (window.location.pathname === '/oauth/authorize') {
+      return 'oauth-authorize';
+    }
+    return 'landing';
+  });
   const resetInterview = useInterviewStore((state) => state.reset);
+
+  useEffect(() => {
+    // Listen for manual URL changes (if any)
+    const handlePopState = () => {
+      if (window.location.pathname === '/oauth/authorize') {
+        setCurrentView('oauth-authorize');
+      } else if (currentView === 'oauth-authorize') {
+        setCurrentView('landing');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [currentView]);
 
   const handlePublishSkill = () => {
     toast.info('Skill Publishing', {
@@ -206,6 +226,16 @@ export default function App() {
       {currentView === 'developer' && (
         <>
           <DeveloperPortal onBack={() => setCurrentView('landing')} />
+          <Toaster position="top-right" />
+        </>
+      )}
+
+      {currentView === 'oauth-authorize' && (
+        <>
+          <OAuthAuthorize onComplete={() => {
+            window.history.pushState({}, '', '/');
+            setCurrentView('landing');
+          }} />
           <Toaster position="top-right" />
         </>
       )}
