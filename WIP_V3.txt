@@ -693,7 +693,7 @@ Low Impact     │  Prometheus✅ │  R2 Storage
 
 **Remaining:**
 - [x] Immutable memory (7d+ lock) - **IMPLEMENTED: Auto-lock at 7 days, content immutable, weights adjustable**
-- [ ] Weekly reconciliation report - **DECIDED: User-adjustable frequency (weekly default), alignment index, drift stats, usage patterns, app usage, RAG pools, admin anonymized trends, flag statistically divergent accounts, notify user**
+- [x] Weekly reconciliation report - **IMPLEMENTED: Alignment index, drift stats, usage patterns, app usage, RAG pools, admin aggregates, outlier detection, flagging notifications**
 - [x] Memory templates - **IMPLEMENTED: Initialize from browser data (one-time event)**
 
 ---
