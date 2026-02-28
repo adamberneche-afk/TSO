@@ -1,33 +1,64 @@
 # TAIS Platform - Development Planning V3
 **Created:** February 20, 2026  
-**Last Updated:** February 27, 2026
-**Status:** v3.1.3 - Build Optimization Complete  
-**Version:** 3.1.3 (Current Production)
+**Last Updated:** February 28, 2026
+**Status:** v3.2.0 - Memory System Complete  
+**Version:** 3.2.0 (Current Production)
 
 ---
 
-## 🎯 COMPLETED TODAY (Feb 27, 2026)
+## 🎯 COMPLETED TODAY (Feb 28, 2026)
 
-### Cross-App Agent Portability - Full Release v3.1
+### Memory System v3.2 - Full Release
 
-**Goal:** Complete all 8 phases + bug fixes + tests
+**Goal:** Complete all memory features including immutable memory, local backup, alignment reports
 **Status:** ✅ COMPLETE
 
-**Phase 4-6 Completed:**
-- Developer Portal with App registration
-- Billing & Usage tabs
-- Integration examples (Notion, Slack, Linear)
+**Phase 1 - Memory Initialization:**
+- Browser data extraction from localStorage, sessionStorage, IndexedDB
+- One-time initialization on first app load
+- Tracks: conversations, RAG docs, settings, wallet
 
-**New Additions (v3.1.1):**
+**Phase 2 - Immutable Memory:**
+- Auto-lock after 7 days in reflective state
+- Content immutable, weights adjustable (0.1x - 2.0x)
+- Citation snapshots at lock time
+- Daily cron job at 1am
 
-**Sandbox Environment:**
-- `POST /oauth/sandbox/create` - Create sandbox app
-- `GET /oauth/sandbox/status` - Check sandbox status
-- `POST /oauth/sandbox/token` - Generate test tokens
-- Sandbox tab in Developer Portal UI
+**Phase 3 - Local Encrypted Backup:**
+- User-controlled folder storage via File System Access API
+- E2EE encryption with wallet-derived key (AES-256-GCM)
+- Export/import with wallet signature verification
 
-**SDK Tests:**
-- `packages/agent-sdk/tests/agent.test.ts` - Unit tests
+**Phase 4 - Alignment Reports:**
+- Alignment index calculation (0-100 score)
+- Based on: drift, engagement, memory growth, utilization
+- Weekly/biweekly/monthly frequency options
+- Email notifications via SendGrid
+- Admin aggregates with anonymized data
+- Z-score outlier detection
+
+**Phase 5 - Platform Settings:**
+- Memory report preferences (frequency, content, notifications)
+- Storage folder configuration (Private RAG, Immutable Memory)
+- Per-app model preferences (Conversation, Interview, RAG, Memory)
+- API key management (OpenAI, Anthropic, Google)
+- Cost limits (daily, monthly, alert threshold)
+
+**Files Changed:**
+- `tais_frontend/src/services/memory/memoryInitializer.ts` - NEW
+- `tais_frontend/src/services/memory/immutableMemoryJob.ts` - NEW
+- `tais_frontend/src/services/memory/memoryBackup.ts` - NEW
+- `tais_frontend/src/app/components/settings/PlatformSettings.tsx` - NEW
+- `packages/registry/prisma/schema.prisma` - Added memory report models
+- `packages/registry/src/services/memoryReports.ts` - NEW
+- `packages/registry/src/services/memoryReportEmail.ts` - NEW
+- `packages/registry/src/routes/cron.ts` - Added memory-reports endpoint
+- `packages/registry/src/routes/admin.ts` - Added admin aggregates endpoint
+- `packages/registry/src/routes/auth.ts` - Added preferences endpoints
+
+---
+
+## 🎯 COMPLETED (Feb 24-27, 2026)
 - Constructor, authorization URL, token management, scope validation
 
 **Bug Fixes:**
@@ -668,7 +699,7 @@ Low Impact     │  Prometheus✅ │  R2 Storage
 - [x] Testing & documentation (Phase 8) - COMPLETE ✅
 
 ### Memory System v3.0
-**Status:** ALL PHASES COMPLETE ✅
+**Status:** ALL PHASES COMPLETE ✅ v3.2.0
 
 **Completed:**
 - [x] IndexedDB storage architecture
@@ -690,6 +721,16 @@ Low Impact     │  Prometheus✅ │  R2 Storage
 - [x] Gentle nudges (low severity)
 - [x] Socratic challenges (medium severity)
 - [x] Strong challenges (high severity)
+- [x] Memory initialization from browser data (one-time)
+- [x] Immutable memory (7d auto-lock)
+- [x] Weight adjustment for immutable memories
+- [x] Local encrypted backup/restore
+- [x] Alignment index calculation
+- [x] Weekly reconciliation reports
+- [x] Admin anonymized aggregates
+- [x] Outlier detection (z-score)
+- [x] Flag notifications
+- [x] Platform Settings page
 
 **Remaining:**
 - [x] Immutable memory (7d+ lock) - **IMPLEMENTED: Auto-lock at 7 days, content immutable, weights adjustable**
@@ -721,5 +762,5 @@ Low Impact     │  Prometheus✅ │  R2 Storage
 ---
 
 **Document Owner:** Development Team  
-**Last Updated:** February 27, 2026  
+**Last Updated:** February 28, 2026  
 **Next Review:** March 6, 2026
