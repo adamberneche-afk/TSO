@@ -256,12 +256,11 @@ async function main() {
   
   await prisma.apiKey.create({
     data: {
-      key: 'tais_test_abcdefghijklmnopqrstuvwxyz123',
+      keyHash: 'tais_test_abcdefghijklmnopqrstuvwxyz123',
       name: 'Demo API Key',
-      owner: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-      tier: 'PRO',
-      requestsThisMonth: 150,
-      isActive: true,
+      walletAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+      permissions: ['read', 'write'],
+      requestCount: 150,
       expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year
     }
   });
