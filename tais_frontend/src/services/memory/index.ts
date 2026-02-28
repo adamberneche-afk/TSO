@@ -6,6 +6,7 @@ export * from './midnightReflection';
 export * from './driftDetector';
 export * from './memoryInitializer';
 export * from './immutableMemoryJob';
+export * from './memoryBackup';
 
 export { TodayActivityWidget } from '../../app/components/memory/TodayActivityWidget';
 export { PromoteToCoreDialog, CoreMemoryCard } from '../../app/components/memory/PromoteToCoreDialog';

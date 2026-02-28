@@ -8,9 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   Search, 
   Download, 
+  Upload,
   Trash2, 
   Filter, 
   Clock, 
@@ -18,10 +20,14 @@ import {
   ChevronRight,
   Loader2,
   Lock,
-  Scale
+  Scale,
+  FolderOpen,
+  Shield
 } from 'lucide-react';
-import { ReflectiveMemoryAPI, CoreMemoryAPI, ActiveMemoryAPI, ImmutableMemoryAPI } from '@/services/memory';
+import { ReflectiveMemoryAPI, CoreMemoryAPI, ActiveMemoryAPI, ImmutableMemoryAPI, exportMemoriesToLocal, importMemoriesFromLocal, getStoredBackupFolderName } from '@/services/memory';
 import { PromoteToCoreDialog, CoreMemoryCard } from './PromoteToCoreDialog';
+import { useWallet } from '@/hooks/useWallet';
+import { toast } from 'sonner';
 
 interface MemoryFilter {
   timeRange: 'all' | 'week' | 'month' | 'year';
@@ -30,12 +36,16 @@ interface MemoryFilter {
 }
 
 export function MemoryArchivePage() {
+  const { wallet, connectWallet, isConnected } = useWallet();
   const [filter, setFilter] = useState<MemoryFilter>({
     timeRange: 'all',
     maturityState: 'all',
     search: '',
   });
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [backupFolder, setBackupFolder] = useState<string | null>(null);
   const [activeMemories, setActiveMemories] = useState<any[]>([]);
   const [reflectiveMemories, setReflectiveMemories] = useState<any[]>([]);
   const [immutableMemories, setImmutableMemories] = useState<any[]>([]);
@@ -46,6 +56,7 @@ export function MemoryArchivePage() {
 
   useEffect(() => {
     loadMemories();
+    setBackupFolder(getStoredBackupFolderName());
   }, []);
 
   const loadMemories = async () => {
@@ -124,6 +135,64 @@ export function MemoryArchivePage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleLocalBackup = async () => {
+    if (!isConnected) {
+      toast.error('Please connect your wallet to backup memories');
+      return;
+    }
+
+    if (!wallet.signer) {
+      toast.error('Wallet signer not available');
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const result = await exportMemoriesToLocal(wallet.signer);
+      if (result.success) {
+        toast.success(result.message);
+        setBackupFolder(getStoredBackupFolderName());
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      toast.error('Backup failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleLocalRestore = async () => {
+    if (!isConnected) {
+      toast.error('Please connect your wallet to restore memories');
+      return;
+    }
+
+    if (!wallet.signer) {
+      toast.error('Wallet signer not available');
+      return;
+    }
+
+    if (!confirm('This will merge imported memories with your existing memories. Continue?')) {
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const result = await importMemoriesFromLocal(wallet.signer);
+      if (result.success) {
+        toast.success(result.message);
+        loadMemories();
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      toast.error('Restore failed');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const handleDeleteMemory = async (memoryId: string, type: 'active' | 'reflective' | 'immutable' | 'core') => {
     if (!confirm('Are you sure you want to delete this memory? This cannot be undone.')) {
       return;
@@ -181,11 +250,45 @@ export function MemoryArchivePage() {
           <p className="text-muted-foreground mt-1">
             Your agent's learned memories and insights
           </p>
+          {backupFolder && (
+            <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+              <Shield className="w-3 h-3" />
+              Backup folder: {backupFolder}
+            </p>
+          )}
         </div>
-        <Button onClick={handleExport}>
-          <Download className="w-4 h-4 mr-2" />
-          Export All
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleLocalBackup} 
+            disabled={exporting || !isConnected}
+            title={!isConnected ? 'Connect wallet to backup' : 'Backup to local folder (encrypted)'}
+          >
+            {exporting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <FolderOpen className="w-4 h-4 mr-2" />
+            )}
+            Local Backup
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleLocalRestore} 
+            disabled={importing || !isConnected}
+            title={!isConnected ? 'Connect wallet to restore' : 'Restore from local folder'}
+          >
+            {importing ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4 mr-2" />
+            )}
+            Restore
+          </Button>
+          <Button onClick={handleExport}>
+            <Download className="w-4 h-4 mr-2" />
+            Export All
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
