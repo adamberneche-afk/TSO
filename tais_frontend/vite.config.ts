@@ -13,13 +13,14 @@ export default defineConfig({
       '@/components/ui': path.resolve(__dirname, './src/app/components/ui'),
       '@/components': path.resolve(__dirname, './src/app/components'),
       '@': path.resolve(__dirname, './src'),
+      'react': path.resolve(__dirname, 'node_modules/react'),
+      'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
     },
   },
   build: {
     rollupOptions: {
       output: {
         manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
           'vendor-mui': ['@mui/material', '@mui/icons-material'],
           'vendor-radix': [
             '@radix-ui/react-dialog',
