@@ -692,10 +692,9 @@ Low Impact     │  Prometheus✅ │  R2 Storage
 - [x] Strong challenges (high severity)
 
 **Remaining:**
-- [ ] Immutable memory (7d+ lock) - **DECIDED: Auto-lock at 7 days, content immutable, weights adjustable**
+- [x] Immutable memory (7d+ lock) - **IMPLEMENTED: Auto-lock at 7 days, content immutable, weights adjustable**
 - [ ] Weekly reconciliation report - **DECIDED: User-adjustable frequency (weekly default), alignment index, drift stats, usage patterns, app usage, RAG pools, admin anonymized trends, flag statistically divergent accounts, notify user**
-- [ ] E2EE cloud backup - **DECIDED: Deferred**
-- [ ] Memory templates - **DECIDED: Initialize from browser data (one-time event)**
+- [x] Memory templates - **IMPLEMENTED: Initialize from browser data (one-time event)**
 
 ---
 

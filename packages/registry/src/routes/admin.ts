@@ -282,4 +282,91 @@ router.post('/skills/:id/verify', async (req: any, res: Response) => {
   }
 });
 
+// GET /api/admin/memory-reports/aggregates - Get anonymized memory report aggregates
+router.get('/memory-reports/aggregates', async (req: any, res: Response) => {
+  const prisma = req.prisma as PrismaClient;
+  
+  try {
+    req.log.info({
+      admin: req.user?.walletAddress,
+      action: 'view_memory_aggregates'
+    }, 'Admin viewing memory report aggregates');
+    
+    const limit = parseInt(req.query.limit as string) || 12;
+    
+    const aggregates = await prisma.memoryReportAggregate.findMany({
+      orderBy: { periodStart: 'desc' },
+      take: limit,
+    });
+    
+    res.json({
+      aggregates,
+      count: aggregates.length
+    });
+  } catch (error) {
+    req.log.error({
+      error,
+      admin: req.user?.walletAddress,
+      action: 'view_memory_aggregates'
+    }, 'Failed to fetch memory report aggregates');
+    
+    res.status(500).json({ error: 'Failed to fetch aggregates' });
+  }
+});
+
+// GET /api/admin/memory-reports/flagged - Get flagged user accounts
+router.get('/memory-reports/flagged', async (req: any, res: Response) => {
+  const prisma = req.prisma as PrismaClient;
+  
+  try {
+    req.log.info({
+      admin: req.user?.walletAddress,
+      action: 'view_flagged_users'
+    }, 'Admin viewing flagged memory reports');
+    
+    const limit = parseInt(req.query.limit as string) || 50;
+    const severity = req.query.severity as string;
+    
+    const where: any = { isFlagged: true };
+    if (severity) {
+      where.flagSeverity = severity;
+    }
+    
+    const flagged = await prisma.memoryReport.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        walletAddress: true,
+        alignmentIndex: true,
+        driftScore: true,
+        driftTrend: true,
+        flagReason: true,
+        flagSeverity: true,
+        createdAt: true,
+        periodStart: true,
+        periodEnd: true,
+      }
+    });
+    
+    res.json({
+      flagged,
+      count: flagged.length,
+      summary: {
+        high: flagged.filter(f => f.flagSeverity === 'high').length,
+        medium: flagged.filter(f => f.flagSeverity === 'medium').length,
+        low: flagged.filter(f => f.flagSeverity === 'low').length,
+      }
+    });
+  } catch (error) {
+    req.log.error({
+      error,
+      admin: req.user?.walletAddress,
+      action: 'view_flagged_users'
+    }, 'Failed to fetch flagged reports');
+    
+    res.status(500).json({ error: 'Failed to fetch flagged reports' });
+  }
+});
+
 export { router as adminRoutes };

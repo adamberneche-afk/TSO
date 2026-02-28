@@ -263,4 +263,92 @@ router.post('/logout', async (req: any, res: Response) => {
   }
 });
 
+// GET /api/v1/auth/memory-preferences - Get memory report preferences
+router.get('/memory-preferences', async (req: Request, res: Response) => {
+  try {
+    const prisma = (req as any).prisma as PrismaClient;
+    const authService = new AuthService(prisma);
+    
+    const authHeader = req.headers.authorization;
+    const token = authService.extractTokenFromHeader(authHeader);
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const decoded = authService.validateToken(token);
+    
+    let prefs = await prisma.memoryReportPreferences.findUnique({
+      where: { walletAddress: decoded.walletAddress },
+    });
+    
+    if (!prefs) {
+      prefs = await prisma.memoryReportPreferences.create({
+        data: { walletAddress: decoded.walletAddress },
+      });
+    }
+    
+    res.json(prefs);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch preferences' });
+  }
+});
+
+// PATCH /api/v1/auth/memory-preferences - Update memory report preferences
+router.patch('/memory-preferences', async (req: Request, res: Response) => {
+  try {
+    const prisma = (req as any).prisma as PrismaClient;
+    const authService = new AuthService(prisma);
+    
+    const authHeader = req.headers.authorization;
+    const token = authService.extractTokenFromHeader(authHeader);
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const decoded = authService.validateToken(token);
+    
+    const {
+      reportFrequency,
+      includeDriftStats,
+      includeUsagePatterns,
+      includeAppUsage,
+      includeRagPools,
+      includeAlignmentIndex,
+      notifyOnFlag,
+      notifyOnDrift,
+    } = req.body;
+    
+    const prefs = await prisma.memoryReportPreferences.upsert({
+      where: { walletAddress: decoded.walletAddress },
+      update: {
+        ...(reportFrequency && { reportFrequency }),
+        ...(includeDriftStats !== undefined && { includeDriftStats }),
+        ...(includeUsagePatterns !== undefined && { includeUsagePatterns }),
+        ...(includeAppUsage !== undefined && { includeAppUsage }),
+        ...(includeRagPools !== undefined && { includeRagPools }),
+        ...(includeAlignmentIndex !== undefined && { includeAlignmentIndex }),
+        ...(notifyOnFlag !== undefined && { notifyOnFlag }),
+        ...(notifyOnDrift !== undefined && { notifyOnDrift }),
+      },
+      create: {
+        walletAddress: decoded.walletAddress,
+        reportFrequency: reportFrequency || 'weekly',
+        includeDriftStats: includeDriftStats ?? true,
+        includeUsagePatterns: includeUsagePatterns ?? true,
+        includeAppUsage: includeAppUsage ?? true,
+        includeRagPools: includeRagPools ?? true,
+        includeAlignmentIndex: includeAlignmentIndex ?? true,
+        notifyOnFlag: notifyOnFlag ?? true,
+        notifyOnDrift: notifyOnDrift ?? true,
+      },
+    });
+    
+    res.json(prefs);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update preferences' });
+  }
+});
+
 export { router as authRoutes };

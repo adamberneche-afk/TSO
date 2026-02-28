@@ -566,6 +566,134 @@ model WeeklyInsightsReport {
 }
 
 // ============================================
+// Memory System Reports (v3.2.0)
+// ============================================
+
+// User's memory report preferences
+model MemoryReportPreferences {
+  id              String   @id @default(uuid())
+  walletAddress   String   @unique @map("wallet_address")
+  
+  // Frequency preference
+  reportFrequency String   @default("weekly") @map("report_frequency") // 'weekly', 'biweekly', 'monthly', 'never'
+  
+  // What to include
+  includeDriftStats       Boolean @default(true) @map("include_drift_stats")
+  includeUsagePatterns    Boolean @default(true) @map("include_usage_patterns")
+  includeAppUsage         Boolean @default(true) @map("include_app_usage")
+  includeRagPools        Boolean @default(true) @map("include_rag_pools")
+  includeAlignmentIndex   Boolean @default(true) @map("include_alignment_index")
+  
+  // Notification settings
+  notifyOnFlag      Boolean @default(true) @map("notify_on_flag")
+  notifyOnDrift     Boolean @default(true) @map("notify_on_drift")
+  
+  // Last report sent
+  lastReportSentAt DateTime? @map("last_report_sent_at")
+  
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  
+  @@index([walletAddress])
+  @@map("memory_report_preferences")
+}
+
+// Memory report for each user
+model MemoryReport {
+  id              String   @id @default(uuid())
+  walletAddress   String   @map("wallet_address")
+  
+  // Report period
+  periodStart     DateTime @map("period_start")
+  periodEnd       DateTime @map("period_end")
+  
+  // Alignment index (0-100)
+  alignmentIndex  Float    @default(50.0) @map("alignment_index")
+  
+  // Drift statistics
+  driftScore      Float    @default(0.0) @map("drift_score")
+  driftEvents     Int      @default(0) @map("drift_events")
+  driftTrend      String   @default("stable") @map("drift_trend") // 'improving', 'stable', 'declining'
+  
+  // Usage patterns
+  totalSessions   Int      @default(0) @map("total_sessions")
+  avgSessionDuration Float @default(0.0) @map("avg_session_duration")
+  messagesExchanged Int   @default(0) @map("messages_exchanged")
+  
+  // App usage
+  appUsage        Json     @default("{}") @map("app_usage") // { "conversation": 10, "rag": 5, ... }
+  
+  // RAG pools
+  ragQueries      Int      @default(0) @map("rag_queries")
+  ragPoolUsage    Json     @default("{}") @map("rag_pool_usage") // { "public": 20, "private": 5 }
+  
+  // Memory stats
+  memoriesCreated Int     @default(0) @map("memories_created")
+  memoriesPromoted Int     @default(0) @map("memories_promoted")
+  coreMemories    Int      @default(0) @map("core_memories")
+  
+  // Flags
+  isFlagged       Boolean  @default(false) @map("is_flagged")
+  flagReason      String?  @map("flag_reason")
+  flagSeverity    String?  @map("flag_severity") // 'low', 'medium', 'high'
+  
+  // Raw data (kept for debugging, not sent to user)
+  rawData         Json?    @map("raw_data")
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  @@index([walletAddress])
+  @@index([periodStart])
+  @@index([isFlagged])
+  @@map("memory_reports")
+}
+
+// Aggregated anonymized stats for admin view
+model MemoryReportAggregate {
+  id              String   @id @default(uuid())
+  
+  // Aggregate period
+  periodStart     DateTime @map("period_start")
+  periodEnd       DateTime @map("period_end")
+  
+  // Aggregate stats (all users, anonymized)
+  totalUsers      Int      @default(0) @map("total_users")
+  
+  // Alignment index distribution
+  avgAlignmentIndex Float  @default(50.0) @map("avg_alignment_index")
+  medianAlignmentIndex Float @default(50.0) @map("median_alignment_index")
+  alignmentIndexStdDev Float @default(0.0) @map("alignment_index_std_dev")
+  
+  // Percentiles
+  alignmentP25    Float    @default(0.0) @map("alignment_p25")
+  alignmentP50    Float    @default(0.0) @map("alignment_p50")
+  alignmentP75    Float    @default(0.0) @map("alignment_p75")
+  alignmentP90    Float    @default(0.0) @map("alignment_p90")
+  alignmentP95    Float    @default(0.0) @map("alignment_p95")
+  alignmentP99    Float    @default(0.0) @map("alignment_p99")
+  
+  // Drift distribution
+  avgDriftScore   Float    @default(0.0) @map("avg_drift_score")
+  highDriftUsers  Int      @default(0) @map("high_drift_users")
+  
+  // Usage stats
+  avgSessionsPerUser Float @default(0.0) @map("avg_sessions_per_user")
+  avgMessagesPerUser Float @default(0.0) @map("avg_messages_per_user")
+  
+  // Flagged accounts
+  flaggedUsers    Int      @default(0) @map("flagged_users")
+  flaggedReasonCounts Json @default("{}") @map("flagged_reason_counts") // { "high_drift": 5, "low_engagement": 2 }
+  
+  // Outlier detection
+  outlierWallets  Json     @default("[]") @map("outlier_wallets") // Array of wallet addresses with z-score > 2
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  @@index([periodStart])
+  @@map("memory_report_aggregates")
+}
+
+// ============================================
 // Cross-App Agent Portability (v3.0.0) - Phase 1
 // ============================================
 
