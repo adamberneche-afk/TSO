@@ -64,6 +64,8 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
   const [walletMismatch, setWalletMismatch] = useState<boolean>(false);
   const [needsReAuth, setNeedsReAuth] = useState<boolean>(false);
   const { address: currentWallet, isConnected, connect } = useWallet();
+  
+  // Modal states
   const [showKnowledgePicker, setShowKnowledgePicker] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const {
