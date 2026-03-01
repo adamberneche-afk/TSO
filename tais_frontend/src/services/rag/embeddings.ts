@@ -9,18 +9,28 @@ let embeddingModel: use.UniversalSentenceEncoder | null = null;
 export async function loadEmbeddingModel(): Promise<use.UniversalSentenceEncoder> {
   if (embeddingModel) return embeddingModel;
   
-  embeddingModel = await use.load();
-  console.log('Embedding model loaded');
-  return embeddingModel;
+  try {
+    embeddingModel = await use.load();
+    console.log('Embedding model loaded');
+    return embeddingModel;
+  } catch (error) {
+    console.error('Failed to load embedding model:', error);
+    throw new Error(`Failed to load TensorFlow.js model from tfhub.dev. This may be due to CORS or network restrictions. Error: ${error instanceof Error ? error.message : 'Unknown'}`);
+  }
 }
 
 /**
  * Generate embeddings for text chunks
  */
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
-  const model = await loadEmbeddingModel();
-  const embeddings = await model.embed(texts);
-  return embeddings.array();
+  try {
+    const model = await loadEmbeddingModel();
+    const embeddings = await model.embed(texts);
+    return embeddings.array();
+  } catch (error) {
+    console.error('Failed to generate embeddings:', error);
+    throw new Error(`Failed to generate embeddings: ${error instanceof Error ? error.message : 'Unknown error'}. Make sure TensorFlow.js can load the Universal Sentence Encoder model.`);
+  }
 }
 
 /**
