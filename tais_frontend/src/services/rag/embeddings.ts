@@ -1,5 +1,6 @@
 import * as tf from '@tensorflow/tfjs';
 import * as use from '@tensorflow-models/universal-sentence-encoder';
+import { ensureBackend } from '../tensorflow';
 
 let embeddingModel: use.UniversalSentenceEncoder | null = null;
 
@@ -10,6 +11,9 @@ export async function loadEmbeddingModel(): Promise<use.UniversalSentenceEncoder
   if (embeddingModel) return embeddingModel;
   
   try {
+    // Ensure TensorFlow backend is ready first
+    await ensureBackend();
+    
     embeddingModel = await use.load();
     console.log('Embedding model loaded');
     return embeddingModel;

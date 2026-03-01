@@ -5,7 +5,7 @@ let model: use.UniversalSentenceEncoder | null = null;
 let isLoading = false;
 let isBackendReady = false;
 
-async function ensureBackend(): Promise<void> {
+export async function ensureBackend(): Promise<void> {
   if (isBackendReady) return;
   
   // Check if already initialized to prevent "platform already set" warning
