@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
@@ -29,8 +29,16 @@ export const PublicRAGManager: React.FC = () => {
     publicKey,
     shareDocument,
     deleteDocument,
-    refresh
+    refresh,
+    initialize,
   } = usePublicRAG();
+
+  // Initialize on mount
+  useEffect(() => {
+    if (!isInitialized) {
+      initialize();
+    }
+  }, [isInitialized, initialize]);
 
   const { upload, isUploading, uploadProgress } = usePublicRAGUpload();
   

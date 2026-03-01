@@ -67,6 +67,15 @@ export const usePublicRAGStore = create<PublicRAGState>()(
       uploadDocument: async (title, content, isPublic, tags) => {
         try {
           const client = getPublicRAGClient();
+          
+          // Ensure client is initialized before upload
+          try {
+            await client.initializeWithWallet();
+          } catch (initError) {
+            // Already initialized or other error - continue to upload
+            console.log('Init check:', initError);
+          }
+          
           const doc = await client.uploadDocument({
             title,
             content,
