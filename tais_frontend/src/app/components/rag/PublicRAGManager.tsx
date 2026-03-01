@@ -154,6 +154,12 @@ export const PublicRAGManager: React.FC = () => {
     }
   };
 
+  const handleIndexDocument = (docId: string, title: string) => {
+    // Store doc info in localStorage for Dashboard to pick up
+    localStorage.setItem('tais_pending_index_doc', JSON.stringify({ id: docId, title }));
+    toast.success(`"${title}" ready for indexing. Go to Dashboard > Edit Agent > Knowledge Sources to attach.`);
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6 animate-in fade-in duration-500">
       {/* Header Stats */}
@@ -502,7 +508,10 @@ export const PublicRAGManager: React.FC = () => {
                     <Eye className="w-3 h-3" />
                     View
                   </button>
-                  <button className="flex-1 bg-white text-black py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-white/90 transition-all">
+                  <button 
+                    onClick={() => handleIndexDocument(doc.id, doc.title || 'Unnamed')}
+                    className="flex-1 bg-white text-black py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-white/90 transition-all"
+                  >
                     Index
                   </button>
                 </div>

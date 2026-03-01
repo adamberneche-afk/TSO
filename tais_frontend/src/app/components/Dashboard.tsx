@@ -87,6 +87,20 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
     }
   }, [isConnected, currentWallet]);
 
+  // Check for pending index documents from Public RAG
+  useEffect(() => {
+    const pendingDoc = localStorage.getItem('tais_pending_index_doc');
+    if (pendingDoc) {
+      try {
+        const doc = JSON.parse(pendingDoc);
+        localStorage.removeItem('tais_pending_index_doc');
+        toast.info(`Ready to index "${doc.title}". Click "Add Source" in the Knowledge Sources section when editing an agent to attach this document.`);
+      } catch (e) {
+        console.error('Failed to parse pending index doc:', e);
+      }
+    }
+  }, []);
+
   const handleReconnect = async () => {
     authApi.logout();
     setNeedsReAuth(true);
