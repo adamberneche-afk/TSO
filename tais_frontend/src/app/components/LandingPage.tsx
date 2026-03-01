@@ -35,14 +35,6 @@ export function LandingPage({
   onViewDeveloper,
   onViewSettings
 }: LandingPageProps) {
-  const [nftStats] = useState({
-    totalSupply: '2,022',
-    floorPrice: '0.01+ ETH',
-    totalVolume: '200+ ETH',
-    uniqueOwners: '750+'
-  });
-  const [statsLoading] = useState(false);
-
   return (
     <div className="min-h-screen bg-[#0A0A0B] text-[#EDEDED] font-sans selection:bg-blue-500/30">
       {/* Header */}
@@ -236,17 +228,10 @@ export function LandingPage({
                     onClick={() => window.open('https://opensea.io/collection/think-agent-bundle', '_blank')}
                     className="bg-transparent text-white border border-[#262626] font-bold text-xs uppercase tracking-widest px-8 py-3 rounded-md hover:bg-white/5 transition-all active:scale-95 flex items-center gap-2"
                   >
-                    OpenSea
+                    View on OpenSea
                     <ExternalLink className="w-3 h-3" />
                   </button>
                 </div>
-              </div>
-              
-              <div className="flex-1 w-full grid grid-cols-2 gap-4">
-                <StatsCard label="Total Supply" value={nftStats.totalSupply} loading={statsLoading} />
-                <StatsCard label="Floor Price" value={nftStats.floorPrice} loading={statsLoading} />
-                <StatsCard label="Total Volume" value={nftStats.totalVolume} loading={statsLoading} />
-                <StatsCard label="Unique Owners" value={nftStats.uniqueOwners} loading={statsLoading} />
               </div>
             </div>
           </div>
@@ -312,15 +297,6 @@ function RAGCard({ icon, title, description, tag, onClick }: { icon: React.React
       <div className="text-[10px] uppercase tracking-[0.2em] text-[#3B82F6] font-bold opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-10px] group-hover:translate-x-0">
         Enter Module →
       </div>
-    </div>
-  );
-}
-
-function StatsCard({ label, value, loading }: { label: string; value: string; loading?: boolean }) {
-  return (
-    <div className="bg-[#141415] border border-[#262626] p-6 rounded-lg text-center">
-      <div className="text-2xl font-bold tracking-tightest mb-1">{loading ? '...' : value}</div>
-      <div className="text-[10px] uppercase tracking-widest text-[#717171]">{label}</div>
     </div>
   );
 }
