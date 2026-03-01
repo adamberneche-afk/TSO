@@ -644,8 +644,11 @@ interface AgentDetailModalProps {
 function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpdate, onOpenKnowledgePicker, onOpenVersionHistory, showKnowledgePicker, setShowKnowledgePicker, showVersionHistory, setShowVersionHistory, publicDocuments, communityDocuments, isLoadingRAG, loadSavedAgents, isInitialized, initialize }: AgentDetailModalProps) {
   const [activeTab, setActiveTab] = useState<'framework' | 'personality' | 'summary'>('framework');
   const [isEditing, setIsEditing] = useState(false);
-  const [editedConfig, setEditedConfig] = useState<AgentConfig>(JSON.parse(JSON.stringify(agent.config)));
   const [isSaving, setIsSaving] = useState(false);
+  const [editorError, setEditorError] = useState(false);
+  
+  // Safe config parsing - use any to avoid type issues with saved configs
+  const [editedConfig, setEditedConfig] = useState<any>(agent.config);
   
   const currentConfig = isEditing ? editedConfig : agent.config;
   const fullConfigJSON = JSON.stringify(currentConfig, null, 2);
