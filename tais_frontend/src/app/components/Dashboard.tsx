@@ -390,7 +390,7 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
       {/* Agent Detail Modal */}
       <AnimatePresence>
         {selectedAgent && (
-          <AgentDetailModal
+          <AgentDetailModal_v2
             agent={selectedAgent}
             onClose={() => setSelectedAgent(null)}
             onDownload={() => downloadAgent(selectedAgent)}
@@ -623,7 +623,7 @@ interface AgentDetailModalProps {
   onOpenVersionHistory: () => void;
 }
 
-function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpdate, onOpenKnowledgePicker, onOpenVersionHistory }: AgentDetailModalProps) {
+function AgentDetailModal_v2({ agent, onClose, onDownload, onCopy, onDelete, onUpdate, onOpenKnowledgePicker, onOpenVersionHistory }: AgentDetailModalProps) {
   const [activeTab, setActiveTab] = useState<'framework' | 'personality' | 'summary'>('framework');
   const [isEditing, setIsEditing] = useState(false);
   const [editedConfig, setEditedConfig] = useState<AgentConfig>(JSON.parse(JSON.stringify(agent.config)));
