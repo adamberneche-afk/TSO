@@ -27,6 +27,7 @@ import {
 import { ReflectiveMemoryAPI, CoreMemoryAPI, ActiveMemoryAPI, ImmutableMemoryAPI, exportMemoriesToLocal, importMemoriesFromLocal, getStoredBackupFolderName } from '@/services/memory';
 import { PromoteToCoreDialog, CoreMemoryCard } from './PromoteToCoreDialog';
 import { useWallet } from '@/hooks/useWallet';
+import { providers } from 'ethers';
 import { toast } from 'sonner';
 
 interface MemoryFilter {
@@ -36,7 +37,7 @@ interface MemoryFilter {
 }
 
 export function MemoryArchivePage() {
-  const { wallet, connectWallet, isConnected } = useWallet();
+  const { address, isConnected } = useWallet();
   const [filter, setFilter] = useState<MemoryFilter>({
     timeRange: 'all',
     maturityState: 'all',
@@ -136,19 +137,16 @@ export function MemoryArchivePage() {
   };
 
   const handleLocalBackup = async () => {
-    if (!isConnected) {
+    if (!isConnected || !address) {
       toast.error('Please connect your wallet to backup memories');
-      return;
-    }
-
-    if (!wallet.signer) {
-      toast.error('Wallet signer not available');
       return;
     }
 
     setExporting(true);
     try {
-      const result = await exportMemoriesToLocal(wallet.signer);
+      const provider = new providers.Web3Provider(window.ethereum);
+      const signer = await provider.getSigner();
+      const result = await exportMemoriesToLocal(signer);
       if (result.success) {
         toast.success(result.message);
         setBackupFolder(getStoredBackupFolderName());
@@ -163,13 +161,8 @@ export function MemoryArchivePage() {
   };
 
   const handleLocalRestore = async () => {
-    if (!isConnected) {
+    if (!isConnected || !address) {
       toast.error('Please connect your wallet to restore memories');
-      return;
-    }
-
-    if (!wallet.signer) {
-      toast.error('Wallet signer not available');
       return;
     }
 
@@ -179,7 +172,9 @@ export function MemoryArchivePage() {
 
     setImporting(true);
     try {
-      const result = await importMemoriesFromLocal(wallet.signer);
+      const provider = new providers.Web3Provider(window.ethereum);
+      const signer = await provider.getSigner();
+      const result = await importMemoriesFromLocal(signer);
       if (result.success) {
         toast.success(result.message);
         loadMemories();
