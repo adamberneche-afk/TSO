@@ -35,49 +35,13 @@ export function LandingPage({
   onViewDeveloper,
   onViewSettings
 }: LandingPageProps) {
-  const [nftStats, setNftStats] = useState({
+  const [nftStats] = useState({
     totalSupply: '2,022',
-    floorPrice: 'Loading...',
-    totalVolume: 'Loading...',
-    uniqueOwners: 'Loading...'
+    floorPrice: '0.01+ ETH',
+    totalVolume: '200+ ETH',
+    uniqueOwners: '750+'
   });
-  const [statsLoading, setStatsLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchNFTStats() {
-      try {
-        const response = await fetch('https://api.opensea.io/api/v2/collections/think-agent-bundle/stats');
-        if (response.ok) {
-          const data = await response.json();
-          setNftStats({
-            totalSupply: data.total_supply?.toLocaleString() || '2,022',
-            floorPrice: data.floor_price ? `${parseFloat(data.floor_price).toFixed(3)} ETH` : '0.01 ETH',
-            totalVolume: data.total_volume ? `${parseFloat(data.total_volume).toFixed(0)} ETH` : '0 ETH',
-            uniqueOwners: data.num_owners?.toLocaleString() || '0'
-          });
-        } else {
-          // API error - use defaults
-          setNftStats({
-            totalSupply: '2,022',
-            floorPrice: '0.01+ ETH',
-            totalVolume: '200+ ETH',
-            uniqueOwners: '750+'
-          });
-        }
-      } catch (error) {
-        console.log('Failed to fetch NFT stats:', error);
-        setNftStats({
-          totalSupply: '2,022',
-          floorPrice: '0.01+ ETH',
-          totalVolume: '200+ ETH',
-          uniqueOwners: '750+'
-        });
-      } finally {
-        setStatsLoading(false);
-      }
-    }
-    fetchNFTStats();
-  }, []);
+  const [statsLoading] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#0A0A0B] text-[#EDEDED] font-sans selection:bg-blue-500/30">
