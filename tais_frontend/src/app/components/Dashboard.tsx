@@ -400,6 +400,8 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
               setAgents(prev => prev.map(a => a.id === updatedAgent.id ? updatedAgent : a));
               setSelectedAgent(updatedAgent);
             }}
+            onOpenKnowledgePicker={() => setShowKnowledgePicker(true)}
+            onOpenVersionHistory={() => setShowVersionHistory(true)}
           />
         )}
       </AnimatePresence>
@@ -614,9 +616,11 @@ interface AgentDetailModalProps {
   onCopy: () => void;
   onDelete: () => void;
   onUpdate: (agent: SavedAgent) => void;
+  onOpenKnowledgePicker: () => void;
+  onOpenVersionHistory: () => void;
 }
 
-function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpdate }: AgentDetailModalProps) {
+function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpdate, onOpenKnowledgePicker, onOpenVersionHistory }: AgentDetailModalProps) {
   const [activeTab, setActiveTab] = useState<'framework' | 'personality' | 'summary'>('framework');
   const [isEditing, setIsEditing] = useState(false);
   const [editedConfig, setEditedConfig] = useState<AgentConfig>(JSON.parse(JSON.stringify(agent.config)));
@@ -842,7 +846,7 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setShowVersionHistory(true)}
+                  onClick={onOpenVersionHistory}
                   className="border-[#333333] text-[#888888] hover:text-white"
                 >
                   <History className="w-4 h-4 mr-1" />
@@ -1058,7 +1062,7 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
                       </h5>
                       {isEditing && (
                         <button
-                          onClick={() => setShowKnowledgePicker(true)}
+                          onClick={onOpenKnowledgePicker}
                           className="text-xs text-[#3B82F6] hover:underline flex items-center gap-1"
                         >
                           <Plus className="w-3 h-3" /> Add Source
