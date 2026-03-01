@@ -1,30 +1,10 @@
   <!DOCTYPE html>
   <html lang="en">
-    <head>
+  <head>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <title>TAIS Platform</title>
-      <script>
-      // Polyfill for MetaMask SES removing Node.js intrinsics
-      window.module = { exports: {} };
-      window.exports = window.module.exports;
-      window.require = function() { return window; };
-      window.useEffect = function() {};
-      window.useLayoutEffect = function() {};
-      window.useInsertionEffect = function() {};
-      window.useSyncExternalStore = function() {};
-      window.useRef = function(x) { return { current: x }; };
-      window.useState = function(x) { return [x, function(){}]; };
-      window.useCallback = function(x) { return x; };
-      window.useMemo = function(x) { return x(); };
-      window.useReducer = function() { return [null, function(){}]; };
-      window.useDeferredValue = function(x) { return x; };
-      window.useTransition = function() { return [false, function(){}]; };
-      window.useContext = function() { return {}; };
-      window.useId = function() { return 'id'; };
-      window.useImperativeHandle = function() {};
-      window.useDebugValue = function() {};
-      </script>
+      <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     </head>
 
     <body>
