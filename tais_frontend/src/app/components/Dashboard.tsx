@@ -77,11 +77,8 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
     initialize
   } = usePublicRAG();
 
-  useEffect(() => {
-    if (!isInitialized) {
-      initialize();
-    }
-  }, [isInitialized, initialize]);
+  // Don't auto-initialize RAG on mount - only when user clicks Edit or Add RAG
+  // This prevents unwanted signature requests
 
   // Load agents when wallet connects
   useEffect(() => {
@@ -413,6 +410,8 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
             communityDocuments={communityDocuments || []}
             isLoadingRAG={isLoadingRAG}
             loadSavedAgents={loadSavedAgents}
+            isInitialized={isInitialized}
+            initialize={initialize}
           />
         )}
       </AnimatePresence>
@@ -638,9 +637,11 @@ interface AgentDetailModalProps {
   communityDocuments: any[];
   isLoadingRAG: boolean;
   loadSavedAgents: () => void;
+  isInitialized: boolean;
+  initialize: () => void;
 }
 
-function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpdate, onOpenKnowledgePicker, onOpenVersionHistory, showKnowledgePicker, setShowKnowledgePicker, showVersionHistory, setShowVersionHistory, publicDocuments, communityDocuments, isLoadingRAG, loadSavedAgents }: AgentDetailModalProps) {
+function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpdate, onOpenKnowledgePicker, onOpenVersionHistory, showKnowledgePicker, setShowKnowledgePicker, showVersionHistory, setShowVersionHistory, publicDocuments, communityDocuments, isLoadingRAG, loadSavedAgents, isInitialized, initialize }: AgentDetailModalProps) {
   const [activeTab, setActiveTab] = useState<'framework' | 'personality' | 'summary'>('framework');
   const [isEditing, setIsEditing] = useState(false);
   const [editedConfig, setEditedConfig] = useState<AgentConfig>(JSON.parse(JSON.stringify(agent.config)));
@@ -857,7 +858,12 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => {
+                    if (!isInitialized) {
+                      initialize();
+                    }
+                    setIsEditing(true);
+                  }}
                   className="border-[#3B82F6] text-[#3B82F6] hover:bg-[rgba(59,130,246,0.1)]"
                 >
                   <Edit className="w-4 h-4 mr-1" />
