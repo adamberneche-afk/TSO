@@ -303,8 +303,10 @@ export function KnowledgeStep({ onNext }: KnowledgeStepProps) {
         <h4 className="text-xs uppercase tracking-widest text-[#717171] mb-3">Retrieval Settings</h4>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-xs text-[#A1A1A1] mb-1 block">Max Results (topK)</label>
+            <label htmlFor="topk" className="text-xs text-[#A1A1A1] mb-1 block">Max Results (topK)</label>
             <input
+              id="topk"
+              name="topk"
               type="number"
               min={1}
               max={20}
@@ -323,8 +325,10 @@ export function KnowledgeStep({ onNext }: KnowledgeStepProps) {
             />
           </div>
           <div>
-            <label className="text-xs text-[#A1A1A1] mb-1 block">Similarity Threshold</label>
+            <label htmlFor="similarity" className="text-xs text-[#A1A1A1] mb-1 block">Similarity Threshold</label>
             <input
+              id="similarity"
+              name="similarity"
               type="number"
               min={0}
               max={1}

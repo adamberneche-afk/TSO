@@ -158,6 +158,8 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ provider, onSaved }) =
       
       <div className="flex gap-2">
         <input
+          id="api-key"
+          name="apiKey"
           type={isRevealed ? 'text' : 'password'}
           placeholder={provider === 'local' ? 'NO KEY NEEDED FOR LOCAL MODELS' : 'ENTER API KEY...'}
           className="flex-1 bg-[#0A0A0B] border border-[#262626] rounded-md px-4 py-3 text-sm focus:border-[#3B82F6] outline-none font-mono"

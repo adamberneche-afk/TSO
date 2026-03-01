@@ -198,6 +198,8 @@ export const PublicRAGManager: React.FC = () => {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#717171]" />
                 <input
+                  id="search-knowledge"
+                  name="searchQuery"
                   type="text"
                   placeholder="SEARCH KNOWLEDGE BASE..."
                   className="w-full bg-[#0A0A0B] border border-[#262626] rounded-md pl-10 pr-4 py-3 text-sm focus:border-[#3B82F6] outline-none uppercase tracking-widest font-mono"
@@ -264,8 +266,10 @@ export const PublicRAGManager: React.FC = () => {
               <div className="bg-[#141415] border border-[#262626] p-6 rounded-lg">
                 <form onSubmit={handleUpload} className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">Document Title</label>
+                    <label htmlFor="doc-title" className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">Document Title</label>
                     <input
+                      id="doc-title"
+                      name="title"
                       type="text"
                       className="w-full bg-[#0A0A0B] border border-[#262626] rounded-md px-4 py-3 text-sm focus:border-[#3B82F6] outline-none"
                       placeholder="ENTER DOCUMENT NAME..."
@@ -275,8 +279,10 @@ export const PublicRAGManager: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">Knowledge Content</label>
+                    <label htmlFor="doc-content" className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">Knowledge Content</label>
                     <textarea
+                      id="doc-content"
+                      name="content"
                       className="w-full h-64 bg-[#0A0A0B] border border-[#262626] rounded-md px-4 py-3 text-sm focus:border-[#3B82F6] outline-none font-mono resize-none"
                       placeholder="PASTE OR TYPE KNOWLEDGE HERE..."
                       value={uploadForm.content}
@@ -286,8 +292,10 @@ export const PublicRAGManager: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">Tags (Comma separated)</label>
+                      <label htmlFor="doc-tags" className="text-[10px] uppercase tracking-widest text-[#717171] font-bold">Tags (Comma separated)</label>
                       <input
+                        id="doc-tags"
+                        name="tags"
                         type="text"
                         className="w-full bg-[#0A0A0B] border border-[#262626] rounded-md px-4 py-3 text-sm focus:border-[#3B82F6] outline-none"
                         placeholder="AI, RAG, ETH..."
@@ -420,9 +428,11 @@ export const PublicRAGManager: React.FC = () => {
                       animate={{ height: 'auto', opacity: 1 }}
                       className="mt-4 pt-4 border-t border-[#262626] space-y-3"
                     >
-                      <label className="text-[9px] uppercase tracking-widest text-[#717171] font-bold">Recipient Public Key</label>
+                      <label htmlFor="recipient-key" className="text-[9px] uppercase tracking-widest text-[#717171] font-bold">Recipient Public Key</label>
                       <div className="flex gap-2">
                         <input
+                          id="recipient-key"
+                          name="recipientKey"
                           type="text"
                           className="flex-1 bg-[#0A0A0B] border border-[#262626] rounded-md px-2 py-1.5 text-[10px] focus:border-[#3B82F6] outline-none"
                           placeholder="PASTE KEY..."
