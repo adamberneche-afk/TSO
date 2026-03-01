@@ -169,6 +169,36 @@ export function useWallet(): UseWalletReturn {
     toast.info('Wallet disconnected');
   };
 
+  // Restore session on mount if token exists
+  useEffect(() => {
+    const restoreSession = async () => {
+      const token = authApi.getToken();
+      if (token) {
+        try {
+          const walletAddress = authApi.getWalletFromToken();
+          if (walletAddress && window.ethereum) {
+            // Check if wallet is still connected
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (accounts.includes(walletAddress)) {
+              setAddress(walletAddress);
+              setIsConnected(true);
+              registryClient.setWalletAddress(walletAddress);
+              await checkGenesisNFT(walletAddress);
+            } else {
+              // Wallet disconnected externally, clear session
+              authApi.logout();
+            }
+          }
+        } catch (err) {
+          console.warn('[Wallet] Failed to restore session:', err);
+          authApi.logout();
+        }
+      }
+    };
+    
+    restoreSession();
+  }, []);
+
   // Listen for account changes
   useEffect(() => {
     if (!window.ethereum) return;
