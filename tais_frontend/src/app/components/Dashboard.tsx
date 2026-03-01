@@ -978,6 +978,7 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
                   value={frameworkJSON}
                   theme="vs-dark"
                   onChange={isEditing ? handleConfigChange : undefined}
+                  onMount={() => setEditorError(false)}
                   options={{
                     readOnly: !isEditing,
                     minimap: { enabled: false },
