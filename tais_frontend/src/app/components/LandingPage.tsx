@@ -192,8 +192,8 @@ export function LandingPage({
               <RAGCard 
                 onClick={onViewConversation}
                 icon={<Users className="w-5 h-5 text-[#8B5CF6]" />}
-                title="Guided Design"
-                description="Interactive interview that extracts exactly what your agent needs."
+                title="Live Agent Console"
+                description="Real-time chat with your configured agent. See model, skills, and config in real-time."
                 tag="Conversational"
               />
               <RAGCard 

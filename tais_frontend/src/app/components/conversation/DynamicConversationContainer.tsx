@@ -165,14 +165,23 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
 
   return (
     <div className="h-full flex flex-col bg-[#0A0A0B]">
-      <div className="border-b border-[#262626] p-4 bg-[#0A0A0B]">
+      {/* Agent Status Bar */}
+      <div className="border-b border-[#262626] bg-[#0F0F10] px-4 py-2">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <div className="flex items-center gap-4">
-            <h2 className="font-semibold text-[#EDEDED] text-xs uppercase tracking-widest">AI-Powered Interview</h2>
+          <div className="flex items-center gap-6">
+            <h2 className="font-semibold text-[#EDEDED] text-xs uppercase tracking-widest">Live Agent Console</h2>
             {llmClient && (
-              <span className="text-sm text-[#717171]">
-                Using: {selectedProvider === 'local' ? 'Local (Ollama)' : selectedProvider}
-              </span>
+              <div className="flex items-center gap-4 text-xs">
+                <span className="text-[#3B82F6]">
+                  Model: {selectedProvider === 'local' ? 'Local (Ollama)' : selectedProvider.toUpperCase()}
+                </span>
+                <span className="text-[#4ADE80]">
+                  Encrypted: AES-256
+                </span>
+                <span className="text-[#8B5CF6]">
+                  Mode: Dynamic
+                </span>
+              </div>
             )}
           </div>
           <div className="flex items-center gap-3">

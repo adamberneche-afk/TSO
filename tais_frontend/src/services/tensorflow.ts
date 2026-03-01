@@ -8,6 +8,12 @@ let isBackendReady = false;
 async function ensureBackend(): Promise<void> {
   if (isBackendReady) return;
   
+  // Check if already initialized to prevent "platform already set" warning
+  if (tf.getBackend()) {
+    isBackendReady = true;
+    return;
+  }
+  
   try {
     await tf.setBackend('webgl');
     await tf.ready();
