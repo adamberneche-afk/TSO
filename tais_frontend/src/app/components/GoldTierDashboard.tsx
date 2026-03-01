@@ -289,9 +289,10 @@ function CTOAgentSection() {
   }, []);
 
   const loadProjects = async () => {
+    if (!address) return;
     setIsLoading(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/cto/projects`, {
+      const response = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/cto/projects?wallet=${address}`, {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -309,7 +310,7 @@ function CTOAgentSection() {
   };
 
   const createProject = async () => {
-    if (!newProjectName.trim()) return;
+    if (!newProjectName.trim() || !address) return;
     setIsCreating(true);
     try {
       const response = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/cto/projects`, {
@@ -319,6 +320,7 @@ function CTOAgentSection() {
         },
         credentials: 'include',
         body: JSON.stringify({
+          wallet: address,
           name: newProjectName,
           description: newProjectDesc
         }),

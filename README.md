@@ -1,4 +1,4 @@
-# TAIS Platform v3.2.0 🚀
+# TAIS Platform v3.2.1 🚀
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -33,7 +33,7 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 📈 **Dashboard:** https://tso.onrender.com/monitoring/dashboard  
 📚 **Documentation:** https://tso.onrender.com/api/docs  
 🎨 **Frontend:** https://taisplatform.vercel.app  
-✅ **Status:** LIVE AND OPERATIONAL (February 28, 2026)  
+✅ **Status:** LIVE AND OPERATIONAL (March 1, 2026)  
 🔐 **Access:** Genesis Holders Only
 
 ---
@@ -87,6 +87,13 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 - 📱 **Multi-App Support** - Notion, Slack, Linear ready
 - 💰 **Revenue Share** - 7% from app integrations
 
+### 🐛 Bug Fixes (v3.2.1 - Mar 1, 2026)
+- 🔧 **SES/React Fix** - Added polyfills for MetaMask SES compatibility
+- 🔐 **Wallet Session** - Auto-restore session on page load
+- 💾 **Memory Backup** - Fixed signer access for local backup/restore
+- 🔗 **OAuth Import** - Fixed ES module import in Dashboard
+- 🎨 **UI Updates** - Removed OpenSea metrics, renamed "Guided Design" to "Live Agent Console"
+
 ---
 
 ## 🚀 Quick Start
@@ -100,7 +107,7 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 - **My Agents Dashboard** - Manage saved configurations
 - **Public RAG** - End-to-end encrypted document sharing
 - **Private RAG** - 100% local knowledge base
-- **AI Interview** - Conversational interview with LLM integration
+- **Live Agent Console** - Conversational interview with LLM integration
 - **LLM Settings** - Configure OpenAI/Anthropic API keys
 - **Platform Settings** - Memory reports, storage folders, model preferences, costs
 
@@ -710,4 +717,4 @@ MIT License - see [LICENSE](LICENSE) file
 
 **Built with ❤️ by the TAIS Team**  
 **© 2026 - LIVE AND OPERATIONAL**  
-**Last Updated:** February 28, 2026
+**Last Updated:** March 1, 2026

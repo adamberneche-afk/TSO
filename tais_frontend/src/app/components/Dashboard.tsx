@@ -42,6 +42,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { configApi } from '../../services/configApi';
 import { authApi } from '../../services/authApi';
+import { oauthApi } from '../../services/oauthApi';
 import { useWallet } from '../../hooks/useWallet';
 import { usePublicRAG } from '../../hooks/usePublicRAG';
 import { TodayActivityWidget } from './memory/TodayActivityWidget';
@@ -410,7 +411,6 @@ function ConnectedAppsWidget() {
   const [permissions, setPermissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { address } = useWallet();
-  const { oauthApi } = require('../../services/oauthApi');
 
   useEffect(() => {
     if (address) {
@@ -419,6 +419,7 @@ function ConnectedAppsWidget() {
   }, [address]);
 
   const loadPermissions = async () => {
+    if (!address) return;
     try {
       setLoading(true);
       const perms = await oauthApi.getPermissions(address);

@@ -3,6 +3,17 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "framework": "vite",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://tso.onrender.com https://cloudflare-eth.com https://api.openweathermap.org https://api.coingecko.com https://*.vercel.app; frame-src 'self' https://www.youtube.com https://open.spotify.com;"
+        }
+      ]
+    }
+  ],
   "env": {
     "VITE_REGISTRY_URL": "https://tso.onrender.com/api/v1",
     "VITE_RPC_URL": "https://cloudflare-eth.com",

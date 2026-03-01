@@ -11,6 +11,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
 
+## [3.2.1] - 2026-03-01
+
+### Fixed
+- **SES/React Bundling Issue**
+  - MetaMask injects SES which removes React intrinsics (useEffect, useState)
+  - Added polyfills in index.html that run BEFORE the module loads
+  
+- **Wallet Session Restoration**
+  - Wallet session now restores on page load
+  - Users no longer need to reconnect manually
+  - Added useEffect in useWallet.ts to restore session from JWT token
+
+- **Local Backup/Restore Signer Access**
+  - Fixed `wallet.signer` not existing in useWallet hook
+  - Now gets signer directly from ethers provider: `new providers.Web3Provider(window.ethereum).getSigner()`
+
+- **OAuth getPermissions Error**
+  - Fixed using `require()` instead of ES import in Dashboard
+  - Changed to proper ES import for oauthApi
+
+- **OpenSea Metrics**
+  - Removed broken OpenSea API calls from landing page
+
+- **TensorFlow Platform Warning**
+  - Fixed platform already set warning on initialization
+
+### Changed
+- **Ethers.js Downgrade**
+  - Downgraded from v6 to v5 for compatibility
+  - Updated all BrowserProvider imports to providers.Web3Provider
+
+### Added
+- **Live Agent Console**
+  - Renamed "Guided Design" to "Live Agent Console"
+  - Added agent status bar showing current agent state
+
+- **Favicon**
+  - Added favicon to the application
+
+- **Auto-load Agents**
+  - Agents now auto-load when wallet connects
+
+- **CTO Projects 400 Error**
+  - Fixed backend returning 400 errors on CTO projects API
+  - Frontend now passes wallet address in query params and request body
+
+- **OAuth getPermissions Error**
+  - Changed require() to ES import in Dashboard.tsx
+  - ConnectedAppsWidget now uses proper ES module import
+
+**Files Changed:**
+- `tais_frontend/index.html` - Added SES polyfills
+- `tais_frontend/src/hooks/useWallet.ts` - Session restoration, ethers v5 imports
+- `tais_frontend/src/app/components/Dashboard.tsx` - Fixed oauthApi import, auto-load agents
+- `tais_frontend/src/app/components/GoldTierDashboard.tsx` - Fixed CTO projects API wallet params
+- `tais_frontend/src/app/components/memory/MemoryArchivePage.tsx` - Fixed signer access
+- `tais_frontend/src/app/components/LandingPage.tsx` - Removed OpenSea metrics
+- `tais_frontend/src/app/components/conversation/DynamicConversationContainer.tsx` - Renamed to Live Agent Console
+- `tais_frontend/src/services/tensorflow.ts` - Fixed platform warning
+- `tais_frontend/package.json` - Added ethers v5, zod dependencies
+
 ## [3.0.0] - 2026-02-27
 
 ### Added

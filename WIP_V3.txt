@@ -1,8 +1,76 @@
 # TAIS Platform - Development Planning V3
 **Created:** February 20, 2026  
-**Last Updated:** February 28, 2026
-**Status:** v3.2.0 - Memory System Complete  
-**Version:** 3.2.0 (Current Production)
+**Last Updated:** March 1, 2026
+**Status:** v3.2.1 - Frontend Bug Fixes
+**Version:** 3.2.1 (Current Production)
+
+---
+
+## 🎯 COMPLETED TODAY (Mar 1, 2026)
+
+### Frontend Bug Fixes - v3.2.1
+
+**Goal:** Fix critical frontend issues affecting user experience
+**Status:** ✅ COMPLETE
+
+**Issues Fixed:**
+
+1. **SES/React Bundling Issue**
+   - Problem: MetaMask injects SES which removes React intrinsics (useEffect, useState)
+   - Solution: Added polyfills in index.html that run BEFORE the module loads
+   - Files: `tais_frontend/index.html`
+
+2. **Wallet Session Restoration**
+   - Problem: Wallet session wasn't restoring on page load - users had to reconnect
+   - Solution: Added useEffect in useWallet.ts to restore session from JWT token
+   - Files: `tais_frontend/src/hooks/useWallet.ts`
+
+3. **Local Backup/Restore Signer Access**
+   - Problem: Using `wallet.signer` which doesn't exist in useWallet hook
+   - Solution: Get signer directly from ethers provider: `new providers.Web3Provider(window.ethereum).getSigner()`
+   - Files: `tais_frontend/src/app/components/memory/MemoryArchivePage.tsx`
+
+4. **OAuth getPermissions Error**
+   - Problem: Using `require('../../services/oauthApi')` was causing issues
+   - Solution: Changed to proper ES import in Dashboard
+   - Files: `tais_frontend/src/app/components/Dashboard.tsx`
+
+5. **OpenSea Metrics Removed**
+   - Problem: Landing page was calling OpenSea API which wasn't working
+   - Solution: Removed OpenSea metrics from landing page
+
+6. **Renamed "AI Interview" to "Live Agent Console"**
+   - Renamed "Guided Design" feature to "Live Agent Console"
+   - Added agent status bar showing current agent state
+   - Files: `tais_frontend/src/app/components/conversation/DynamicConversationContainer.tsx`
+
+7. **TensorFlow Platform Warning**
+   - Problem: Platform already set warning on initialization
+   - Solution: Fixed platform detection in tensorflow.ts service
+
+8. **Favicon Added**
+   - Added favicon to the application
+
+9. **Auto-load Agents on Wallet Connect**
+   - Problem: Agents weren't loading when wallet connected
+   - Solution: Added auto-load agents when wallet connects in Dashboard
+
+10. **CTO Projects 400 Error**
+    - Problem: Backend returning 400 errors on /api/v1/cto/projects
+    - Solution: Frontend wasn't passing wallet address in API calls
+    - Fixed loadProjects to pass wallet in query param
+    - Fixed createProject to pass wallet in request body
+
+**Files Changed:**
+- `tais_frontend/src/app/components/GoldTierDashboard.tsx` - Added wallet params to CTO projects API calls
+- `tais_frontend/index.html` - Added SES polyfills
+- `tais_frontend/src/hooks/useWallet.ts` - Session restoration, ethers v5 imports
+- `tais_frontend/src/app/components/Dashboard.tsx` - Fixed oauthApi import, auto-load agents
+- `tais_frontend/src/app/components/memory/MemoryArchivePage.tsx` - Fixed signer access
+- `tais_frontend/src/app/components/LandingPage.tsx` - Removed OpenSea metrics
+- `tais_frontend/src/app/components/conversation/DynamicConversationContainer.tsx` - Renamed to Live Agent Console, added status bar
+- `tais_frontend/src/services/tensorflow.ts` - Fixed platform warning
+- `tais_frontend/package.json` - Added ethers v5, zod dependencies
 
 ---
 
@@ -762,5 +830,5 @@ Low Impact     │  Prometheus✅ │  R2 Storage
 ---
 
 **Document Owner:** Development Team  
-**Last Updated:** February 28, 2026  
+**Last Updated:** March 1, 2026  
 **Next Review:** March 6, 2026
