@@ -79,6 +79,13 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
     }
   }, [isInitialized, initialize]);
 
+  // Load agents when wallet connects
+  useEffect(() => {
+    if (isConnected && currentWallet) {
+      loadSavedAgents();
+    }
+  }, [isConnected, currentWallet]);
+
   const handleReconnect = async () => {
     authApi.logout();
     setNeedsReAuth(true);
