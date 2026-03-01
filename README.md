@@ -93,6 +93,10 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 - 💾 **Memory Backup** - Fixed signer access for local backup/restore
 - 🔗 **OAuth Import** - Fixed ES module import in Dashboard
 - 🎨 **UI Updates** - Removed OpenSea metrics, renamed "Guided Design" to "Live Agent Console"
+- 🔧 **Agent Modal** - Fixed state scope issues in agent detail modal
+- 🔐 **RAG Signatures** - Only require signature when clicking Edit, not on page load
+- 📝 **Config Editor** - Replaced Monaco Editor with textarea for reliability
+- 🤖 **TensorFlow** - Fixed backend initialization for Public RAG uploads
 
 ---
 

@@ -1,7 +1,7 @@
 # TAIS Platform - Development Planning V3
 **Created:** February 20, 2026  
 **Last Updated:** March 1, 2026
-**Status:** v3.2.1 - Frontend Bug Fixes
+**Status:** v3.2.1 - Frontend Bug Fixes Complete
 **Version:** 3.2.1 (Current Production)
 
 ---
@@ -61,15 +61,41 @@
     - Fixed loadProjects to pass wallet in query param
     - Fixed createProject to pass wallet in request body
 
+11. **Agent Detail Modal Scope Issue**
+    - Problem: showKnowledgePicker and showVersionHistory not accessible in nested AgentDetailModal
+    - Solution: Pass all required state as props to AgentDetailModal
+    - Files: `tais_frontend/src/app/components/Dashboard.tsx`
+
+12. **RAG Auto-Initialization Causing Unwanted Signatures**
+    - Problem: Public RAG was initializing on page load, requiring MetaMask signature
+    - Solution: Removed auto-initialize, only initialize when user clicks Edit
+    - Files: `tais_frontend/src/app/components/Dashboard.tsx`
+
+13. **Monaco Editor Not Loading**
+    - Problem: Monaco Editor failing to load from CDN, blocking agent editing
+    - Solution: Replaced Monaco Editor with simple textarea
+    - Files: `tais_frontend/src/app/components/Dashboard.tsx`
+
+14. **TensorFlow.js Backend Initialization**
+    - Problem: "No backend found in registry" error when uploading to Public RAG
+    - Solution: Added ensureBackend() call before loading embedding model
+    - Files: `tais_frontend/src/services/rag/embeddings.ts`
+
+15. **CSP Headers for TensorFlow.js**
+    - Problem: TensorFlow.js model loading blocked by CSP
+    - Solution: Added tfhub.dev, storage.googleapis.com, www.kaggle.com to CSP
+    - Files: `tais_frontend/vercel.json` (later removed as causing issues)
+
 **Files Changed:**
+- `tais_frontend/src/app/components/Dashboard.tsx` - Fixed props, RAG init, replaced Monaco with textarea
 - `tais_frontend/src/app/components/GoldTierDashboard.tsx` - Added wallet params to CTO projects API calls
 - `tais_frontend/index.html` - Added SES polyfills
 - `tais_frontend/src/hooks/useWallet.ts` - Session restoration, ethers v5 imports
-- `tais_frontend/src/app/components/Dashboard.tsx` - Fixed oauthApi import, auto-load agents
 - `tais_frontend/src/app/components/memory/MemoryArchivePage.tsx` - Fixed signer access
 - `tais_frontend/src/app/components/LandingPage.tsx` - Removed OpenSea metrics
-- `tais_frontend/src/app/components/conversation/DynamicConversationContainer.tsx` - Renamed to Live Agent Console, added status bar
+- `tais_frontend/src/app/components/conversation/DynamicConversationContainer.tsx` - Renamed to Live Agent Console
 - `tais_frontend/src/services/tensorflow.ts` - Fixed platform warning
+- `tais_frontend/src/services/rag/embeddings.ts` - Added backend initialization
 - `tais_frontend/package.json` - Added ethers v5, zod dependencies
 
 ---

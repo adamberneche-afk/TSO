@@ -61,15 +61,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Changed require() to ES import in Dashboard.tsx
   - ConnectedAppsWidget now uses proper ES module import
 
+### Fixed
+- **Agent Detail Modal Scope**
+  - showKnowledgePicker and showVersionHistory not accessible in nested component
+  - Now passes all required state as props to AgentDetailModal
+
+- **RAG Auto-Initialization**
+  - Public RAG was initializing on page load, requiring unwanted MetaMask signatures
+  - Removed auto-initialize, only initializes when user clicks Edit button
+
+- **Monaco Editor Not Loading**
+  - Monaco Editor failing to load from CDN, blocking agent editing
+  - Replaced Monaco Editor with simple textarea for reliability
+
+- **TensorFlow.js Backend**
+  - "No backend found in registry" error when uploading to Public RAG
+  - Added ensureBackend() call before loading embedding model
+
 **Files Changed:**
 - `tais_frontend/index.html` - Added SES polyfills
 - `tais_frontend/src/hooks/useWallet.ts` - Session restoration, ethers v5 imports
-- `tais_frontend/src/app/components/Dashboard.tsx` - Fixed oauthApi import, auto-load agents
+- `tais_frontend/src/app/components/Dashboard.tsx` - Fixed props, RAG init, replaced Monaco with textarea
 - `tais_frontend/src/app/components/GoldTierDashboard.tsx` - Fixed CTO projects API wallet params
 - `tais_frontend/src/app/components/memory/MemoryArchivePage.tsx` - Fixed signer access
 - `tais_frontend/src/app/components/LandingPage.tsx` - Removed OpenSea metrics
 - `tais_frontend/src/app/components/conversation/DynamicConversationContainer.tsx` - Renamed to Live Agent Console
 - `tais_frontend/src/services/tensorflow.ts` - Fixed platform warning
+- `tais_frontend/src/services/rag/embeddings.ts` - Added backend initialization
 - `tais_frontend/package.json` - Added ethers v5, zod dependencies
 
 ## [3.0.0] - 2026-02-27
