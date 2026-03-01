@@ -205,6 +205,8 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
         <ConversationContainer 
           onClose={onClose}
           showSidebar={true}
+          llmClient={llmClient}
+          onGenerateNextQuestion={generateNextQuestion}
         />
       </div>
 

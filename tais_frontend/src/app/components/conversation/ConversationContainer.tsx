@@ -14,10 +14,13 @@ import { calculateSimilarity, classifyIntent } from '../../../services/tensorflo
 import { FIXED_QUESTIONS } from '../../../types/conversation';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
+import { LLMClient, generateDynamicQuestion } from '../../../services/llmClient';
 
 interface ConversationContainerProps {
   onClose?: () => void;
   showSidebar?: boolean;
+  llmClient?: LLMClient | null;
+  onGenerateNextQuestion?: () => Promise<void>;
 }
 
 const intentDefinitions = {
@@ -41,7 +44,9 @@ const intentDefinitions = {
 
 export const ConversationContainer: React.FC<ConversationContainerProps> = ({
   onClose,
-  showSidebar = true
+  showSidebar = true,
+  llmClient,
+  onGenerateNextQuestion
 }) => {
   const {
     messages,
@@ -109,8 +114,21 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
     }
 
     // Simulate AI response
-    const processingTimeout = setTimeout(() => {
+    const processingTimeout = setTimeout(async () => {
       let response = '';
+      
+      // Use LLM to generate dynamic question if available
+      if (llmClient && onGenerateNextQuestion && currentQuestionIndex < FIXED_QUESTIONS.length - 1) {
+        try {
+          // Generate next question using LLM - this function handles adding message and advancing
+          await onGenerateNextQuestion();
+          // Don't add another message - the function already did
+          return;
+        } catch (error) {
+          console.error('Failed to generate dynamic question:', error);
+          // Fall through to fixed questions
+        }
+      }
       
       if (currentQuestionIndex < FIXED_QUESTIONS.length - 1) {
         // Acknowledge the response and move to next question
@@ -139,7 +157,7 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
     }, 1000);
 
     return () => clearTimeout(processingTimeout);
-  }, [addMessage, addUserMessage, addAssistantMessage, advanceQuestion, currentQuestionIndex, getCurrentQuestion, isProcessing]);
+  }, [addMessage, addUserMessage, addAssistantMessage, advanceQuestion, currentQuestionIndex, getCurrentQuestion, isProcessing, llmClient, onGenerateNextQuestion]);
 
   const handleExport = () => {
     const data = JSON.stringify({
