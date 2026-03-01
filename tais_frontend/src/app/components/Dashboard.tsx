@@ -390,7 +390,7 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
       {/* Agent Detail Modal */}
       <AnimatePresence>
         {selectedAgent && (
-          <AgentDetailModal_v2
+          <AgentDetailModal
             agent={selectedAgent}
             onClose={() => setSelectedAgent(null)}
             onDownload={() => downloadAgent(selectedAgent)}
@@ -405,6 +405,14 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
             }}
             onOpenKnowledgePicker={() => setShowKnowledgePicker(true)}
             onOpenVersionHistory={() => setShowVersionHistory(true)}
+            showKnowledgePicker={showKnowledgePicker}
+            setShowKnowledgePicker={setShowKnowledgePicker}
+            showVersionHistory={showVersionHistory}
+            setShowVersionHistory={setShowVersionHistory}
+            publicDocuments={publicDocuments}
+            communityDocuments={communityDocuments || []}
+            isLoadingRAG={isLoadingRAG}
+            loadSavedAgents={loadSavedAgents}
           />
         )}
       </AnimatePresence>
@@ -621,9 +629,18 @@ interface AgentDetailModalProps {
   onUpdate: (agent: SavedAgent) => void;
   onOpenKnowledgePicker: () => void;
   onOpenVersionHistory: () => void;
+  // Props from parent Dashboard
+  showKnowledgePicker: boolean;
+  setShowKnowledgePicker: (v: boolean) => void;
+  showVersionHistory: boolean;
+  setShowVersionHistory: (v: boolean) => void;
+  publicDocuments: any[];
+  communityDocuments: any[];
+  isLoadingRAG: boolean;
+  loadSavedAgents: () => void;
 }
 
-function AgentDetailModal_v2({ agent, onClose, onDownload, onCopy, onDelete, onUpdate, onOpenKnowledgePicker, onOpenVersionHistory }: AgentDetailModalProps) {
+function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpdate, onOpenKnowledgePicker, onOpenVersionHistory, showKnowledgePicker, setShowKnowledgePicker, showVersionHistory, setShowVersionHistory, publicDocuments, communityDocuments, isLoadingRAG, loadSavedAgents }: AgentDetailModalProps) {
   const [activeTab, setActiveTab] = useState<'framework' | 'personality' | 'summary'>('framework');
   const [isEditing, setIsEditing] = useState(false);
   const [editedConfig, setEditedConfig] = useState<AgentConfig>(JSON.parse(JSON.stringify(agent.config)));
