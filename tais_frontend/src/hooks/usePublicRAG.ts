@@ -81,7 +81,9 @@ export const usePublicRAGStore = create<PublicRAGState>()(
           
           toast.success('Document uploaded to Public RAG');
         } catch (error) {
-          toast.error('Failed to upload document');
+          console.error('Upload error:', error);
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          toast.error(`Failed to upload document: ${message}`);
           throw error;
         }
       },
