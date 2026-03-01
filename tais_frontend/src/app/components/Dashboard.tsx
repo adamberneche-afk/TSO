@@ -972,28 +972,16 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
                   </div>
                   <span className="text-xs text-[#666666]">Rigid • Validated • Type-Safe</span>
                 </div>
-                <Editor
-                  height="calc(100% - 80px)"
-                  defaultLanguage="json"
-                  value={frameworkJSON}
-                  theme="vs-dark"
-                  onChange={isEditing ? handleConfigChange : undefined}
-                  options={{
-                    readOnly: !isEditing,
-                    minimap: { enabled: false },
-                    fontSize: 12,
-                    fontFamily: 'JetBrains Mono, monospace',
-                    lineNumbers: 'on',
-                    scrollBeyondLastLine: false,
-                    tabSize: 2,
-                    wordWrap: 'on',
-                  }}
-                />
-                {/* Fallback textarea - hidden by default, shows if Editor fails */}
                 <textarea
-                  className="hidden w-full h-[500px] bg-[#1a1a1a] text-[#e0e0e0] p-4 font-mono text-sm border-none outline-none resize-none"
+                  className="w-full h-[calc(100%-60px)] bg-[#1a1a1a] text-[#e0e0e0] p-4 font-mono text-sm border-none outline-none resize-none"
                   value={frameworkJSON}
-                  readOnly
+                  readOnly={!isEditing}
+                  onChange={isEditing ? (e) => {
+                    try {
+                      const parsed = JSON.parse(e.target.value);
+                      setEditedConfig({ ...editedConfig, agent: { ...editedConfig.agent, ...parsed } });
+                    } catch {}
+                  } : undefined}
                 />
                 <div className="bg-[#1a1a1a] px-4 py-2 border-t border-[#333333]">
                   <p className="text-xs text-[#666666]">
@@ -1013,30 +1001,12 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
                   <span className="text-xs text-[#666666]">{isEditing ? 'Editing' : 'Flexible'} • LLM-Friendly</span>
                 </div>
                 {personalityMd ? (
-                  <>
-                    <Editor
-                      height="calc(100% - 80px)"
-                      defaultLanguage="markdown"
-                      value={personalityMd}
-                      onChange={isEditing ? handlePersonalityChange : undefined}
-                      theme="vs-dark"
-                      options={{
-                        readOnly: !isEditing,
-                        minimap: { enabled: false },
-                        fontSize: 12,
-                        fontFamily: 'JetBrains Mono, monospace',
-                        lineNumbers: 'on',
-                        scrollBeyondLastLine: false,
-                        automaticLayout: true,
-                        wordWrap: 'on',
-                      }}
-                    />
-                    <textarea
-                      className="hidden w-full h-[500px] bg-[#1a1a1a] text-[#e0e0e0] p-4 font-mono text-sm border-none outline-none resize-none"
-                      value={personalityMd}
-                      readOnly
-                    />
-                  </>
+                  <textarea
+                    className="w-full h-[calc(100%-60px)] bg-[#1a1a1a] text-[#e0e0e0] p-4 font-mono text-sm border-none outline-none resize-none"
+                    value={personalityMd}
+                    readOnly={!isEditing}
+                    onChange={(e: any) => isEditing && handlePersonalityChange?.(e.target.value)}
+                  />
                 ) : (
                   <div className="h-[calc(100%-80px)] flex items-center justify-center bg-[#111111]">
                     <div className="text-center space-y-4">
