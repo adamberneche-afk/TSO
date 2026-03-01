@@ -11,7 +11,7 @@ import { useLLMSettings } from '../../../hooks/useLLMSettings';
 import { LLM_PROVIDERS } from '../../../types/llm';
 import type { LLMProvider } from '../../../types/llm';
 import { toast } from 'sonner';
-import { BrowserProvider } from 'ethers';
+import { providers } from 'ethers';
 
 declare global {
   interface Window {
@@ -97,7 +97,7 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ provider, onSaved }) =
     if (!window.ethereum) {
       throw new Error('No wallet detected');
     }
-    const provider = new BrowserProvider(window.ethereum);
+    const provider = new providers.Web3Provider(window.ethereum);
     return await provider.getSigner();
   };
 

@@ -229,7 +229,7 @@ export class E2EEEncryptionService {
       // Check if wallet is available to decrypt private key
       if (!window.ethereum) return null;
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = await provider.getSigner();
 
       // Derive wallet key and decrypt private key
@@ -270,7 +270,7 @@ export class E2EEEncryptionService {
       if (!window.ethereum) {
         throw new Error('No wallet detected');
       }
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
       signer = await provider.getSigner();
     }
 
@@ -306,7 +306,7 @@ export class E2EEEncryptionService {
       if (!window.ethereum) {
         throw new Error('No wallet detected');
       }
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
       signer = await provider.getSigner();
     }
 

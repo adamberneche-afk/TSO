@@ -9,7 +9,7 @@ import { useConversationStore } from '../../../hooks/useConversation';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Settings, MessageSquare, ArrowRight } from 'lucide-react';
-import { BrowserProvider } from 'ethers';
+import { providers } from 'ethers';
 import { toast } from 'sonner';
 
 declare global {
@@ -55,7 +55,7 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
           return;
         }
         
-        const provider = new BrowserProvider(window.ethereum);
+        const provider = new providers.Web3Provider(window.ethereum);
         const signer = await provider.getSigner();
         const apiKey = await getDecryptedApiKey(selectedProvider, signer);
         

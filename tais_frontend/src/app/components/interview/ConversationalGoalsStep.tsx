@@ -6,7 +6,7 @@ import { getDecryptedApiKey } from '../../../services/apiKeyManager';
 import { extractEntities } from '../../../services/entityExtraction';
 import { Loader2, Send, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { BrowserProvider } from 'ethers';
+import { providers } from 'ethers';
 
 declare global {
   interface Window {
@@ -82,7 +82,7 @@ export function ConversationalGoalsStep({ onComplete }: ConversationalGoalsStepP
 
       try {
         if (!window.ethereum) return;
-        const provider = new BrowserProvider(window.ethereum);
+        const provider = new providers.Web3Provider(window.ethereum);
         const signer = await provider.getSigner();
         const apiKey = await getDecryptedApiKey(selectedProvider, signer);
         if (apiKey) {

@@ -8,7 +8,7 @@ import { generateDefaultPersonality, compilePersonality } from '../../../service
 import { LLMClient } from '../../../services/llmClient';
 import { getDecryptedApiKey } from '../../../services/apiKeyManager';
 import { toast } from 'sonner';
-import { BrowserProvider } from 'ethers';
+import { providers } from 'ethers';
 import { Sparkles, FileText, Sliders } from 'lucide-react';
 
 declare global {
@@ -107,7 +107,7 @@ export function PersonalityStep() {
           return;
         }
         
-        const provider = new BrowserProvider(window.ethereum);
+        const provider = new providers.Web3Provider(window.ethereum);
         const signer = await provider.getSigner();
         const apiKey = await getDecryptedApiKey(selectedProvider, signer);
         

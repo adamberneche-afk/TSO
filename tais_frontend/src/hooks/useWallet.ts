@@ -1,7 +1,7 @@
 // TAIS Platform - Wallet Connection Hook
 
 import { useState, useEffect } from 'react';
-import { BrowserProvider, Contract } from 'ethers';
+import { providers, Contract } from 'ethers';
 import registryClient from '../lib/registry-client';
 import { authApi } from '../services/authApi';
 import { toast } from 'sonner';
@@ -41,7 +41,7 @@ export function useWallet(): UseWalletReturn {
     try {
       if (!window.ethereum || !walletAddress) return false;
 
-      const provider = new BrowserProvider(window.ethereum);
+      const provider = new providers.Web3Provider(window.ethereum);
       const contract = new Contract(GENESIS_CONTRACT, GENESIS_ABI, provider);
       const balance = await contract.balanceOf(walletAddress);
       const hasNFT = balance > 0n;
@@ -94,7 +94,7 @@ export function useWallet(): UseWalletReturn {
       console.log('[Wallet] Using address:', walletAddress);
       
       // Create provider for signing
-      const provider = new BrowserProvider(window.ethereum);
+      const provider = new providers.Web3Provider(window.ethereum);
       
       // Step 2: Get nonce from backend
       console.log('[Wallet] Step 2: Getting nonce from backend...');
