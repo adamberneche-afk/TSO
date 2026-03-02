@@ -79,7 +79,11 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
 
   // Process user message
   const handleSendMessage = useCallback(async (content: string) => {
-    if (!content.trim() || isProcessing) return;
+    console.log('[Chat] handleSendMessage called:', { content: content.substring(0, 50), isProcessing, currentQuestionIndex, hasLLM: !!llmClient });
+    if (!content.trim() || isProcessing) {
+      console.log('[Chat] Message blocked:', { empty: !content.trim(), processing: isProcessing });
+      return;
+    }
 
     // Extract entities and analyze
     const entities = extractEntities(content);
@@ -115,19 +119,28 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
 
     // Simulate AI response
     const processingTimeout = setTimeout(async () => {
+      console.log('[Chat] Processing timeout running:', { currentQuestionIndex, llmClient: !!llmClient, hasGenerator: !!onGenerateNextQuestion });
       let response = '';
       
       // Use LLM to generate dynamic question if available
       if (llmClient && onGenerateNextQuestion && currentQuestionIndex < FIXED_QUESTIONS.length - 1) {
+        console.log('[Chat] Attempting dynamic question generation...');
         try {
           // Generate next question using LLM - this function handles adding message and advancing
           await onGenerateNextQuestion();
           // Don't add another message - the function already did
+          console.log('[Chat] Dynamic question generated successfully');
           return;
         } catch (error) {
           console.error('Failed to generate dynamic question:', error);
           // Fall through to fixed questions
         }
+      } else {
+        console.log('[Chat] Skipping dynamic generation:', { 
+          noClient: !llmClient, 
+          noGenerator: !onGenerateNextQuestion, 
+          atLastQuestion: currentQuestionIndex >= FIXED_QUESTIONS.length - 1 
+        });
       }
       
       if (currentQuestionIndex < FIXED_QUESTIONS.length - 1) {
