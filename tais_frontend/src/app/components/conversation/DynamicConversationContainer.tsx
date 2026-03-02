@@ -103,6 +103,7 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
         currentQuestionIndex
       );
 
+      console.log('[LLM] Generated question:', question.substring(0, 100));
       // Add as assistant message
       addMessage(question, 'assistant');
       advanceQuestion();

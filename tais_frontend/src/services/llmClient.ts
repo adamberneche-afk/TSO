@@ -394,6 +394,7 @@ Keep questions concise (1-2 sentences) and focused on extracting specific skills
     temperature: 0.8
   });
 
+  console.log('[LLM] generateDynamicQuestion response:', response.content.substring(0, 100));
   return response.content.trim();
 }
 
