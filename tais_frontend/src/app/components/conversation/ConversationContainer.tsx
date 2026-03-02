@@ -119,6 +119,7 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
 
     // Simulate AI response
     const processingTimeout = setTimeout(async () => {
+      console.log('[Chat] Processing timeout fired, will respond in 1s...');
       console.log('[Chat] Processing timeout running:', { currentQuestionIndex, llmClient: !!llmClient, hasGenerator: !!onGenerateNextQuestion });
       let response = '';
       
