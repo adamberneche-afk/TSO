@@ -167,7 +167,7 @@ export class LLMClient {
   private async callGemini(request: LLMRequest): Promise<LLMResponse> {
     const model = request.model || this.config.defaultModel;
     
-    // Convert messages to Gemini format
+    // Convert messages to Gemini format - v1 API uses contents and systemInstruction
     const contents = request.messages
       .filter(msg => msg.role !== 'system')
       .map(msg => ({
@@ -175,8 +175,24 @@ export class LLMClient {
         parts: [{ text: msg.content }]
       }));
     
-    // Extract system instruction
+    // Extract system instruction  
     const systemMessage = request.messages.find(msg => msg.role === 'system');
+    
+    const body: any = {
+      contents,
+      generationConfig: {
+        temperature: request.temperature ?? 0.7,
+        maxOutputTokens: request.maxTokens ?? 1000
+      }
+    };
+    
+    // Add system instruction separately for v1
+    if (systemMessage) {
+      body.systemInstruction = {
+        role: 'system',
+        parts: [{ text: systemMessage.content }]
+      };
+    }
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${this.apiKey}`,
@@ -185,14 +201,7 @@ export class LLMClient {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          contents,
-          systemInstruction: systemMessage ? { parts: [{ text: systemMessage.content }] } : undefined,
-          generationConfig: {
-            temperature: request.temperature ?? 0.7,
-            maxOutputTokens: request.maxTokens ?? 1000
-          }
-        })
+        body: JSON.stringify(body)
       }
     );
 
