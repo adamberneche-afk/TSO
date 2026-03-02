@@ -186,10 +186,10 @@ export class LLMClient {
       }
     };
     
-    // Add system instruction separately for v1
+    // Add system instruction separately for v1 (use system_instruction with underscore)
     if (systemMessage) {
-      body.systemInstruction = {
-        role: 'system',
+      body.system_instruction = {
+        role: 'user',
         parts: [{ text: systemMessage.content }]
       };
     }

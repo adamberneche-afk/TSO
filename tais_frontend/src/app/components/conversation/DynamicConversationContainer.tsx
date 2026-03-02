@@ -35,11 +35,15 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
 
   // Initialize LLM client when provider changes
   useEffect(() => {
+    console.log('[LLM] Initializing with provider:', selectedProvider);
     const initClient = async () => {
       if (!selectedProvider) {
+        console.log('[LLM] No provider selected');
         setLlmClient(null);
         return;
       }
+
+      console.log('[LLM] Provider selected:', selectedProvider);
 
       // Local models don't need API keys
       if (selectedProvider === 'local') {
@@ -60,14 +64,16 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
         const apiKey = await getDecryptedApiKey(selectedProvider, signer);
         
         if (apiKey) {
+          console.log('[LLM] API key found, creating client for:', selectedProvider);
           setLlmClient(new LLMClient(selectedProvider, apiKey, customBaseUrl));
           startTracking(costSettings);
         } else {
+          console.log('[LLM] No API key found for:', selectedProvider);
           setLlmClient(null);
           toast.error(`Please save your ${selectedProvider} API key`);
         }
       } catch (error) {
-        console.error('Failed to initialize LLM client:', error);
+        console.error('[LLM] Failed to initialize LLM client:', error);
         setLlmClient(null);
       }
     };
@@ -77,7 +83,11 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
 
   // Generate dynamic question using LLM
   const generateNextQuestion = useCallback(async () => {
-    if (!llmClient || !canMakeRequest()) return;
+    console.log('[LLM] generateNextQuestion called, llmClient:', !!llmClient, 'canMakeRequest:', canMakeRequest());
+    if (!llmClient || !canMakeRequest()) {
+      console.log('[LLM] Cannot generate - no client or cannot make request');
+      return;
+    }
 
     setIsInitializing(true);
     try {
