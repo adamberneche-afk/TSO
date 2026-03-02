@@ -79,11 +79,13 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
 
   // Process user message
   const handleSendMessage = useCallback(async (content: string) => {
-    console.log('[Chat] handleSendMessage called:', { content: content.substring(0, 50), isProcessing, currentQuestionIndex, hasLLM: !!llmClient });
+    console.log('[Chat] handleSendMessage START:', { content: content.substring(0, 30), isProcessing, currentQuestionIndex, hasLLM: !!llmClient });
     if (!content.trim() || isProcessing) {
       console.log('[Chat] Message blocked:', { empty: !content.trim(), processing: isProcessing });
       return;
     }
+
+    console.log('[Chat] Proceeding with message processing...');
 
     // Extract entities and analyze
     const entities = extractEntities(content);
