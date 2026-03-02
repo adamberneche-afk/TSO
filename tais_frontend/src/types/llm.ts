@@ -1,4 +1,4 @@
-export type LLMProvider = 'openai' | 'anthropic' | 'gemini' | 'local' | 'custom';
+export type LLMProvider = 'openai' | 'anthropic' | 'gemini' | 'local' | 'custom' | 'openrouter';
 
 export interface ProviderConfig {
   name: string;
@@ -76,6 +76,19 @@ export const LLM_PROVIDERS: Record<LLMProvider, ProviderConfig> = {
     baseUrl: '',
     description: 'Connect to any OpenAI-compatible API endpoint',
     docsUrl: ''
+  },
+  openrouter: {
+    name: 'OpenRouter',
+    id: 'openrouter',
+    models: ['meta-llama/llama-3.1-8b-instruct', 'mistralai/mistral-7b-instruct', 'google/gemma-2-9b-it', 'anthropic/claude-3-haiku'],
+    defaultModel: 'meta-llama/llama-3.1-8b-instruct',
+    costPer1KTokens: {
+      input: 0,
+      output: 0
+    },
+    baseUrl: 'https://openrouter.ai/api/v1',
+    description: 'Free credits for new accounts. Access to Llama, Mistral, Gemma and more.',
+    docsUrl: 'https://openrouter.ai/settings/keys'
   }
 };
 
