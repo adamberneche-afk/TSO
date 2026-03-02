@@ -42,8 +42,8 @@ export const LLM_PROVIDERS: Record<LLMProvider, ProviderConfig> = {
   gemini: {
     name: 'Google Gemini',
     id: 'gemini',
-    models: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'],
-    defaultModel: 'gemini-1.5-flash',
+    models: ['gemini-2.0-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro'],
+    defaultModel: 'gemini-2.0-flash',
     costPer1KTokens: {
       input: 0.00025,
       output: 0.0005

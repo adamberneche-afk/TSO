@@ -179,7 +179,7 @@ export class LLMClient {
     const systemMessage = request.messages.find(msg => msg.role === 'system');
     
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.apiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${this.apiKey}`,
       {
         method: 'POST',
         headers: {
