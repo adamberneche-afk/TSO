@@ -123,8 +123,8 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
       console.log('[Chat] Processing timeout running:', { currentQuestionIndex, llmClient: !!llmClient, hasGenerator: !!onGenerateNextQuestion });
       let response = '';
       
-      // Use LLM to generate dynamic question if available
-      if (llmClient && onGenerateNextQuestion && currentQuestionIndex < FIXED_QUESTIONS.length - 1) {
+      // Use LLM to generate dynamic question if available (no limit - uses cost tracker)
+      if (llmClient && onGenerateNextQuestion) {
         console.log('[Chat] Attempting dynamic question generation...');
         try {
           // Generate next question using LLM - this function handles adding message and advancing
@@ -134,17 +134,17 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
           return;
         } catch (error) {
           console.error('Failed to generate dynamic question:', error);
-          // Fall through to fixed questions
+          // Fall through to fixed fallback
         }
       } else {
         console.log('[Chat] Skipping dynamic generation:', { 
           noClient: !llmClient, 
-          noGenerator: !onGenerateNextQuestion, 
-          atLastQuestion: currentQuestionIndex >= FIXED_QUESTIONS.length - 1 
+          noGenerator: !onGenerateNextQuestion
         });
       }
       
-      if (currentQuestionIndex < FIXED_QUESTIONS.length - 1) {
+      // Fallback: acknowledge and continue (still uses dynamic if LLM works)
+      {
         // Acknowledge the response and move to next question
         const entitiesFound = entities && entities.length > 0 
           ? `I noted your experience with ${entities.map(e => e.value).join(', ')}. `
@@ -154,14 +154,6 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
         
         // Move to next question
         advanceQuestion();
-      } else {
-        // Final response
-        const extractedSkills = entities.filter(e => e.type === 'skill' || e.type === 'technology');
-        response = `Thank you for completing the interview! I've identified ${extractedSkills.length} skills and technologies from our conversation. You can review your profile in the dashboard.`;
-        
-        toast.success('Interview Complete!', {
-          description: 'Your profile has been updated with the extracted information.'
-        });
       }
 
       addMessage(response, 'assistant');
@@ -308,12 +300,8 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
             <InputArea
               onSend={handleSendMessage}
               isProcessing={isProcessing}
-              disabled={currentQuestionIndex >= FIXED_QUESTIONS.length}
-              placeholder={
-                currentQuestionIndex >= FIXED_QUESTIONS.length
-                  ? 'PROTOCOL COMPLETE.'
-                  : 'ENTER RESPONSE...'
-              }
+              disabled={!llmClient}
+              placeholder="ENTER RESPONSE..."
             />
             <div className="flex justify-between items-center mt-4">
               <div className="flex gap-4">
