@@ -266,7 +266,7 @@ export function GoldTierDashboard({ onBack }: GoldTierDashboardProps) {
         )}
 
         {activeTab === 'cto' && (
-          <CTOAgentSection />
+          <CTOAgentSection address={address || ''} />
         )}
 
         {activeTab === 'sdk' && (
@@ -277,7 +277,7 @@ export function GoldTierDashboard({ onBack }: GoldTierDashboardProps) {
   );
 }
 
-function CTOAgentSection() {
+function CTOAgentSection({ address }: { address: string }) {
   const [projects, setProjects] = useState<CTOProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newProjectName, setNewProjectName] = useState('');
