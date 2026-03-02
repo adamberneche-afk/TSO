@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
+import { useLLMSettings } from '../../hooks/useLLMSettings';
+import { LLMClient } from '../../services/llmClient';
 import { configApi } from '../../services/configApi';
 
 interface CTOProject {
@@ -283,10 +285,23 @@ function CTOAgentSection({ address }: { address: string }) {
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  
+  // Chat state
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatting, setIsChatting] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  
+  const { selectedProvider, customBaseUrl } = useLLMSettings();
 
   useEffect(() => {
     loadProjects();
   }, []);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
 
   const loadProjects = async () => {
     if (!address) return;
@@ -358,6 +373,71 @@ function CTOAgentSection({ address }: { address: string }) {
     return ((phases.indexOf(phase) + 1) / 5) * 100;
   };
 
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || isChatting || !selectedProvider) return;
+    
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setIsChatting(true);
+    
+    try {
+      // Get API key from wallet
+      if (!window.ethereum) {
+        throw new Error('MetaMask not available');
+      }
+      
+      const { providers } = await import('ethers');
+      const provider = new providers.Web3Provider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      // Import dynamically to avoid issues
+      const { getDecryptedApiKey } = await import('../../services/apiKeyManager');
+      const apiKey = await getDecryptedApiKey(selectedProvider, signer);
+      
+      if (!apiKey) {
+        throw new Error('No API key found. Configure in Settings.');
+      }
+      
+      const llmClient = new LLMClient(selectedProvider, apiKey, customBaseUrl);
+      const project = projects.find(p => p.id === selectedProjectId);
+      
+      const ctoSystemPrompt = `You are a CTO (Chief Technology Officer) thinking partner. Your role is to help the user think through their startup idea before they hand it off to a coding agent.
+
+Your job is to be a "razor" - you make them think deeper about:
+1. **Value Proposition** - What problem are they solving? Why does it matter?
+2. **Customer Experience** - How will users interact with this? What's the journey?
+3. **Pain Points** - What frustrations does this solve? What's the alternative?
+4. **Second & Third Order Consequences** - How do their technical choices impact other parts of the project? What are the ripple effects?
+5. **Purpose** - Are they staying true to their main goal? Keep them focused.
+
+Ask probing questions. Challenge assumptions. Make them justify their choices. Be direct but helpful.
+Don't write code - just think through the problem with them.
+
+${project ? `Current project: ${project.name}${project.description ? ' - ' + project.description : ''}` : ''}`;
+
+      const messages = [
+        { role: 'system' as const, content: ctoSystemPrompt },
+        ...chatMessages.map(m => ({ role: m.role, content: m.content })),
+        { role: 'user' as const, content: userMessage }
+      ];
+      
+      const response = await llmClient.complete({
+        messages,
+        maxTokens: 500,
+        temperature: 0.7
+      });
+      
+      setChatMessages(prev => [...prev, { role: 'assistant', content: response.content }]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      toast.error('Failed to get response. Make sure you have an LLM provider configured.');
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Make sure you have an LLM provider configured in Settings.' }]);
+    } finally {
+      setIsChatting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -410,8 +490,100 @@ function CTOAgentSection({ address }: { address: string }) {
         </div>
 
         <div className="lg:col-span-2 space-y-4">
-          <h3 className="text-lg font-semibold text-white">Your Projects</h3>
-          {projects.length === 0 ? (
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white">Your Projects</h3>
+            {projects.length > 0 && !selectedProjectId && (
+              <span className="text-xs text-[#666666]">Select a project to chat with CTO</span>
+            )}
+          </div>
+          
+          {selectedProjectId ? (
+            // Chat view
+            <Card className="bg-[#141415] border-[#333333]">
+              <CardHeader className="border-b border-[#333333]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedProjectId(null)}>
+                      <ArrowLeft className="w-4 h-4" />
+                    </Button>
+                    <div>
+                      <CardTitle className="text-white text-sm">
+                        {projects.find(p => p.id === selectedProjectId)?.name}
+                      </CardTitle>
+                      <CardDescription className="text-xs text-[#888888]">
+                        CTO Agent - Your thinking partner
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setChatMessages([])}
+                    className="border-[#333333] text-[#888888]"
+                  >
+                    Clear Chat
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="h-96 overflow-y-auto p-4 space-y-4">
+                  {chatMessages.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Target className="w-12 h-12 text-[#3B82F6] mx-auto mb-4" />
+                      <p className="text-[#888888]">Start a conversation with your CTO</p>
+                      <p className="text-xs text-[#666666] mt-2">
+                        Ask about your value prop, customer pain points, or technical decisions
+                      </p>
+                    </div>
+                  ) : (
+                    chatMessages.map((msg, i) => (
+                      <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                          msg.role === 'user' 
+                            ? 'bg-[#3B82F6] text-white' 
+                            : 'bg-[#1a1a1a] text-[#EDEDED]'
+                        }`}>
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {isChatting && (
+                    <div className="flex justify-start">
+                      <div className="bg-[#1a1a1a] rounded-lg px-4 py-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-[#3B82F6]" />
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+                <div className="p-4 border-t border-[#333333]">
+                  <div className="flex gap-2">
+                    <Input
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                      placeholder={selectedProvider ? "Ask your CTO..." : "Configure LLM provider in Settings first"}
+                      disabled={!selectedProvider || isChatting}
+                      className="bg-[#1a1a1a] border-[#333333] text-white"
+                    />
+                    <Button 
+                      onClick={handleSendMessage}
+                      disabled={!selectedProvider || isChatting || !chatInput.trim()}
+                      className="bg-[#3B82F6] hover:bg-[#2563EB]"
+                    >
+                      {isChatting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                  {!selectedProvider && (
+                    <p className="text-xs text-[#F59E0B] mt-2">
+                      Configure an LLM provider in Settings to enable CTO chat
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ) : projects.length === 0 ? (
             <Card className="bg-[#141415] border-[#333333]">
               <CardContent className="py-12 text-center">
                 <Target className="w-12 h-12 text-[#555555] mx-auto mb-4" />
@@ -422,7 +594,11 @@ function CTOAgentSection({ address }: { address: string }) {
           ) : (
             <div className="space-y-3">
               {projects.map((project) => (
-                <Card key={project.id} className="bg-[#141415] border-[#333333] hover:border-[#3B82F6]/30 transition-colors">
+                <Card 
+                  key={project.id} 
+                  className="bg-[#141415] border-[#333333] hover:border-[#3B82F6]/30 transition-colors cursor-pointer"
+                  onClick={() => setSelectedProjectId(project.id)}
+                >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div>
@@ -431,9 +607,12 @@ function CTOAgentSection({ address }: { address: string }) {
                           <p className="text-xs text-[#888888] mt-1">{project.description}</p>
                         )}
                       </div>
-                      <Badge className={`${getPhaseColor(project.currentPhase)} text-white`}>
-                        {project.currentPhase}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge className={`${getPhaseColor(project.currentPhase)} text-white`}>
+                          {project.currentPhase}
+                        </Badge>
+                        <ChevronRight className="w-4 h-4 text-[#666666]" />
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-[#666666]">
                       <Clock className="w-3 h-3" />
