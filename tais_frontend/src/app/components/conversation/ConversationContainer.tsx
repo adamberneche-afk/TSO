@@ -120,48 +120,45 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
     }
 
     // Simulate AI response
+    console.log('[Chat] About to set timeout for AI response');
     const processingTimeout = setTimeout(async () => {
-      console.log('[Chat] Processing timeout fired, will respond in 1s...');
-      console.log('[Chat] Processing timeout running:', { currentQuestionIndex, llmClient: !!llmClient, hasGenerator: !!onGenerateNextQuestion });
-      let response = '';
-      
-      // Use LLM to generate dynamic question if available (no limit - uses cost tracker)
-      if (llmClient && onGenerateNextQuestion) {
-        console.log('[Chat] Attempting dynamic question generation...');
-        try {
+      console.log('[Chat] Processing timeout fired');
+      try {
+        // Use LLM to generate dynamic question if available (no limit - uses cost tracker)
+        if (llmClient && onGenerateNextQuestion) {
+          console.log('[Chat] Attempting dynamic question generation...');
           // Generate next question using LLM - this function handles adding message and advancing
           await onGenerateNextQuestion();
           // Don't add another message - the function already did
           console.log('[Chat] Dynamic question generated successfully');
           return;
-        } catch (error) {
-          console.error('Failed to generate dynamic question:', error);
-          // Fall through to fixed fallback
+        } else {
+          console.log('[Chat] Skipping dynamic generation:', { 
+            noClient: !llmClient, 
+            noGenerator: !onGenerateNextQuestion
+          });
         }
-      } else {
-        console.log('[Chat] Skipping dynamic generation:', { 
-          noClient: !llmClient, 
-          noGenerator: !onGenerateNextQuestion
-        });
-      }
-      
-      // Fallback: acknowledge and continue (still uses dynamic if LLM works)
-      {
-        // Acknowledge the response and move to next question
-        const entitiesFound = entities && entities.length > 0 
-          ? `I noted your experience with ${entities.map(e => e.value).join(', ')}. `
-          : '';
         
-        response = `${entitiesFound}Thank you for sharing that. `;
-        
-        // Move to next question
-        advanceQuestion();
-      }
+        // Fallback: acknowledge and continue (still uses dynamic if LLM works)
+        {
+          // Acknowledge the response and move to next question
+          const entitiesFound = entities && entities.length > 0 
+            ? `I noted your experience with ${entities.map(e => e.value).join(', ')}. `
+            : '';
+          
+          response = `${entitiesFound}Thank you for sharing that. `;
+          
+          // Move to next question
+          advanceQuestion();
+        }
 
-      addMessage(response, 'assistant');
-      
-      // Memory: Track assistant response
-      addAssistantMessage(response);
+        addMessage(response, 'assistant');
+        
+        // Memory: Track assistant response
+        addAssistantMessage(response);
+      } catch (error) {
+        console.error('[Chat] Error in processing timeout:', error);
+      }
     }, 1000);
 
     return () => clearTimeout(processingTimeout);
