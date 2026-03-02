@@ -535,18 +535,27 @@ function CTOAgentSection({ address }: { address: string }) {
   }, [chatMessages]);
 
   const loadGitHubConnection = async () => {
-    // Check if GitHub is connected (stored in localStorage for demo)
-    const token = localStorage.getItem('github_token');
-    if (token) {
-      setGithubToken(token);
-      setGithubConnected(true);
-      await loadGitHubRepos(token);
+    // Check if GitHub is connected
+    const encodedToken = localStorage.getItem('github_token');
+    if (encodedToken) {
+      try {
+        // Decode token (in production, decrypt properly)
+        const decoded = atob(encodedToken);
+        const token = decoded.split(':')[0]; // Get just the token part
+        
+        setGithubToken(encodedToken);
+        setGithubConnected(true);
+        await loadGitHubRepos(token);
+      } catch (e) {
+        console.error('Failed to load GitHub token:', e);
+        localStorage.removeItem('github_token');
+      }
     }
   };
 
   const loadGitHubRepos = async (token: string) => {
     try {
-      const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=20', {
+      const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=20&affiliation=owner,collaborator,organization_member', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/vnd.github.v3+json',
@@ -555,6 +564,11 @@ function CTOAgentSection({ address }: { address: string }) {
       if (response.ok) {
         const repos = await response.json();
         setGithubRepos(repos);
+      } else if (response.status === 401) {
+        // Token expired, clear it
+        localStorage.removeItem('github_token');
+        setGithubConnected(false);
+        toast.error('GitHub token expired. Please reconnect.');
       }
     } catch (error) {
       console.error('Failed to load GitHub repos:', error);
@@ -563,43 +577,71 @@ function CTOAgentSection({ address }: { address: string }) {
 
   const connectGitHub = async () => {
     setIsConnectingGithub(true);
-    const clientId = 'YOUR_GITHUB_CLIENT_ID'; // TODO: Replace with actual client ID
+    
+    // Store wallet address for token association
+    localStorage.setItem('pending_github_wallet', address);
+    
+    // Generate state for security
+    const state = crypto.randomUUID();
+    sessionStorage.setItem('github_oauth_state', state);
+    
+    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID || 'YOUR_GITHUB_CLIENT_ID';
     const redirectUri = `${window.location.origin}/auth/github/callback`;
     const scope = 'repo read:user';
     
-    // For demo, simulate OAuth flow - in production use proper OAuth
-    // This opens a popup for GitHub OAuth
+    // Open OAuth in popup
     const width = 600;
     const height = 700;
     const left = (window.innerWidth - width) / 2;
     const top = (window.innerHeight - height) / 2;
     
-    // Store the auth window reference
+    const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${state}`;
+    
     const authWindow = window.open(
-      `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`,
+      authUrl,
       'GitHub OAuth',
       `width=${width},height=${height},left=${left},top=${top}`
     );
     
-    // Listen for the callback (simplified - in production use postMessage)
+    // Listen for OAuth completion
     const checkClosed = setInterval(() => {
       if (authWindow?.closed) {
         clearInterval(checkClosed);
-        setIsConnectingGithub(false);
-        // Check for token in URL or localStorage (set by callback)
-        const token = localStorage.getItem('github_token');
-        if (token) {
-          setGithubToken(token);
-          setGithubConnected(true);
-          loadGitHubRepos(token);
-          toast.success('GitHub connected!');
+        
+        // Verify state to prevent CSRF
+        const storedState = sessionStorage.getItem('github_oauth_state');
+        if (storedState !== state) {
+          setIsConnectingGithub(false);
+          toast.error('OAuth state mismatch - please try again');
+          return;
         }
+        
+        // Check for token
+        const encodedToken = localStorage.getItem('github_token');
+        if (encodedToken) {
+          try {
+            // Decode token (in production, decrypt properly)
+            const decoded = atob(encodedToken);
+            const token = decoded.split(':')[0];
+            
+            setGithubToken(encodedToken);
+            setGithubConnected(true);
+            loadGitHubRepos(token);
+            toast.success('GitHub connected!');
+          } catch (e) {
+            console.error('Failed to decode token:', e);
+            toast.error('Failed to parse GitHub token');
+          }
+        }
+        setIsConnectingGithub(false);
       }
     }, 500);
   };
 
   const disconnectGitHub = () => {
     localStorage.removeItem('github_token');
+    localStorage.removeItem('pending_github_wallet');
+    sessionStorage.removeItem('github_oauth_state');
     setGithubToken(null);
     setGithubConnected(false);
     setGithubRepos([]);
