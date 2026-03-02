@@ -320,13 +320,20 @@ export async function generateDynamicQuestion(
 Based on the user's previous responses, generate a contextual follow-up question.
 Keep questions concise (1-2 sentences) and focused on extracting specific skills, technologies, or experiences.`;
 
-  const messages: LLMRequest['messages'] = [
-    { role: 'system', content: systemPrompt },
-    ...previousResponses.map((response, i) => ({
+  let messages: LLMRequest['messages'] = [
+    { role: 'system', content: systemPrompt }
+  ];
+
+  if (previousResponses.length === 0) {
+    // First question - ask about their background
+    messages.push({ role: 'user', content: 'The user is starting an interview. Ask them about their professional background and experience.' });
+  } else {
+    // Add previous responses
+    messages.push(...previousResponses.map((response, i) => ({
       role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
       content: response
-    }))
-  ];
+    })));
+  }
 
   const response = await client.complete({
     messages,
