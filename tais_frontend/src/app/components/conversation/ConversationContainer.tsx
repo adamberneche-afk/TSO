@@ -124,12 +124,34 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
     const processingTimeout = setTimeout(async () => {
       console.log('[Chat] Processing timeout fired');
       try {
+        let response = '';
+        
         // Use LLM to generate dynamic question if available (no limit - uses cost tracker)
         if (llmClient && onGenerateNextQuestion) {
           console.log('[Chat] Attempting dynamic question generation...');
-          // Generate next question using LLM - this function handles adding message and advancing
+          
+          // First: Acknowledge their response with a natural reaction
+          const acknowledgmentPhrases = [
+            "That's interesting! ",
+            "Nice! ",
+            "Oh that's cool! ",
+            "Got it! ",
+            "Thanks for sharing! ",
+          ];
+          const randomAck = acknowledgmentPhrases[Math.floor(Math.random() * acknowledgmentPhrases.length)];
+          const entitiesFound = entities && entities.length > 0 
+            ? `I noticed you work with ${entities.map(e => e.value).join(', ')}. `
+            : '';
+          
+          response = `${randomAck}${entitiesFound}`;
+          addMessage(response, 'assistant');
+          addAssistantMessage(response);
+          
+          // Then: Wait a moment, then generate the next question
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          // Generate and ask the follow-up
           await onGenerateNextQuestion();
-          // Don't add another message - the function already did
           console.log('[Chat] Dynamic question generated successfully');
           return;
         } else {
