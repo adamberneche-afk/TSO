@@ -369,29 +369,35 @@ export async function generateDynamicQuestion(
   previousResponses: string[],
   currentQuestionIndex: number
 ): Promise<string> {
-  const systemPrompt = `You are an AI interviewer helping create a skill profile. 
-Based on the user's previous responses, generate a contextual follow-up question.
-Keep questions concise (1-2 sentences) and focused on extracting specific skills, technologies, or experiences.`;
+  const systemPrompt = `You are a friendly tech recruiter having a casual conversation about someone's career. 
+Your goal is to naturally discover their skills and experience through chat, not formal questioning.
+- Use a conversational, warm tone - like talking to a friend
+- Ask ONE follow-up question at a time
+- Build on what they just told you - show you listened
+- Keep (1 sentence or a it short and natural bit more)
+- Avoid corporate or formal language`;
 
   let messages: LLMRequest['messages'] = [
     { role: 'system', content: systemPrompt }
   ];
 
   if (previousResponses.length === 0) {
-    // First question - ask about their background
-    messages.push({ role: 'user', content: 'The user is starting an interview. Ask them about their professional background and experience.' });
+    messages.push({ role: 'user', content: 'Start a casual chat. Ask what they\'ve been working on lately or what\'s got them excited in tech right now.' });
   } else {
-    // Add previous responses
-    messages.push(...previousResponses.map((response, i) => ({
+    // Add previous responses as a conversation
+    const conversation = previousResponses.map((response, i) => ({
       role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
       content: response
-    })));
+    }));
+    messages.push(...conversation);
+    // Add a prompt to generate a natural follow-up
+    messages.push({ role: 'user', content: 'Respond naturally to what they just said with ONE casual follow-up question. Keep it short and conversational.' });
   }
 
   const response = await client.complete({
     messages,
     maxTokens: 150,
-    temperature: 0.8
+    temperature: 0.9  // Higher temperature for more natural responses
   });
 
   console.log('[LLM] generateDynamicQuestion response:', response.content.substring(0, 100));
