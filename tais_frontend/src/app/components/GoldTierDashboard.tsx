@@ -47,6 +47,17 @@ interface CTOInsight {
   upvotes: number;
   createdAt: string;
   isPublic: boolean;
+  status: 'draft' | 'pending_review' | 'published';
+}
+
+interface GitHubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  description: string | null;
+  language: string | null;
+  updated_at: string;
+  html_url: string;
 }
 
 interface GoldTierDashboardProps {
@@ -498,6 +509,13 @@ function CTOAgentSection({ address }: { address: string }) {
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   
+  // GitHub state
+  const [githubConnected, setGithubConnected] = useState(false);
+  const [githubToken, setGithubToken] = useState<string | null>(null);
+  const [githubRepos, setGithubRepos] = useState<GitHubRepo[]>([]);
+  const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
+  const [isConnectingGithub, setIsConnectingGithub] = useState(false);
+  
   // Chat state
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
@@ -509,11 +527,85 @@ function CTOAgentSection({ address }: { address: string }) {
 
   useEffect(() => {
     loadProjects();
+    loadGitHubConnection();
   }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
+
+  const loadGitHubConnection = async () => {
+    // Check if GitHub is connected (stored in localStorage for demo)
+    const token = localStorage.getItem('github_token');
+    if (token) {
+      setGithubToken(token);
+      setGithubConnected(true);
+      await loadGitHubRepos(token);
+    }
+  };
+
+  const loadGitHubRepos = async (token: string) => {
+    try {
+      const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=20', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github.v3+json',
+        },
+      });
+      if (response.ok) {
+        const repos = await response.json();
+        setGithubRepos(repos);
+      }
+    } catch (error) {
+      console.error('Failed to load GitHub repos:', error);
+    }
+  };
+
+  const connectGitHub = async () => {
+    setIsConnectingGithub(true);
+    const clientId = 'YOUR_GITHUB_CLIENT_ID'; // TODO: Replace with actual client ID
+    const redirectUri = `${window.location.origin}/auth/github/callback`;
+    const scope = 'repo read:user';
+    
+    // For demo, simulate OAuth flow - in production use proper OAuth
+    // This opens a popup for GitHub OAuth
+    const width = 600;
+    const height = 700;
+    const left = (window.innerWidth - width) / 2;
+    const top = (window.innerHeight - height) / 2;
+    
+    // Store the auth window reference
+    const authWindow = window.open(
+      `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`,
+      'GitHub OAuth',
+      `width=${width},height=${height},left=${left},top=${top}`
+    );
+    
+    // Listen for the callback (simplified - in production use postMessage)
+    const checkClosed = setInterval(() => {
+      if (authWindow?.closed) {
+        clearInterval(checkClosed);
+        setIsConnectingGithub(false);
+        // Check for token in URL or localStorage (set by callback)
+        const token = localStorage.getItem('github_token');
+        if (token) {
+          setGithubToken(token);
+          setGithubConnected(true);
+          loadGitHubRepos(token);
+          toast.success('GitHub connected!');
+        }
+      }
+    }, 500);
+  };
+
+  const disconnectGitHub = () => {
+    localStorage.removeItem('github_token');
+    setGithubToken(null);
+    setGithubConnected(false);
+    setGithubRepos([]);
+    setSelectedRepo(null);
+    toast.success('GitHub disconnected');
+  };
 
   const loadProjects = async () => {
     if (!address) return;
@@ -737,6 +829,75 @@ ${project ? `Current project: ${project.name}${project.description ? ' - ' + pro
                   </Button>
                 </div>
               </CardHeader>
+              
+              {/* GitHub Connection Bar */}
+                <div className="px-4 py-2 bg-[#1a1a1a] border-b border-[#333333] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {githubConnected ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-[#10B981]" />
+                          <span className="text-xs text-[#10B981]">GitHub Connected</span>
+                        </div>
+                        {selectedRepo && (
+                          <Badge className="bg-[#333333] text-white text-xs">
+                            {selectedRepo.name}
+                          </Badge>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-xs text-[#666666]">Connect GitHub for codebase context</span>
+                    )}
+                  </div>
+                  {githubConnected ? (
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setSelectedRepo(null)}
+                        className="text-xs text-[#888888] h-6"
+                      >
+                        {selectedRepo ? 'Deselect Repo' : 'Select Repo'}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={disconnectGitHub}
+                        className="text-xs text-[#F59E0B] h-6"
+                      >
+                        Disconnect
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={connectGitHub}
+                      disabled={isConnectingGithub}
+                      className="border-[#333333] text-white text-xs h-6"
+                    >
+                      {isConnectingGithub ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Connect GitHub'}
+                    </Button>
+                  )}
+                </div>
+                
+                {/* Repo Selection */}
+                {githubConnected && !selectedRepo && githubRepos.length > 0 && (
+                  <div className="px-4 py-2 bg-[#1a1a1a] border-b border-[#333333] max-h-32 overflow-y-auto">
+                    <p className="text-xs text-[#666666] mb-2">Select a repository for context:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {githubRepos.slice(0, 10).map((repo) => (
+                        <Badge 
+                          key={repo.id}
+                          className="bg-[#333333] hover:bg-[#444444] cursor-pointer text-white text-xs"
+                          onClick={() => setSelectedRepo(repo)}
+                        >
+                          {repo.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
               <CardContent className="p-0">
                 <div className="h-96 overflow-y-auto p-4 space-y-4">
                   {chatMessages.length === 0 ? (
