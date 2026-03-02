@@ -38,13 +38,24 @@ interface CTOProject {
   updatedAt: string;
 }
 
+interface CTOInsight {
+  id: string;
+  title: string;
+  content: string;
+  category: 'value-prop' | 'customer-pain' | 'technical' | 'architecture' | 'lessons-learned';
+  walletAddress: string;
+  upvotes: number;
+  createdAt: string;
+  isPublic: boolean;
+}
+
 interface GoldTierDashboardProps {
   onBack: () => void;
 }
 
 export function GoldTierDashboard({ onBack }: GoldTierDashboardProps) {
   const { address, isConnected, hasGenesisNFT } = useWallet();
-  const [activeTab, setActiveTab] = useState<'overview' | 'cto' | 'sdk'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'cto' | 'knowledge' | 'sdk'>('overview');
   const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
@@ -177,6 +188,14 @@ export function GoldTierDashboard({ onBack }: GoldTierDashboardProps) {
             CTO Agent
           </Button>
           <Button
+            variant={activeTab === 'knowledge' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('knowledge')}
+            className={activeTab === 'knowledge' ? 'bg-[#3B82F6]' : 'border-[#333333] text-[#888888]'}
+          >
+            <BookOpen className="w-4 h-4 mr-2" />
+            Knowledge Base
+          </Button>
+          <Button
             variant={activeTab === 'sdk' ? 'default' : 'outline'}
             onClick={() => setActiveTab('sdk')}
             className={activeTab === 'sdk' ? 'bg-[#3B82F6]' : 'border-[#333333] text-[#888888]'}
@@ -271,8 +290,201 @@ export function GoldTierDashboard({ onBack }: GoldTierDashboardProps) {
           <CTOAgentSection address={address || ''} />
         )}
 
+        {activeTab === 'knowledge' && (
+          <KnowledgeBaseSection address={address || ''} />
+        )}
+
         {activeTab === 'sdk' && (
           <SDKSection />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function KnowledgeBaseSection({ address }: { address: string }) {
+  const [insights, setInsights] = useState<CTOInsight[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newInsight, setNewInsight] = useState({ title: '', content: '', category: 'lessons-learned' as const });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const isAdmin = address?.toLowerCase() === '0x123...'; // TODO: Set actual admin address
+
+  useEffect(() => {
+    loadInsights();
+  }, []);
+
+  const loadInsights = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/cto/insights`, {
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setInsights(data.insights || []);
+      }
+    } catch (error) {
+      console.error('Failed to load insights:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const submitInsight = async () => {
+    if (!newInsight.title.trim() || !newInsight.content.trim()) return;
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/cto/insights`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          ...newInsight,
+          walletAddress: address,
+        }),
+      });
+      if (response.ok) {
+        toast.success('Insight saved to knowledge base!');
+        setShowAddForm(false);
+        setNewInsight({ title: '', content: '', category: 'lessons-learned' });
+        loadInsights();
+      }
+    } catch (error) {
+      console.error('Failed to save insight:', error);
+      toast.error('Failed to save insight');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const categoryColors: Record<string, string> = {
+    'value-prop': 'bg-blue-500',
+    'customer-pain': 'bg-red-500',
+    'technical': 'bg-purple-500',
+    'architecture': 'bg-yellow-500',
+    'lessons-learned': 'bg-green-500',
+  };
+
+  const categoryLabels: Record<string, string> = {
+    'value-prop': 'Value Proposition',
+    'customer-pain': 'Customer Pain Points',
+    'technical': 'Technical Decisions',
+    'architecture': 'Architecture',
+    'lessons-learned': 'Lessons Learned',
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white">Community Knowledge Base</h2>
+          <p className="text-sm text-[#888888]">Insights and lessons from the CTO Agent conversations</p>
+        </div>
+        <Button
+          onClick={() => setShowAddForm(true)}
+          className="bg-[#3B82F6] hover:bg-[#2563EB]"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Insight
+        </Button>
+      </div>
+
+      {showAddForm && (
+        <Card className="bg-[#141415] border-[#333333]">
+          <CardHeader>
+            <CardTitle className="text-white">Share an Insight</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-xs text-[#888888] uppercase tracking-wider">Title</label>
+              <Input
+                value={newInsight.title}
+                onChange={(e) => setNewInsight({ ...newInsight, title: e.target.value })}
+                placeholder="What did you learn?"
+                className="bg-[#1a1a1a] border-[#333333] text-white mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-[#888888] uppercase tracking-wider">Category</label>
+              <div className="flex gap-2 mt-1 flex-wrap">
+                {Object.entries(categoryLabels).map(([key, label]) => (
+                  <Badge
+                    key={key}
+                    className={`${newInsight.category === key ? categoryColors[key] : 'bg-[#333333]'} text-white cursor-pointer`}
+                    onClick={() => setNewInsight({ ...newInsight, category: key as any })}
+                  >
+                    {label}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-[#888888] uppercase tracking-wider">Insight</label>
+              <Textarea
+                value={newInsight.content}
+                onChange={(e) => setNewInsight({ ...newInsight, content: e.target.value })}
+                placeholder="Share your knowledge..."
+                rows={4}
+                className="bg-[#1a1a1a] border-[#333333] text-white mt-1"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={submitInsight} disabled={isSubmitting} className="bg-[#3B82F6]">
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save to Community'}
+              </Button>
+              <Button variant="outline" onClick={() => setShowAddForm(false)} className="border-[#333333] text-white">
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid gap-4">
+        {insights.length === 0 ? (
+          <Card className="bg-[#141415] border-[#333333]">
+            <CardContent className="py-12 text-center">
+              <BookOpen className="w-12 h-12 text-[#555555] mx-auto mb-4" />
+              <p className="text-[#888888]">No insights yet</p>
+              <p className="text-xs text-[#666666] mt-1">Be the first to share knowledge with the community</p>
+            </CardContent>
+          </Card>
+        ) : (
+          insights.map((insight) => (
+            <Card key={insight.id} className="bg-[#141415] border-[#333333]">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge className={`${categoryColors[insight.category]} text-white text-xs`}>
+                        {categoryLabels[insight.category]}
+                      </Badge>
+                      <span className="text-xs text-[#666666]">
+                        {new Date(insight.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <h4 className="font-medium text-white">{insight.title}</h4>
+                    <p className="text-sm text-[#A1A1A1] mt-2 whitespace-pre-wrap">{insight.content}</p>
+                  </div>
+                  <div className="flex items-center gap-1 text-[#666666]">
+                    <Zap className="w-4 h-4" />
+                    <span className="text-xs">{insight.upvotes}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
         )}
       </div>
     </div>
