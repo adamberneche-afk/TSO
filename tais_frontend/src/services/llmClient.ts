@@ -186,12 +186,13 @@ export class LLMClient {
       }
     };
     
-    // Add system instruction separately for v1 (use system_instruction with underscore)
+    // For v1 API, prepend system message to contents as first user message
+    // (v1 doesn't support system_instruction field)
     if (systemMessage) {
-      body.system_instruction = {
+      contents.unshift({
         role: 'user',
         parts: [{ text: systemMessage.content }]
-      };
+      });
     }
     
     const response = await fetch(
