@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useInterviewStore } from '../hooks/useInterview';
 import { GuidedDiscoveryDoc, NFTIntegrationDoc, ConfigurationDoc, SkillsRegistryDoc } from './docs';
 import { OAuthAuthorize } from './components/oauth/OAuthAuthorize';
+import { GitHubOAuthCallback } from './components/oauth/GitHubOAuthCallback';
 import { PlatformSettingsPage } from './components/settings/PlatformSettings';
 
 const PublicRAGManager = lazy(() => import('./components/rag/PublicRAGManager').then(m => ({ default: m.PublicRAGManager })));
@@ -28,13 +29,16 @@ function LoadingFallback() {
   );
 }
 
-type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier' | 'memory' | 'developer' | 'oauth-authorize' | 'settings';
+type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier' | 'memory' | 'developer' | 'oauth-authorize' | 'settings' | 'github-callback';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>(() => {
-    // Detect OAuth route on load
+    // Detect OAuth routes on load
     if (window.location.pathname === '/oauth/authorize') {
       return 'oauth-authorize';
+    }
+    if (window.location.pathname === '/auth/github/callback') {
+      return 'github-callback';
     }
     return 'landing';
   });
@@ -237,6 +241,16 @@ export default function App() {
           <OAuthAuthorize onComplete={() => {
             window.history.pushState({}, '', '/');
             setCurrentView('landing');
+          }} />
+          <Toaster position="top-right" />
+        </>
+      )}
+
+      {currentView === 'github-callback' && (
+        <>
+          <GitHubOAuthCallback onSuccess={() => {
+            window.history.pushState({}, '', '/');
+            setCurrentView('goldTier');
           }} />
           <Toaster position="top-right" />
         </>
