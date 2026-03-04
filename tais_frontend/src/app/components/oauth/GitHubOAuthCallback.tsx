@@ -18,6 +18,7 @@ export function GitHubOAuthCallback({ onSuccess }: GitHubOAuthCallbackProps) {
   const handleOAuthCallback = async () => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
+    const state = params.get('state');
     const error = params.get('error');
 
     if (error) {
@@ -33,20 +34,31 @@ export function GitHubOAuthCallback({ onSuccess }: GitHubOAuthCallbackProps) {
     }
 
     try {
-      // Store wallet address for token association
+      setMessage('Exchanging code for token...');
+      
+      // Exchange code for real token via backend
+      const response = await fetch('/api/github-callback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, state, walletAddress: localStorage.getItem('pending_github_wallet') }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Token exchange failed');
+      }
+
+      const data = await response.json();
+      const accessToken = data.accessToken;
+
+      if (!accessToken) {
+        throw new Error('No access token received');
+      }
+
+      // Store token with wallet association
       const walletAddress = localStorage.getItem('pending_github_wallet');
-      
-      // TODO: Exchange code for token via backend
-      // In production: POST /api/v1/auth/github/callback { code, walletAddress }
-      // Backend returns encrypted token
-      
-      // Demo: simulate token (in production, token comes from backend)
-      const demoToken = 'ghp_demo_' + Date.now();
-      
-      // Store encrypted token
       if (walletAddress) {
-        // Simple encoding (in production, use proper encryption)
-        const encoded = btoa(demoToken + ':' + walletAddress);
+        const encoded = btoa(accessToken + ':' + walletAddress);
         localStorage.setItem('github_token', encoded);
         localStorage.removeItem('pending_github_wallet');
       }
@@ -56,7 +68,6 @@ export function GitHubOAuthCallback({ onSuccess }: GitHubOAuthCallbackProps) {
       toast.success('GitHub connected!');
       
       setTimeout(() => {
-        // Close popup or redirect
         if (window.opener) {
           window.opener.location.reload();
           window.close();
