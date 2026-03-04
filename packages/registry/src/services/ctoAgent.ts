@@ -362,6 +362,69 @@ export class CTOAgentService {
     };
   }
 
+  // ==================== INSIGHTS ====================
+
+  async createInsight(data: {
+    title: string;
+    content: string;
+    category: string;
+    walletAddress?: string;
+  }) {
+    return this.prisma.cTOInsight.create({
+      data: {
+        title: data.title,
+        content: data.content,
+        category: data.category,
+        walletAddress: data.walletAddress || null,
+        status: 'draft', // Default to draft for review
+      },
+    });
+  }
+
+  async listInsights(status?: string) {
+    const where = status ? { status } : { status: 'published' };
+    return this.prisma.cTOInsight.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getInsight(id: string) {
+    return this.prisma.cTOInsight.findUnique({
+      where: { id },
+    });
+  }
+
+  async updateInsightStatus(id: string, status: string, walletAddress?: string) {
+    // Only allow owner or admin to update
+    const insight = await this.prisma.cTOInsight.findUnique({ where: { id } });
+    if (!insight) return null;
+    
+    // Allow updating if: no wallet required OR owner OR status changing to published
+    if (status === 'published' || insight.walletAddress === walletAddress) {
+      return this.prisma.cTOInsight.update({
+        where: { id },
+        data: { status },
+      });
+    }
+    return null;
+  }
+
+  async upvoteInsight(id: string) {
+    return this.prisma.cTOInsight.update({
+      where: { id },
+      data: { upvotes: { increment: 1 } },
+    });
+  }
+
+  async deleteInsight(id: string, walletAddress: string) {
+    const insight = await this.prisma.cTOInsight.findUnique({ where: { id } });
+    if (!insight || insight.walletAddress !== walletAddress) return false;
+    
+    await this.prisma.cTOInsight.delete({ where: { id } });
+    return true;
+  }
+
   private async trackEvent(walletAddress: string, eventType: string, metadata: Record<string, any>): Promise<void> {
     try {
       await this.analytics.trackEvent({

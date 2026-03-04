@@ -233,6 +233,138 @@ export function createCTOAgentRoutes(prisma: PrismaClient, logger: any): Router 
     }
   });
 
+  // ==================== INSIGHTS ====================
+
+  // Create new insight
+  router.post('/insights', async (req: Request, res: Response) => {
+    try {
+      const { title, content, category, walletAddress } = req.body;
+
+      if (!title || !content || !category) {
+        return res.status(400).json({ error: 'Title, content, and category required' });
+      }
+
+      const validCategories = ['value-prop', 'customer-pain', 'technical', 'architecture', 'lessons-learned'];
+      if (!validCategories.includes(category)) {
+        return res.status(400).json({ error: 'Invalid category' });
+      }
+
+      const insight = await service.createInsight({ title, content, category, walletAddress });
+
+      logger.info(`[CTO Insights] Created insight ${insight.id}`);
+
+      res.status(201).json(insight);
+    } catch (error) {
+      logger.error('Error creating insight:', error);
+      res.status(500).json({ error: 'Failed to create insight' });
+    }
+  });
+
+  // List insights (public - only published)
+  router.get('/insights', async (req: Request, res: Response) => {
+    try {
+      const { status } = req.query;
+      
+      const insights = await service.listInsights(status as string);
+
+      res.json({ insights });
+    } catch (error) {
+      logger.error('Error listing insights:', error);
+      res.status(500).json({ error: 'Failed to list insights' });
+    }
+  });
+
+  // Get single insight
+  router.get('/insights/:id', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const insight = await service.getInsight(id);
+
+      if (!insight) {
+        return res.status(404).json({ error: 'Insight not found' });
+      }
+
+      res.json(insight);
+    } catch (error) {
+      logger.error('Error getting insight:', error);
+      res.status(500).json({ error: 'Failed to get insight' });
+    }
+  });
+
+  // Update insight status (publish/reject)
+  router.patch('/insights/:id/status', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { status, walletAddress } = req.body;
+
+      if (!status) {
+        return res.status(400).json({ error: 'Status required' });
+      }
+
+      const validStatuses = ['draft', 'pending_review', 'published'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Invalid status' });
+      }
+
+      const insight = await service.updateInsightStatus(id, status, walletAddress);
+
+      if (!insight) {
+        return res.status(404).json({ error: 'Insight not found or unauthorized' });
+      }
+
+      logger.info(`[CTO Insights] Updated insight ${id} to ${status}`);
+
+      res.json(insight);
+    } catch (error) {
+      logger.error('Error updating insight status:', error);
+      res.status(500).json({ error: 'Failed to update insight status' });
+    }
+  });
+
+  // Upvote insight
+  router.post('/insights/:id/upvote', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const insight = await service.upvoteInsight(id);
+
+      if (!insight) {
+        return res.status(404).json({ error: 'Insight not found' });
+      }
+
+      res.json({ success: true, upvotes: insight.upvotes });
+    } catch (error) {
+      logger.error('Error upvoting insight:', error);
+      res.status(500).json({ error: 'Failed to upvote insight' });
+    }
+  });
+
+  // Delete insight
+  router.delete('/insights/:id', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { walletAddress } = req.body;
+
+      if (!walletAddress) {
+        return res.status(400).json({ error: 'Wallet address required' });
+      }
+
+      const success = await service.deleteInsight(id, walletAddress);
+
+      if (!success) {
+        return res.status(404).json({ error: 'Insight not found or unauthorized' });
+      }
+
+      logger.info(`[CTO Insights] Deleted insight ${id}`);
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error('Error deleting insight:', error);
+      res.status(500).json({ error: 'Failed to delete insight' });
+    }
+  });
+
   return router;
 }
 

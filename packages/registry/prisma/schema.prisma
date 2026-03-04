@@ -534,6 +534,32 @@ model CTOAgentProject {
   @@map("cto_agent_projects")
 }
 
+// CTO Knowledge Base - Community Insights
+model CTOInsight {
+  id            String   @id @default(uuid())
+  
+  // Content
+  title        String
+  content      String
+  category     String   // 'value-prop', 'customer-pain', 'technical', 'architecture', 'lessons-learned'
+  
+  // Metadata
+  walletAddress String?  @map("wallet_address") // Creator (optional for anon)
+  upvotes      Int      @default(0)
+  
+  // Status: draft, pending_review, published
+  status       String   @default("draft")
+  
+  // Timestamps
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+  @@map("cto_insights")
+}
+
 // Weekly Insights Report (generated)
 model WeeklyInsightsReport {
   id            String   @id @default(uuid())
