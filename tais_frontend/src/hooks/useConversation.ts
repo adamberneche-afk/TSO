@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Message, ConversationSession, FixedQuestion, ExtractedEntity } from '../types/conversation';
-import { FIXED_QUESTIONS } from '../types/conversation';
+import type { Message, ConversationSession, FixedQuestion, ExtractedEntity, ConversationStarter } from '../types/conversation';
+import { FIXED_QUESTIONS, getRandomStarter } from '../types/conversation';
 
 interface ConversationState {
   sessions: Record<string, ConversationSession>;
@@ -9,6 +9,7 @@ interface ConversationState {
   isProcessing: boolean;
   currentQuestionIndex: number;
   messages: Message[];
+  currentStarter: ConversationStarter | null;
   
   // Actions
   createSession: () => string;
@@ -43,19 +44,22 @@ export const useConversationStore = create<ConversationState>()(
       isProcessing: false,
       currentQuestionIndex: 0,
       messages: [],
+      currentStarter: null,
 
       createSession: () => {
         const session = createNewSession();
+        const starter = getRandomStarter();
         set((state) => ({
           sessions: { ...state.sessions, [session.id]: session },
           currentSessionId: session.id,
           messages: [{
             id: crypto.randomUUID(),
-            content: FIXED_QUESTIONS[0].question,
+            content: starter.prompt,
             role: 'assistant',
             timestamp: Date.now()
           }],
           currentQuestionIndex: 0,
+          currentStarter: starter,
           isProcessing: false
         }));
         return session.id;

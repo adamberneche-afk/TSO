@@ -53,6 +53,7 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
     currentQuestionIndex,
     isProcessing,
     currentSessionId,
+    currentStarter,
     addMessage,
     advanceQuestion,
     getCurrentQuestion,
