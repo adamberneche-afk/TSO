@@ -336,6 +336,14 @@ import { createCTOAgentRoutes } from './routes/ctoAgent';
 apiV1Router.use('/cto', rateLimiters.authenticated, createCTOAgentRoutes(prisma, logger));
 
 // ============================================
+// Memory Backup Routes
+// Cloud sync for memories (Gold tier)
+// ============================================
+import { createMemoryBackupRoutes } from './routes/memoryBackup';
+
+apiV1Router.use('/memory', createMemoryBackupRoutes(prisma, logger));
+
+// ============================================
 // Monitoring & Observability Routes
 // Prometheus metrics, health dashboard, alerts
 // ============================================

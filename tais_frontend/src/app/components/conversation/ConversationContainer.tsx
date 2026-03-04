@@ -72,6 +72,39 @@ export const ConversationContainer: React.FC<ConversationContainerProps> = ({
     }
   }, [currentSessionId, createSession]);
 
+  // Auto-save to Active Memory when component unmounts (user navigates away)
+  useEffect(() => {
+    return () => {
+      // Save working memory to active memory on unmount
+      if (currentSessionId && messages.length > 0) {
+        console.log('[Memory] Auto-saving conversation to Active Memory');
+        endSession();
+      }
+    };
+  }, [currentSessionId, messages.length, endSession]);
+
+  // Auto-save after 3 minutes of inactivity
+  useEffect(() => {
+    const INACTIVITY_TIMEOUT = 3 * 60 * 1000; // 3 minutes
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      if (currentSessionId && messages.length > 0) {
+        timeoutId = setTimeout(() => {
+          console.log('[Memory] Auto-saving due to inactivity');
+          endSession();
+          createSession(); // Start new session
+        }, INACTIVITY_TIMEOUT);
+      }
+    };
+
+    // Reset timer on any message activity
+    resetTimer();
+
+    return () => clearTimeout(timeoutId);
+  }, [currentSessionId, messages.length, endSession, createSession]);
+
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

@@ -563,3 +563,98 @@ export class ImmutableMemoryAPI {
     return all.filter(m => new Date(m.lockedAt) >= sinceDate);
   }
 }
+
+// ==================== CLOUD SYNC ====================
+
+export async function syncMemoriesToCloud(walletAddress: string): Promise<{
+  success: boolean;
+  backedUp: number;
+  error?: string;
+}> {
+  try {
+    const db = await getMemoryDB();
+    
+    // Get all active and reflective memories
+    const activeMemories = await db.getAll('activeMemory');
+    const reflectiveMemories = await db.getAll('reflectiveMemory');
+    
+    const allMemories = [...activeMemories, ...reflectiveMemories];
+    
+    if (allMemories.length === 0) {
+      return { success: true, backedUp: 0 };
+    }
+
+    const response = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/memory/backup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        wallet: walletAddress,
+        memories: allMemories,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Backup failed');
+    }
+
+    const result = await response.json();
+    console.log('[Memory] Synced to cloud:', result);
+    
+    return { success: true, backedUp: result.backedUp };
+  } catch (error) {
+    console.error('[Memory] Cloud sync error:', error);
+    return { success: false, backedUp: 0, error: String(error) };
+  }
+}
+
+export async function restoreMemoriesFromCloud(walletAddress: string): Promise<{
+  success: boolean;
+  restored: number;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/memory/restore?wallet=${walletAddress}`);
+
+    if (!response.ok) {
+      throw new Error('Restore failed');
+    }
+
+    const { memories } = await response.json();
+    
+    if (!memories || memories.length === 0) {
+      return { success: true, restored: 0 };
+    }
+
+    // Store in local IndexedDB
+    const db = await getMemoryDB();
+    
+    for (const memory of memories) {
+      await db.put('activeMemory', memory);
+    }
+
+    console.log('[Memory] Restored from cloud:', memories.length);
+    
+    return { success: true, restored: memories.length };
+  } catch (error) {
+    console.error('[Memory] Cloud restore error:', error);
+    return { success: false, restored: 0, error: String(error) };
+  }
+}
+
+export async function getCloudBackupStatus(walletAddress: string): Promise<{
+  backedUp: number;
+  lastBackup: string | null;
+}> {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/memory/status?wallet=${walletAddress}`);
+
+    if (!response.ok) {
+      throw new Error('Status check failed');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('[Memory] Backup status error:', error);
+    return { backedUp: 0, lastBackup: null };
+  }
+}

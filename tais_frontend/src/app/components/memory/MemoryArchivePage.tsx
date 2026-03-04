@@ -24,7 +24,7 @@ import {
   FolderOpen,
   Shield
 } from 'lucide-react';
-import { ReflectiveMemoryAPI, CoreMemoryAPI, ActiveMemoryAPI, ImmutableMemoryAPI, exportMemoriesToLocal, importMemoriesFromLocal, getStoredBackupFolderName } from '@/services/memory';
+import { ReflectiveMemoryAPI, CoreMemoryAPI, ActiveMemoryAPI, ImmutableMemoryAPI, exportMemoriesToLocal, importMemoriesFromLocal, getStoredBackupFolderName, syncMemoriesToCloud, restoreMemoriesFromCloud, getCloudBackupStatus } from '@/services/memory';
 import { PromoteToCoreDialog, CoreMemoryCard } from './PromoteToCoreDialog';
 import { useWallet } from '@/hooks/useWallet';
 import { providers } from 'ethers';
@@ -45,6 +45,9 @@ export function MemoryArchivePage() {
   });
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [cloudStatus, setCloudStatus] = useState<{ backedUp: number; lastBackup: string | null }>({ backedUp: 0, lastBackup: null });
   const [importing, setImporting] = useState(false);
   const [backupFolder, setBackupFolder] = useState<string | null>(null);
   const [activeMemories, setActiveMemories] = useState<any[]>([]);
@@ -159,6 +162,63 @@ export function MemoryArchivePage() {
       setExporting(false);
     }
   };
+
+  // Cloud sync handlers
+  const handleSyncToCloud = async () => {
+    if (!isConnected || !address) {
+      toast.error('Please connect your wallet to sync memories');
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      const result = await syncMemoriesToCloud(address);
+      if (result.success) {
+        toast.success(`Synced ${result.backedUp} memories to cloud`);
+        const status = await getCloudBackupStatus(address);
+        setCloudStatus(status);
+      } else {
+        toast.error(result.error || 'Sync failed');
+      }
+    } catch (err) {
+      toast.error('Cloud sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleRestoreFromCloud = async () => {
+    if (!isConnected || !address) {
+      toast.error('Please connect your wallet to restore memories');
+      return;
+    }
+
+    if (!confirm('This will merge cloud memories with your local memories. Continue?')) {
+      return;
+    }
+
+    setRestoring(true);
+    try {
+      const result = await restoreMemoriesFromCloud(address);
+      if (result.success) {
+        toast.success(`Restored ${result.restored} memories from cloud`);
+        loadMemories(); // Reload memories
+      } else {
+        toast.error(result.error || 'Restore failed');
+      }
+    } catch (err) {
+      toast.error('Cloud restore failed');
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  // Load cloud status on mount
+  useEffect(() => {
+    if (isConnected && address) {
+      getCloudBackupStatus(address).then(setCloudStatus);
+    }
+  }, [isConnected, address]);
 
   const handleLocalRestore = async () => {
     if (!isConnected || !address) {
