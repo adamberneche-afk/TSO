@@ -512,8 +512,8 @@ function CTOAgentSection({ address }: { address: string }) {
   // GitHub state
   const [githubConnected, setGithubConnected] = useState(false);
   const [githubToken, setGithubToken] = useState<string | null>(null);
-  const [cachedApiKey, setCachedApiKey] = useState<string | null>(null);
   const [repoContents, setRepoContents] = useState<string>('');
+  const apiKeyCache = useRef<string | null>(null);
   const [githubRepos, setGithubRepos] = useState<GitHubRepo[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
   const [isConnectingGithub, setIsConnectingGithub] = useState(false);
@@ -649,7 +649,7 @@ function CTOAgentSection({ address }: { address: string }) {
     setGithubRepos([]);
     setSelectedRepo(null);
     setRepoContents('');
-    setCachedApiKey(null);
+    apiKeyCache.current = null;
     toast.success('GitHub disconnected');
   };
 
@@ -791,7 +791,7 @@ function CTOAgentSection({ address }: { address: string }) {
     
     try {
       // Use cached API key or get from wallet
-      let apiKey = cachedApiKey;
+      let apiKey = apiKeyCache.current;
       
       if (!apiKey) {
         if (!window.ethereum) {
@@ -810,7 +810,7 @@ function CTOAgentSection({ address }: { address: string }) {
         }
         
         // Cache the API key for subsequent requests
-        setCachedApiKey(apiKey);
+        apiKeyCache.current = apiKey;
       }
       
       const llmClient = new LLMClient(selectedProvider, apiKey, customBaseUrl);
