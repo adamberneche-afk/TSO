@@ -11,6 +11,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
 
+## [3.3.0] - 2026-03-04
+
+### Added
+- **CTO Agent (Gold Tier)**
+  - AI thinking partner for startup ideation
+  - Chat with a CTO that asks probing questions
+  - GitHub integration - connect repos for code analysis
+  - Per-user OAuth - users connect their own GitHub accounts
+  - Cached API keys - only sign MetaMask once per session
+
+- **OpenRouter Provider**
+  - Free LLM tier with Llama, Mistral, Gemma models
+  - No subscription required
+
+- **Dynamic Conversations**
+  - Infinite question flow with LLM (removed fixed question limit)
+  - Conversational acknowledgment before follow-up questions
+
+- **Knowledge Base**
+  - Community insights from CTO conversations
+  - Categories: value prop, customer pain, technical, architecture, lessons learned
+  - Status flow: draft → pending_review → published
+
+- **GitHub OAuth Flow**
+  - Complete OAuth implementation with Vercel serverless function
+  - Token exchange via backend
+  - State parameter for CSRF protection
+
+### Fixed
+- **Gemini API**
+  - Fixed v1 API compatibility (removed system_instruction field)
+  - Changed to inline message format
+  - Model updated to gemini-2.0-flash
+
+- **LLM Cost Tracking**
+  - Removed question limit, now uses cost limit only
+
+- **API Key Caching**
+  - Using useRef instead of useState to prevent re-render resets
+
 ## [3.2.1] - 2026-03-01
 
 ### Fixed

@@ -87,6 +87,28 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 - 📱 **Multi-App Support** - Notion, Slack, Linear ready
 - 💰 **Revenue Share** - 7% from app integrations
 
+### 🤖 CTO Agent (Gold Tier - v3.3.0)
+AI thinking partner for startup ideation and code architecture review:
+
+**Features:**
+- 💬 **Conversational CTO** - Chat with an AI that acts as a CTO/technical cofounder
+- 🎯 **Thinking Partner** - Asks probing questions about value prop, customer pain points, architecture
+- 📊 **Code Analysis** - Connect GitHub repos, CTO reads and analyzes your actual code
+- 🔐 **Per-User OAuth** - Each user connects their own GitHub (private repos supported)
+- 💾 **Cached Credentials** - Sign MetaMask once, not on every message
+- 📚 **Knowledge Base** - Community insights from CTO conversations (scrubbed before public)
+
+**Use Cases:**
+- Validate startup ideas before building
+- Get architectural feedback on existing code
+- Think through second/third order consequences of technical decisions
+- Prepare for handoff to coding agents
+
+**Knowledge Base:**
+- Users can share insights from CTO conversations
+- Insights go through review before becoming public
+- Community knowledge compounds over time
+
 ### 🐛 Bug Fixes (v3.2.1 - Mar 1, 2026)
 - 🔧 **SES/React Fix** - Added polyfills for MetaMask SES compatibility
 - 🔐 **Wallet Session** - Auto-restore session on page load
@@ -97,6 +119,17 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 - 🔐 **RAG Signatures** - Only require signature when clicking Edit, not on page load
 - 📝 **Config Editor** - Replaced Monaco Editor with textarea for reliability
 - 🤖 **TensorFlow** - Fixed backend initialization for Public RAG uploads
+
+### ✨ New Features (v3.3.0 - Mar 4, 2026)
+- 🤖 **CTO Agent (Gold Tier)** - AI thinking partner for startup ideation
+  - Chat with a CTO that asks probing questions about value prop, pain points, architecture
+  - GitHub integration - connect your repos for code analysis
+  - Per-user OAuth - users connect their own GitHub accounts
+  - Cached API keys - only sign MetaMask once per session
+- 🌐 **OpenRouter Support** - Free LLM provider for dynamic conversations
+- 💬 **Dynamic Conversations** - Infinite question flow with LLM (no fixed question limit)
+- 📚 **Knowledge Base** - Community insights from CTO conversations
+- 🔐 **Improved LLM Flow** - Gemini v1 API fixes, conversational prompts
 
 ---
 
@@ -111,8 +144,10 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 - **My Agents Dashboard** - Manage saved configurations
 - **Public RAG** - End-to-end encrypted document sharing
 - **Private RAG** - 100% local knowledge base
-- **Live Agent Console** - Conversational interview with LLM integration
-- **LLM Settings** - Configure OpenAI/Anthropic API keys
+- **Live Agent Console** - Conversational interview with dynamic LLM questions (infinite flow)
+- **LLM Settings** - Configure OpenAI/Anthropic/GitHub/OpenRouter/Ollama API keys
+- **Gold Tier Dashboard** - CTO Agent for startup ideation with GitHub code analysis
+- **Knowledge Base** - Community insights from CTO conversations
 - **Platform Settings** - Memory reports, storage folders, model preferences, costs
 
 ### Browse Skills (No Auth Required)
@@ -328,23 +363,30 @@ function App() {
 
 **Location:** `tais_frontend/src/app/components/conversation/`
 
-### 🧠 LLM Provider Integration (v2.2.0 - v2.6.0)
+### 🧠 LLM Provider Integration (v2.2.0 - v3.3.0)
 
 Multi-provider AI support with secure API key management and cost tracking:
 
 **Supported Providers:**
 - **OpenAI** - GPT-4, GPT-4-turbo, GPT-3.5-turbo
 - **Anthropic** - Claude 3 Opus, Sonnet, Haiku
-- **Google Gemini** - Gemini 1.5 Pro, 1.5 Flash, Gemini Pro ✨ NEW
-- **Local** - Ollama (Llama2, Mistral, CodeLlama) - FREE
+- **Google Gemini** - Gemini 2.0 Flash, 1.5 Pro
+- **OpenRouter** - FREE tier with Llama, Mistral, Gemma models
+- **Local** - Ollama (Llama3.2, Mistral, CodeLlama) - FREE
 - **Custom** - Any OpenAI-compatible API
+
+**GitHub Integration (Gold Tier):**
+- Per-user OAuth - users connect their own GitHub accounts
+- Private repo access - CTO Agent can read your code
+- Code analysis - CTO Agent analyzes your codebase like a real CTO
 
 **Key Features:**
 - 🔐 **Secure Storage** - API keys encrypted with wallet signature, stored locally only
 - 💰 **Cost Tracking** - Real-time budget monitoring ($0.10-$5.00 configurable)
-- 🤖 **Dynamic Questions** - AI-generated contextual follow-ups based on responses
+- 🤖 **Dynamic Questions** - AI-generated contextual follow-ups (infinite flow)
 - 📊 **Usage Analytics** - Track spending per interview session
 - 🎛️ **Budget Controls** - Auto-stop at budget limit with warning at 80%
+- 💬 **Conversational Flow** - Natural back-and-forth, acknowledges responses before asking follow-ups
 
 **How It Works:**
 1. User selects AI provider and enters API key
