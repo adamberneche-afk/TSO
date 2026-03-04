@@ -512,6 +512,8 @@ function CTOAgentSection({ address }: { address: string }) {
   // GitHub state
   const [githubConnected, setGithubConnected] = useState(false);
   const [githubToken, setGithubToken] = useState<string | null>(null);
+  const [cachedApiKey, setCachedApiKey] = useState<string | null>(null);
+  const [repoContents, setRepoContents] = useState<string>('');
   const [githubRepos, setGithubRepos] = useState<GitHubRepo[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
   const [isConnectingGithub, setIsConnectingGithub] = useState(false);
@@ -646,7 +648,67 @@ function CTOAgentSection({ address }: { address: string }) {
     setGithubConnected(false);
     setGithubRepos([]);
     setSelectedRepo(null);
+    setRepoContents('');
+    setCachedApiKey(null);
     toast.success('GitHub disconnected');
+  };
+
+  const fetchRepoContents = async (repo: GitHubRepo, token: string) => {
+    try {
+      // Fetch repo tree
+      const treeResponse = await fetch(`https://api.github.com/repos/${repo.full_name}/git/trees/main?recursive=1`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json' },
+      });
+      
+      if (!treeResponse.ok) {
+        // Try master branch
+        const masterResponse = await fetch(`https://api.github.com/repos/${repo.full_name}/git/trees/master?recursive=1`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json' },
+        });
+        if (!masterResponse.ok) return '';
+        const masterData = await masterResponse.json();
+        return await fetchKeyFiles(repo.full_name, token, masterData.tree.slice(0, 50));
+      }
+      
+      const data = await treeResponse.json();
+      // Get top files (limit to avoid hitting rate limits)
+      return await fetchKeyFiles(repo.full_name, token, data.tree.slice(0, 50));
+    } catch (error) {
+      console.error('Failed to fetch repo contents:', error);
+      return '';
+    }
+  };
+
+  const fetchKeyFiles = async (fullName: string, token: string, tree: any[]) => {
+    const keyFiles = tree.filter((f: any) => 
+      f.path.endsWith('.ts') || f.path.endsWith('.tsx') || f.path.endsWith('.js') || f.path.endsWith('.json')
+    ).slice(0, 10);
+    
+    const contents: string[] = [];
+    for (const file of keyFiles) {
+      try {
+        const response = await fetch(`https://api.github.com/repos/${fullName}/contents/${file.path}`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3.raw' },
+        });
+        if (response.ok) {
+          const content = await response.text();
+          contents.push(`\n\n=== ${file.path} ===\n${content.substring(0, 3000)}`);
+        }
+      } catch (e) {}
+    }
+    return contents.join('\n');
+  };
+
+  const handleRepoSelect = async (repo: GitHubRepo) => {
+    setSelectedRepo(repo);
+    if (githubToken) {
+      const decoded = atob(githubToken);
+      const token = decoded.split(':')[0];
+      toast.info('Fetching repo code...');
+      const contents = await fetchRepoContents(repo, token);
+      setRepoContents(contents);
+      toast.success('Code loaded!');
+    }
   };
 
   const loadProjects = async () => {
@@ -728,25 +790,36 @@ function CTOAgentSection({ address }: { address: string }) {
     setIsChatting(true);
     
     try {
-      // Get API key from wallet
-      if (!window.ethereum) {
-        throw new Error('MetaMask not available');
-      }
-      
-      const { providers } = await import('ethers');
-      const provider = new providers.Web3Provider(window.ethereum);
-      const signer = await provider.getSigner();
-      
-      // Import dynamically to avoid issues
-      const { getDecryptedApiKey } = await import('../../services/apiKeyManager');
-      const apiKey = await getDecryptedApiKey(selectedProvider, signer);
+      // Use cached API key or get from wallet
+      let apiKey = cachedApiKey;
       
       if (!apiKey) {
-        throw new Error('No API key found. Configure in Settings.');
+        if (!window.ethereum) {
+          throw new Error('MetaMask not available');
+        }
+        
+        const { providers } = await import('ethers');
+        const ethProvider = new providers.Web3Provider(window.ethereum);
+        const signer = await ethProvider.getSigner();
+        
+        const { getDecryptedApiKey } = await import('../../services/apiKeyManager');
+        apiKey = await getDecryptedApiKey(selectedProvider, signer);
+        
+        if (!apiKey) {
+          throw new Error('No API key found. Configure in Settings.');
+        }
+        
+        // Cache the API key for subsequent requests
+        setCachedApiKey(apiKey);
       }
       
       const llmClient = new LLMClient(selectedProvider, apiKey, customBaseUrl);
       const project = projects.find(p => p.id === selectedProjectId);
+      
+      const projectContext = project ? `Project: ${project.name}${project.description ? ' - ' + project.description : ''}` : '';
+      const repoContext = selectedRepo && repoContents 
+        ? `\n\n=== REPO CODE (${selectedRepo.full_name}) ===\n${repoContents.substring(0, 8000)}\n=== END REPO CODE ===` 
+        : '';
       
       const ctoSystemPrompt = `You are a CTO (Chief Technology Officer) thinking partner. Your role is to help the user think through their startup idea before they hand it off to a coding agent.
 
@@ -755,12 +828,11 @@ Your job is to be a "razor" - you make them think deeper about:
 2. **Customer Experience** - How will users interact with this? What's the journey?
 3. **Pain Points** - What frustrations does this solve? What's the alternative?
 4. **Second & Third Order Consequences** - How do their technical choices impact other parts of the project? What are the ripple effects?
-5. **Purpose** - Are they staying true to their main goal? Keep them focused.
+5. **Code Analysis** - When repo code is provided, analyze it like a CTO: assess architecture, identify issues, suggest improvements
+6. **Purpose** - Are they staying true to their main goal? Keep them focused.
 
 Ask probing questions. Challenge assumptions. Make them justify their choices. Be direct but helpful.
-Don't write code - just think through the problem with them.
-
-${project ? `Current project: ${project.name}${project.description ? ' - ' + project.description : ''}` : ''}`;
+${projectContext}${repoContext}`;
 
       const messages = [
         { role: 'system' as const, content: ctoSystemPrompt },
@@ -931,8 +1003,8 @@ ${project ? `Current project: ${project.name}${project.description ? ' - ' + pro
                       {githubRepos.slice(0, 10).map((repo) => (
                         <Badge 
                           key={repo.id}
-                          className="bg-[#333333] hover:bg-[#444444] cursor-pointer text-white text-xs"
-                          onClick={() => setSelectedRepo(repo)}
+                          className={`bg-[#333333] hover:bg-[#444444] cursor-pointer text-white text-xs ${selectedRepo?.id === repo.id ? 'ring-2 ring-[#3B82F6]' : ''}`}
+                          onClick={() => handleRepoSelect(repo)}
                         >
                           {repo.name}
                         </Badge>
