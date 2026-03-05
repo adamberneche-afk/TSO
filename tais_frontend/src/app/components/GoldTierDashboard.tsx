@@ -28,6 +28,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { useLLMSettings } from '../../hooks/useLLMSettings';
 import { LLMClient } from '../../services/llmClient';
 import { configApi } from '../../services/configApi';
+import { authApi } from '../../services/authApi';
 
 interface CTOProject {
   id: string;
@@ -329,8 +330,13 @@ function KnowledgeBaseSection({ address }: { address: string }) {
   const loadInsights = async () => {
     setIsLoading(true);
     try {
+      const token = authApi.getToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       const response = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/cto/insights`, {
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
       });
       if (response.ok) {
@@ -348,9 +354,14 @@ function KnowledgeBaseSection({ address }: { address: string }) {
     if (!newInsight.title.trim() || !newInsight.content.trim()) return;
     setIsSubmitting(true);
     try {
+      const token = authApi.getToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       const response = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/cto/insights`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           ...newInsight,
