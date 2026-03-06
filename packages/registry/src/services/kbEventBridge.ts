@@ -1,5 +1,7 @@
 import { RCRTClient, KBEvent } from './rcrtClient';
-import { prisma } from '../db';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 interface KBEventQueue {
   events: KBEvent[];

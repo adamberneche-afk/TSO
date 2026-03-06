@@ -1,6 +1,7 @@
-import { ethers } from 'ethers';
-import { prisma } from '../db';
+import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
+
+const prisma = new PrismaClient();
 
 const RCRT_JWT_SECRET = process.env.RCRT_JWT_SECRET || 'rcrt-dev-secret-change-in-production';
 const RCRT_JWT_EXPIRY_MINUTES = 15;

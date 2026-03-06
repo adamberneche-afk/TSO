@@ -48,7 +48,7 @@ export class RCRTClient {
         throw new Error('Failed to refresh token');
       }
 
-      const tokens = await response.json();
+      const tokens = await response.json() as { token: string; refreshToken: string };
       this.token = tokens.token;
       this.refreshToken = tokens.refreshToken;
       this.tokenExpiry = new Date(Date.now() + 14 * 60 * 1000);
