@@ -344,6 +344,14 @@ import { createMemoryBackupRoutes } from './routes/memoryBackup';
 apiV1Router.use('/memory', createMemoryBackupRoutes(prisma, logger));
 
 // ============================================
+// RCRT Integration Routes
+// Local context orchestration with TAIS as middleware
+// ============================================
+import { createRCRTRoutes } from './routes/rcrt';
+
+apiV1Router.use('/rcrt', createRCRTRoutes(prisma, logger));
+
+// ============================================
 // Monitoring & Observability Routes
 // Prometheus metrics, health dashboard, alerts
 // ============================================
