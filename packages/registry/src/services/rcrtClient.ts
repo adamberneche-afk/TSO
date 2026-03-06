@@ -72,7 +72,7 @@ export class RCRTClient {
       throw new Error(`RCRT API error: ${response.status} - ${error}`);
     }
 
-    return response.json();
+    return response.json() as T;
   }
 
   async sendKBEvent(event: KBEvent): Promise<void> {
@@ -142,7 +142,7 @@ export async function createRCRTClient(
     throw new Error('Failed to provision RCRT client');
   }
 
-  const { token, refreshToken } = await response.json();
+  const { token, refreshToken } = await response.json() as { token: string; refreshToken: string };
 
   return new RCRTClient(baseUrl, token, refreshToken);
 }

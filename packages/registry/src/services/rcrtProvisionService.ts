@@ -26,14 +26,8 @@ export class RCRTProvisionService {
   private refreshTokens = new Map<string, { ownerId: string; expiresAt: Date }>();
 
   async provisionRCRT(ownerId: string): Promise<RCRTProvision> {
-    // Check user tier (Silver/Gold only)
-    const user = await prisma.user.findUnique({
-      where: { walletAddress: ownerId },
-      select: { tier: true }
-    });
-
-    // For now, allow all tiers during development
-    // TODO: Re-enable tier check for production
+    // Check user tier (Silver/Gold only) - Using raw query since User model doesn't exist
+    // TODO: Add tier check when User model is available
     // const allowedTiers = ['silver', 'gold'];
     // if (!user?.tier || !allowedTiers.includes(user.tier.toLowerCase())) {
     //   throw new Error('RCRT is available to Silver and Gold tier users only');
