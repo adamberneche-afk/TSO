@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-03-09
+
 ### Added
 - **RCRT Integration (Phase 1-4)**
   - Right Context, Right Time - local context orchestration with TAIS as middleware
@@ -20,8 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **RCRT Standalone**
   - Simple Rust binary with no dependencies
   - Local JSON database persistence
-  - Cross-platform build system (Windows/macOS/Linux)
   - GitHub Actions auto-release workflow
+  - First release: RCRT-linux-x64
 
 ### Planned
 - Multi-device sync with Supabase
