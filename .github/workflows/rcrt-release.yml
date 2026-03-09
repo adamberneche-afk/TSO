@@ -28,28 +28,24 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: RCRT
 
       - name: Install Rust
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
       - name: Build
-        working-directory: RCRT
         run: |
           cargo build --release -p rcrt-standalone
 
       - name: Package
         shell: bash
-        working-directory: RCRT
         run: |
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            cp target/release/rcrt-standalone.exe ../${{ matrix.artifact }}
+            cp target/release/rcrt-standalone.exe ./${{ matrix.artifact }}
           else
-            cp target/release/rcrt-standalone ../${{ matrix.artifact }}
-            chmod +x ../${{ matrix.artifact }}
+            cp target/release/rcrt-standalone ./${{ matrix.artifact }}
+            chmod +x ./${{ matrix.artifact }}
           fi
 
       - name: Upload Release Asset
