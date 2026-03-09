@@ -22,7 +22,8 @@ import {
   Lock,
   Scale,
   FolderOpen,
-  Shield
+  Shield,
+  Home
 } from 'lucide-react';
 import { ReflectiveMemoryAPI, CoreMemoryAPI, ActiveMemoryAPI, ImmutableMemoryAPI, exportMemoriesToLocal, importMemoriesFromLocal, getStoredBackupFolderName, syncMemoriesToCloud, restoreMemoriesFromCloud, getCloudBackupStatus } from '@/services/memory';
 import { PromoteToCoreDialog, CoreMemoryCard } from './PromoteToCoreDialog';
@@ -300,17 +301,27 @@ export function MemoryArchivePage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Memory Archive</h1>
-          <p className="text-muted-foreground mt-1">
-            Your agent's learned memories and insights
-          </p>
-          {backupFolder && (
-            <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
-              <Shield className="w-3 h-3" />
-              Backup folder: {backupFolder}
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => window.location.href = '/'}
+            title="Go to Home"
+          >
+            <Home className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Memory Archive</h1>
+            <p className="text-muted-foreground mt-1">
+              Your agent's learned memories and insights
             </p>
-          )}
+            {backupFolder && (
+              <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+                <Shield className="w-3 h-3" />
+                Backup folder: {backupFolder}
+              </p>
+            )}
+          </div>
         </div>
         <div className="flex gap-2">
           <Button 

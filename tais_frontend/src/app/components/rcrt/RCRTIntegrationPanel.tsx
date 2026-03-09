@@ -34,7 +34,7 @@ const getPlatform = (): Platform => {
   return 'windows';
 };
 
-const releasesBase = 'https://github.com/anomalyco/rcrt/releases/latest/download';
+const releasesBase = 'https://github.com/adamberneche-afk/TSO/releases/rcrt-v1.0.2';
 
 const installOptions = {
   sandbox: {
@@ -54,8 +54,8 @@ const installOptions = {
     icon: HardDrive,
     color: '#10b981',
     options: {
-      windows: { url: `${releasesBase}/RCRT-windows-x64.exe`, desc: 'Double-click to run' },
-      mac: { url: `${releasesBase}/RCRT-macos-x64.app`, desc: 'Double-click to install' },
+      windows: { url: `${releasesBase}/RCRT-linux-x64`, desc: 'Double-click to run' },
+      mac: { url: `${releasesBase}/RCRT-linux-x64`, desc: 'Run in terminal' },
       linux: { url: `${releasesBase}/RCRT-linux-x64`, desc: 'Run in terminal' }
     }
   }
