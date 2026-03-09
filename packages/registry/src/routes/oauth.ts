@@ -3,6 +3,12 @@ import crypto from 'crypto';
 import cryptoJS from 'crypto-js';
 import { verifySignature } from '../utils/signature';
 import { verifyNFTOwnership } from '../services/genesisConfigLimits';
+import { authenticateToken } from '../middleware/auth';
+
+interface AuthenticatedRequest extends Request {
+  walletAddress?: string;
+  appId?: string;
+}
 
 const TOKEN_EXPIRY_DAYS = 30;
 const CHALLENGE_EXPIRY_MS = 5 * 60 * 1000;
@@ -635,6 +641,85 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
     } catch (error) {
       logger.error('Sandbox token error:', error);
       res.status(500).json({ error: 'Failed to generate test token' });
+    }
+  });
+
+  // ============================================
+  // Confidential Grant Management (RCRT Integration)
+  // ============================================
+
+  router.post('/confidential-grant', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const walletAddress = req.walletAddress;
+      const { appId } = req.body;
+
+      if (!walletAddress) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      if (!appId) {
+        return res.status(400).json({ error: 'App ID required' });
+      }
+
+      await prisma.$executeRaw`
+        INSERT INTO "ConfidentialGrant" ("ownerId", "appId", "grantedAt")
+        VALUES (${walletAddress}, ${appId}, NOW())
+        ON CONFLICT DO NOTHING
+      `;
+
+      logger.info(`Confidential grant added for app ${appId} by ${walletAddress}`);
+
+      res.json({ success: true, appId, granted: true });
+    } catch (error) {
+      logger.error('Error adding confidential grant:', error);
+      res.status(500).json({ error: 'Failed to add confidential grant' });
+    }
+  });
+
+  router.delete('/confidential-grant/:appId', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const walletAddress = req.walletAddress;
+      const { appId } = req.params;
+
+      if (!walletAddress) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      await prisma.$executeRaw`
+        UPDATE "ConfidentialGrant"
+        SET "revokedAt" = NOW()
+        WHERE "ownerId" = ${walletAddress}
+        AND "appId" = ${appId}
+        AND "revokedAt" IS NULL
+      `;
+
+      logger.info(`Confidential grant revoked for app ${appId} by ${walletAddress}`);
+
+      res.json({ success: true, appId, granted: false });
+    } catch (error) {
+      logger.error('Error revoking confidential grant:', error);
+      res.status(500).json({ error: 'Failed to revoke confidential grant' });
+    }
+  });
+
+  router.get('/confidential-grants', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const walletAddress = req.walletAddress;
+
+      if (!walletAddress) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const grants = await prisma.$queryRaw<any[]>`
+        SELECT * FROM "ConfidentialGrant"
+        WHERE "ownerId" = ${walletAddress}
+        ORDER BY "grantedAt" DESC
+      `;
+
+      res.json({ grants });
+    } catch (error) {
+      logger.error('Error getting confidential grants:', error);
+      res.status(500).json({ error: 'Failed to get confidential grants' });
     }
   });
 

@@ -944,3 +944,79 @@ model SDKAPIKeyChallenge {
   @@index([expiresAt])
   @@map("sdk_api_key_challenges")
 }
+
+// ============================================
+// RCRT Integration Models
+// ============================================
+
+// RCRT Agent - Represents a provisioned RCRT agent
+model RCRTAgent {
+  id          String    @id @default(uuid())
+  agentId     String    @unique @map("agent_id")
+  ownerId     String    @map("owner_id")
+  status      String    @default("active")
+  lastSeen    DateTime? @map("last_seen")
+  provisionedAt DateTime @default(now()) @map("provisioned_at")
+
+  @@index([ownerId])
+  @@index([status])
+  @@map("rcrt_agents")
+}
+
+// KB Registry - Tracks knowledge bases attached to RCRT
+model KBRegistry {
+  id               String    @id @default(uuid())
+  kbId             String    @unique @map("kb_id")
+  ownerId          String    @map("owner_id")
+  appId            String?   @map("app_id")
+  contextType      String    @default("public") @map("context_type")
+  attachedAt       DateTime  @default(now()) @map("attached_at")
+  excludedFromRCRT Boolean   @default(false) @map("excluded_from_rcrt")
+
+  @@index([ownerId])
+  @@index([kbId])
+  @@map("kb_registries")
+}
+
+// KB Access History - Tracks KB access grants
+model KBAccessHistory {
+  id         String    @id @default(uuid())
+  kbId       String    @map("kb_id")
+  appId      String    @map("app_id")
+  grantType  String    @map("grant_type")
+  grantedAt  DateTime  @default(now()) @map("granted_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  @@index([kbId])
+  @@index([appId])
+  @@map("kb_access_history")
+}
+
+// Confidential Grant - Tracks confidential access grants
+model ConfidentialGrant {
+  id         String    @id @default(uuid())
+  ownerId    String    @map("owner_id")
+  appId      String    @map("app_id")
+  grantedAt  DateTime  @default(now()) @map("granted_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  @@index([ownerId])
+  @@index([appId])
+  @@map("confidential_grants")
+}
+
+// Routing Log - Logs routing decisions
+model RoutingLog {
+  id          String   @id @default(uuid())
+  breadcrumbId String  @map("breadcrumb_id")
+  targetAppId String   @map("target_app_id")
+  contextType String   @map("context_type")
+  decision    String
+  reason      String?
+  timestamp   DateTime @default(now()) @map("timestamp")
+
+  @@index([breadcrumbId])
+  @@index([targetAppId])
+  @@index([timestamp])
+  @@map("routing_logs")
+}

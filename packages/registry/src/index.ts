@@ -348,8 +348,10 @@ apiV1Router.use('/memory', createMemoryBackupRoutes(prisma, logger));
 // Local context orchestration with TAIS as middleware
 // ============================================
 import { createRCRTRoutes } from './routes/rcrt';
+import { createKBRoutes } from './routes/kb';
 
 apiV1Router.use('/rcrt', createRCRTRoutes(prisma, logger));
+apiV1Router.use('/kb', createKBRoutes(prisma, logger));
 
 // ============================================
 // Monitoring & Observability Routes

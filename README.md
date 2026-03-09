@@ -1,4 +1,4 @@
-# TAIS Platform v3.2.1 🚀
+# TAIS Platform v3.4.0 🚀
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -13,10 +13,11 @@
 [![Deployment](https://img.shields.io/badge/Deployment-Render-success.svg)]()
 [![Memory](https://img.shields.io/badge/Memory-v3.2-blue.svg)]()
 [![Cross-App](https://img.shields.io/badge/Cross--App-Portability-v3.0-orange.svg)]()
+[![RCRT](https://img.shields.io/badge/RCRT-v1.0-purple.svg)]()
 
-**Production-Ready • Enterprise Security • NFT-Verified • E2EE Multi-RAG • Hybrid Config Architecture • Prometheus Monitoring • Memory System v3.0 • Cross-App Agent Portability**
+**Production-Ready • Enterprise Security • NFT-Verified • E2EE Multi-RAG • Hybrid Config Architecture • Prometheus Monitoring • Memory System v3.0 • Cross-App Agent Portability • RCRT Local Context**
 
-TAIS (Think Agent Interview System) is a comprehensive platform for AI agent configuration, skill management, and privacy-first knowledge retrieval. Features a three-tier RAG (Retrieval-Augmented Generation) system with end-to-end encryption, dual-database architecture, blockchain verification via THINK Genesis Bundle NFTs, hybrid JSON + Markdown personality configuration, and Prometheus-compatible monitoring. Now includes Memory System v3.0 with local-first privacy architecture and Cross-App Agent Portability for seamless agent operation across Notion, Slack, Linear, and more.
+TAIS (Think Agent Interview System) is a comprehensive platform for AI agent configuration, skill management, and privacy-first knowledge retrieval. Features a three-tier RAG (Retrieval-Augmented Generation) system with end-to-end encryption, dual-database architecture, blockchain verification via THINK Genesis Bundle NFTs, hybrid JSON + Markdown personality configuration, and Prometheus-compatible monitoring. Now includes Memory System v3.0 with local-first privacy architecture, Cross-App Agent Portability for seamless agent operation across Notion, Slack, Linear, and more, and RCRT (Right Context, Right Time) for local context orchestration.
 
 ## 🔒 Security Status: A Grade (94%)
 
@@ -86,6 +87,21 @@ TAIS (Think Agent Interview System) is a comprehensive platform for AI agent con
 - 🔄 **Session Handoff** - Continue conversations across apps
 - 📱 **Multi-App Support** - Notion, Slack, Linear ready
 - 💰 **Revenue Share** - 7% from app integrations
+
+### 🏠 RCRT - Right Context, Right Time (v1.0.0)
+Local context orchestration with TAIS as middleware:
+
+**Features:**
+- 🔒 **Privacy-First** - Context stays on user's device
+- 🌐 **Outbound Only** - RCRT connects to TAIS, no inbound ports
+- 🔐 **JWT Authentication** - Secure token-based auth
+- 🛡️ **Security Scanner** - Content scanning before context sync
+- 📡 **Context Routing** - Private/Confidential/Shared/Public levels
+- 🔑 **Grant Management** - Control app access to sensitive context
+
+**Installation Options (6 total):**
+- 🐳 **Sandbox (Docker)** - Windows / macOS / Linux
+- ⚡ **Native (Direct)** - Windows (.exe) / macOS (.app) / Linux (binary)
 
 ### 🤖 CTO Agent (Gold Tier - v3.3.0)
 AI thinking partner for startup ideation and code architecture review:

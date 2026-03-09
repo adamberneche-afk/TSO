@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **RCRT Integration (Phase 1-4)**
+  - Right Context, Right Time - local context orchestration with TAIS as middleware
+  - JWT Provisioning Service - 15-minute token expiry with refresh
+  - Security Scanner Service - malware/exploit/PII detection
+  - Routing Engine - context-based routing (private/confidential/shared/public)
+  - KB Registration API - context type management
+  - Grant Management API - confidential access control
+  - Frontend UI - 6 installation options (Sandbox + Native × Windows/Mac/Linux)
+
+- **RCRT Standalone**
+  - Simple Rust binary with no dependencies
+  - Local JSON database persistence
+  - Cross-platform build system (Windows/macOS/Linux)
+  - GitHub Actions auto-release workflow
+
 ### Planned
 - Multi-device sync with Supabase
 - Enterprise RAG with SSO integration
