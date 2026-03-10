@@ -1,8 +1,6 @@
 // tais_frontend/src/services/rcrtApi.ts
 // RCRT Integration API
 
-const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
-
 export interface RCRTStatus {
   provisioned: boolean;
   agentId?: string;
@@ -71,15 +69,36 @@ class RCRTAPI {
   private baseUrl: string;
 
   constructor() {
+    const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
     this.baseUrl = `${API_BASE_URL}/api/v1/rcrt`;
   }
 
   private getAuthHeaders(): HeadersInit {
     const token = localStorage.getItem('auth_token');
+    console.log('Auth token present:', !!token);
     return {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
+  }
+
+  async getStatus(): Promise<RCRTStatus> {
+    const url = `${this.baseUrl}/status`;
+    console.log('Fetching RCRT status from:', url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    
+    console.log('RCRT status response:', response.status, response.statusText);
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('RCRT status error:', error);
+      throw new Error(error.error || 'Failed to get RCRT status');
+    }
+    
+    return response.json();
   }
 
   async provision(): Promise<RCRTProvision> {
@@ -91,19 +110,6 @@ class RCRTAPI {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to provision RCRT');
-    }
-    
-    return response.json();
-  }
-
-  async getStatus(): Promise<RCRTStatus> {
-    const response = await fetch(`${this.baseUrl}/status`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to get RCRT status');
     }
     
     return response.json();
@@ -154,6 +160,7 @@ class KBAPI {
   private baseUrl: string;
 
   constructor() {
+    const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
     this.baseUrl = `${API_BASE_URL}/api/v1/kb`;
   }
 
@@ -246,6 +253,7 @@ class GrantAPI {
   private baseUrl: string;
 
   constructor() {
+    const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
     this.baseUrl = `${API_BASE_URL}/api/v1/oauth`;
   }
 

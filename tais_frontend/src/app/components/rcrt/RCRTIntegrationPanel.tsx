@@ -77,10 +77,14 @@ export function RCRTIntegrationPanel({ walletAddress }: RCRTIntegrationPanelProp
   const loadStatus = async () => {
     try {
       setLoading(true);
+      console.log('Loading RCRT status...');
       const status = await rcrtApi.getStatus();
+      console.log('RCRT status loaded:', status);
       setStatus(status);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load RCRT status:', error);
+      toast.error(error.message || 'Failed to connect to RCRT');
+      setStatus({ provisioned: false });
     } finally {
       setLoading(false);
     }
