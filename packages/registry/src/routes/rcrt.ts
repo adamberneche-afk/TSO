@@ -4,6 +4,9 @@ import { securityScannerService } from '../services/securityScannerService';
 import { authenticateToken } from '../middleware/auth';
 
 interface AuthenticatedRequest extends Request {
+  user?: {
+    walletAddress: string;
+  };
   walletAddress?: string;
   appId?: string;
   scopes?: string[];
@@ -15,7 +18,7 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
   // Provision new RCRT agent
   router.post('/provision', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const walletAddress = req.walletAddress;
+      const walletAddress = req.user?.walletAddress;
       
       if (!walletAddress) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -41,7 +44,7 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
   // Get RCRT status
   router.get('/status', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const walletAddress = req.walletAddress;
+      const walletAddress = req.user?.walletAddress;
       
       if (!walletAddress) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -59,7 +62,7 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
   // Revoke RCRT access
   router.delete('/provision', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const walletAddress = req.walletAddress;
+      const walletAddress = req.user?.walletAddress;
       const { agentId } = req.body;
       
       if (!walletAddress) {
