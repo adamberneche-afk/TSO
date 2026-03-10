@@ -1,14 +1,11 @@
-import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
-
-const prisma = new PrismaClient();
 
 const RCRT_JWT_SECRET = process.env.RCRT_JWT_SECRET || 'rcrt-dev-secret-change-in-production';
 const RCRT_JWT_EXPIRY_MINUTES = 15;
 
 interface RCRTClaims {
-  sub: string;      // rcrt-agent-id
-  owner_id: string; // tenant/user ID
+  sub: string;
+  owner_id: string;
   roles: string[];
   iat: number;
   exp: number;
@@ -24,35 +21,19 @@ interface RCRTProvision {
 
 export class RCRTProvisionService {
   private refreshTokens = new Map<string, { ownerId: string; expiresAt: Date }>();
-
-  constructor() {
-    prisma.$connect().catch(console.error);
-  }
+  private provisionedAgents = new Map<string, { agentId: string; ownerId: string; status: string }>();
 
   async provisionRCRT(ownerId: string): Promise<RCRTProvision> {
-    // Check user tier (Silver/Gold only) - Using raw query since User model doesn't exist
-    // TODO: Add tier check when User model is available
-    // const allowedTiers = ['silver', 'gold'];
-    // if (!user?.tier || !allowedTiers.includes(user.tier.toLowerCase())) {
-    //   throw new Error('RCRT is available to Silver and Gold tier users only');
-    // }
-
     const agentId = `rcrt-${crypto.randomUUID()}`;
     const token = this.generateToken(agentId, ownerId);
     const refreshToken = crypto.randomUUID();
 
-    // Store refresh token
     this.refreshTokens.set(refreshToken, {
       ownerId,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
     });
 
-    // Store provisioned agent
-    await prisma.$executeRaw`
-      INSERT INTO rcrt_agents (agent_id, owner_id, status, provisioned_at)
-      VALUES (${agentId}, ${ownerId}, 'active', NOW())
-      ON CONFLICT (agent_id) DO UPDATE SET status = 'active', provisioned_at = NOW()
-    `;
+    this.provisionedAgents.set(ownerId, { agentId, ownerId, status: 'active' });
 
     return {
       agentId,
@@ -78,18 +59,6 @@ export class RCRTProvisionService {
   async validateToken(token: string): Promise<RCRTClaims> {
     try {
       const decoded = jwt.verify(token, RCRT_JWT_SECRET) as RCRTClaims;
-      
-      // Check if agent still exists and is active
-      const agent = await prisma.$queryRaw`
-        SELECT * FROM rcrt_agents 
-        WHERE agent_id = ${decoded.sub} 
-        AND status = 'active'
-      `;
-
-      if (!agent || (Array.isArray(agent) && agent.length === 0)) {
-        throw new Error('Agent not found or inactive');
-      }
-
       return decoded;
     } catch (error) {
       throw new Error('Invalid token');
@@ -108,11 +77,9 @@ export class RCRTProvisionService {
       throw new Error('Refresh token expired');
     }
 
-    // Generate new tokens
     const newToken = this.generateToken(`rcrt-${crypto.randomUUID()}`, stored.ownerId);
     const newRefreshToken = crypto.randomUUID();
 
-    // Update refresh token
     this.refreshTokens.delete(refreshToken);
     this.refreshTokens.set(newRefreshToken, {
       ownerId: stored.ownerId,
@@ -123,33 +90,25 @@ export class RCRTProvisionService {
   }
 
   async revokeProvision(agentId: string): Promise<void> {
-    await prisma.$executeRaw`
-      UPDATE rcrt_agents 
-      SET status = 'revoked' 
-      WHERE agent_id = ${agentId}
-    `;
+    for (const [ownerId, agent] of this.provisionedAgents.entries()) {
+      if (agent.agentId === agentId) {
+        agent.status = 'revoked';
+        this.provisionedAgents.set(ownerId, agent);
+        break;
+      }
+    }
   }
 
   async getStatus(ownerId: string): Promise<{ provisioned: boolean; agentId?: string; status?: string }> {
-    try {
-      const agent = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT agent_id, status FROM rcrt_agents WHERE owner_id = $1 AND status = 'active' LIMIT 1`,
-        ownerId
-      );
-
-      if (!agent || agent.length === 0) {
-        return { provisioned: false };
-      }
-
-      return {
-        provisioned: true,
-        agentId: agent[0].agent_id,
-        status: agent[0].status
-      };
-    } catch (error) {
-      console.error('Error getting RCRT status:', error);
+    const agent = this.provisionedAgents.get(ownerId);
+    if (!agent || agent.status !== 'active') {
       return { provisioned: false };
     }
+    return {
+      provisioned: true,
+      agentId: agent.agentId,
+      status: agent.status
+    };
   }
 }
 
