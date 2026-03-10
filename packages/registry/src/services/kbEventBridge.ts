@@ -17,11 +17,11 @@ class KBEventBridge {
   async initialize(userId: string): Promise<void> {
     // Get user's RCRT configuration
     const config = await prisma.$queryRaw`
-      SELECT "RCRTAgent".*, "User"."walletAddress" 
-      FROM "RCRTAgent" 
-      JOIN "User" ON "User"."walletAddress" = "RCRTAgent"."ownerId"
-      WHERE "RCRTAgent"."ownerId" = ${userId}
-      AND "RCRTAgent".status = 'active'
+      SELECT rcrt_agents.*, "User"."walletAddress" 
+      FROM rcrt_agents 
+      JOIN "User" ON "User"."walletAddress" = rcrt_agents.owner_id
+      WHERE rcrt_agents.owner_id = ${userId}
+      AND rcrt_agents.status = 'active'
     `;
 
     if (!config || (Array.isArray(config) && config.length === 0)) {

@@ -45,9 +45,9 @@ export class RCRTProvisionService {
 
     // Store provisioned agent
     await prisma.$executeRaw`
-      INSERT INTO "RCRTAgent" ("agentId", "ownerId", status, "provisionedAt")
+      INSERT INTO rcrt_agents (agent_id, owner_id, status, provisioned_at)
       VALUES (${agentId}, ${ownerId}, 'active', NOW())
-      ON CONFLICT ("agentId") DO UPDATE SET status = 'active', "provisionedAt" = NOW()
+      ON CONFLICT (agent_id) DO UPDATE SET status = 'active', provisioned_at = NOW()
     `;
 
     return {
@@ -77,8 +77,8 @@ export class RCRTProvisionService {
       
       // Check if agent still exists and is active
       const agent = await prisma.$queryRaw`
-        SELECT * FROM "RCRTAgent" 
-        WHERE "agentId" = ${decoded.sub} 
+        SELECT * FROM rcrt_agents 
+        WHERE agent_id = ${decoded.sub} 
         AND status = 'active'
       `;
 
@@ -120,16 +120,16 @@ export class RCRTProvisionService {
 
   async revokeProvision(agentId: string): Promise<void> {
     await prisma.$executeRaw`
-      UPDATE "RCRTAgent" 
+      UPDATE rcrt_agents 
       SET status = 'revoked' 
-      WHERE "agentId" = ${agentId}
+      WHERE agent_id = ${agentId}
     `;
   }
 
   async getStatus(ownerId: string): Promise<{ provisioned: boolean; agentId?: string; status?: string }> {
     const agent = await prisma.$queryRaw`
-      SELECT "agentId", status FROM "RCRTAgent" 
-      WHERE "ownerId" = ${ownerId} 
+      SELECT agent_id, status FROM rcrt_agents 
+      WHERE owner_id = ${ownerId} 
       AND status = 'active'
     `;
 
@@ -140,7 +140,7 @@ export class RCRTProvisionService {
     const agentData = Array.isArray(agent) ? agent[0] : agent;
     return {
       provisioned: true,
-      agentId: agentData.agentId,
+      agentId: agentData.agent_id,
       status: agentData.status
     };
   }

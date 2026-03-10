@@ -109,10 +109,10 @@ export class RoutingService {
     ownerId: string
   ): Promise<{ allowed: boolean; reason: string }> {
     const grant = await prisma.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "ConfidentialGrant"
-      WHERE "ownerId" = ${ownerId}
-      AND "appId" = ${targetAppId}
-      AND "revokedAt" IS NULL
+      SELECT id FROM confidential_grants
+      WHERE owner_id = ${ownerId}
+      AND app_id = ${targetAppId}
+      AND revoked_at IS NULL
       LIMIT 1
     `;
 
@@ -121,9 +121,9 @@ export class RoutingService {
     }
 
     const hasKBAccess = await prisma.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "KBAccessHistory"
-      WHERE "appId" = ${targetAppId}
-      AND "revokedAt" IS NULL
+      SELECT id FROM kb_access_history
+      WHERE app_id = ${targetAppId}
+      AND revoked_at IS NULL
       LIMIT 1
     `;
 
@@ -149,9 +149,9 @@ export class RoutingService {
     }
 
     const hasKBAccess = await prisma.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "KBAccessHistory"
-      WHERE "appId" = ${targetAppId}
-      AND "revokedAt" IS NULL
+      SELECT id FROM kb_access_history
+      WHERE app_id = ${targetAppId}
+      AND revoked_at IS NULL
       LIMIT 1
     `;
 
@@ -183,7 +183,7 @@ export class RoutingService {
 
   private async logRoutingDecision(log: RoutingLogEntry): Promise<void> {
     await prisma.$executeRaw`
-      INSERT INTO "RoutingLog" ("breadcrumbId", "targetAppId", "contextType", decision, reason, "timestamp")
+      INSERT INTO routing_logs (breadcrumb_id, target_app_id, context_type, decision, reason, timestamp)
       VALUES (${log.breadcrumbId}, ${log.targetAppId}, ${log.contextType}, ${log.decision}, ${log.reason}, ${log.timestamp})
     `;
   }
@@ -193,21 +193,21 @@ export class RoutingService {
     appId?: string,
     limit: number = 100
   ): Promise<RoutingLogEntry[]> {
-    let query = 'SELECT * FROM "RoutingLog" WHERE 1=1';
+    let query = 'SELECT * FROM routing_logs WHERE 1=1';
     const params: any[] = [];
 
     if (breadcrumbId) {
       params.push(breadcrumbId);
-      query += ` AND "breadcrumbId" = $${params.length}`;
+      query += ` AND breadcrumb_id = $${params.length}`;
     }
 
     if (appId) {
       params.push(appId);
-      query += ` AND "targetAppId" = $${params.length}`;
+      query += ` AND target_app_id = $${params.length}`;
     }
 
     params.push(limit);
-    query += ` ORDER BY "timestamp" DESC LIMIT $${params.length}`;
+    query += ` ORDER BY timestamp DESC LIMIT $${params.length}`;
 
     const result = await prisma.$queryRawUnsafe<RoutingLogEntry[]>(query, ...params);
     return result;
