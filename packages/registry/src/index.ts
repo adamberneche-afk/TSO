@@ -378,8 +378,11 @@ app.use('/admin/cron', cronRoutes(skillsPrisma, logger));
 app.use('/api/v1', apiV1Router);
 
 // Squad Gamma: API versioning - redirect /api to /api/v1 for backward compatibility
+// Only redirect exact /api (not /api/v1 or /api/anything-else)
 app.use('/api', (req: any, res: any, next: any) => {
-  req.url = '/api/v1' + req.url;
+  if (req.path === '' || req.path === '/') {
+    req.url = '/v1' + req.url;
+  }
   next();
 }, apiV1Router);
 
