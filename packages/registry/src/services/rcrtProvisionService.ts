@@ -25,6 +25,10 @@ interface RCRTProvision {
 export class RCRTProvisionService {
   private refreshTokens = new Map<string, { ownerId: string; expiresAt: Date }>();
 
+  constructor() {
+    prisma.$connect().catch(console.error);
+  }
+
   async provisionRCRT(ownerId: string): Promise<RCRTProvision> {
     // Check user tier (Silver/Gold only) - Using raw query since User model doesn't exist
     // TODO: Add tier check when User model is available
@@ -127,22 +131,25 @@ export class RCRTProvisionService {
   }
 
   async getStatus(ownerId: string): Promise<{ provisioned: boolean; agentId?: string; status?: string }> {
-    const agent = await prisma.$queryRaw`
-      SELECT agent_id, status FROM rcrt_agents 
-      WHERE owner_id = ${ownerId} 
-      AND status = 'active'
-    `;
+    try {
+      const agent = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT agent_id, status FROM rcrt_agents WHERE owner_id = $1 AND status = 'active' LIMIT 1`,
+        ownerId
+      );
 
-    if (!agent || (Array.isArray(agent) && agent.length === 0)) {
+      if (!agent || agent.length === 0) {
+        return { provisioned: false };
+      }
+
+      return {
+        provisioned: true,
+        agentId: agent[0].agent_id,
+        status: agent[0].status
+      };
+    } catch (error) {
+      console.error('Error getting RCRT status:', error);
       return { provisioned: false };
     }
-
-    const agentData = Array.isArray(agent) ? agent[0] : agent;
-    return {
-      provisioned: true,
-      agentId: agentData.agent_id,
-      status: agentData.status
-    };
   }
 }
 
