@@ -28,16 +28,10 @@ import {
   Save,
   Database,
   Globe,
-  Lock,
-  Code,
-  FileCode,
-  CheckCircle2,
-  Circle,
-  History,
-  RotateCcw,
-  Clock,
-  Brain,
+  Server,
+  Brain
 } from 'lucide-react';
+import { RCRTIntegrationPanel } from './rcrt/RCRTIntegrationPanel';
 import { AgentConfig } from '../../types/agent';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -239,6 +233,13 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
               </Button>
             )}
             <Button
+              variant="outline"
+              onClick={() => document.getElementById('rcrt-panel')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              <Server className="w-4 h-4 mr-2" />
+              RCRT
+            </Button>
+            <Button
               onClick={isConnected ? onStartNewInterview : connect}
               className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
             >
@@ -380,6 +381,13 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
                 />
               </motion.div>
             ))}
+          </div>
+        )}
+
+        {/* RCRT Integration Panel */}
+        {currentWallet && (
+          <div id="rcrt-panel" className="mt-12">
+            <RCRTIntegrationPanel walletAddress={currentWallet} />
           </div>
         )}
       </main>
