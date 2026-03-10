@@ -3,6 +3,8 @@ import { rcrtProvisionService } from '../services/rcrtProvisionService';
 import { securityScannerService } from '../services/securityScannerService';
 import { authenticateToken } from '../middleware/auth';
 
+console.log('Loading RCRT routes...');
+
 interface AuthenticatedRequest extends Request {
   user?: {
     walletAddress: string;
@@ -14,6 +16,11 @@ interface AuthenticatedRequest extends Request {
 
 export function createRCRTRoutes(prisma: any, logger: any): Router {
   const router = Router();
+
+  // Test endpoint - no auth required
+  router.get('/test', (req, res) => {
+    res.json({ status: 'ok' });
+  });
 
   // Provision new RCRT agent
   router.post('/provision', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
