@@ -69,8 +69,8 @@ class RCRTAPI {
   private baseUrl: string;
 
   constructor() {
-    const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
-    this.baseUrl = `${API_BASE_URL}/api/v1/rcrt`;
+    const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com/api/v1';
+    this.baseUrl = `${API_BASE_URL}/rcrt`;
   }
 
   private getAuthHeaders(): HeadersInit {
@@ -160,8 +160,8 @@ class KBAPI {
   private baseUrl: string;
 
   constructor() {
-    const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
-    this.baseUrl = `${API_BASE_URL}/api/v1/kb`;
+    const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com/api/v1';
+    this.baseUrl = `${API_BASE_URL}/kb`;
   }
 
   private getAuthHeaders(): HeadersInit {
@@ -253,8 +253,8 @@ class GrantAPI {
   private baseUrl: string;
 
   constructor() {
-    const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
-    this.baseUrl = `${API_BASE_URL}/api/v1/oauth`;
+    const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com/api/v1';
+    this.baseUrl = `${API_BASE_URL}/oauth`;
   }
 
   private getAuthHeaders(): HeadersInit {
