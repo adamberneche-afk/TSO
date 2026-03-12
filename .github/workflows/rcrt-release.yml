@@ -19,16 +19,28 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       
-      - name: Build for Linux
+      - name: Build
         run: |
           cargo build --release --target x86_64-unknown-linux-gnu -p rcrt-standalone
           cp target/x86_64-unknown-linux-gnu/release/rcrt-standalone ./RCRT-linux-x64
           chmod +x ./RCRT-linux-x64
       
-      - name: Upload Linux
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref }}
-          files: RCRT-linux-x64
+      - name: Create Release
+        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: RCRT ${{ github.ref }}
+          draft: false
+          prerelease: false
+      
+      - name: Upload Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          asset_path: ./RCRT-linux-x64
+          asset_name: RCRT-linux-x64
+          asset_content_type: application/octet-stream
