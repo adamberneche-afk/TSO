@@ -89,5 +89,7 @@ jobs:
             RCRT.exe
             RCRT-mac
           tag: ${{ github.event.inputs.tag || github.ref_name }}
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
