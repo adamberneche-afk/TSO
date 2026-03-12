@@ -34,7 +34,7 @@ const getPlatform = (): Platform => {
   return 'windows';
 };
 
-const releasesBase = 'https://github.com/adamberneche-afk/TSO/releases/tag/rcrt-v1.0.2';
+const releasesBase = 'https://github.com/adamberneche-afk/TSO/releases/download/rcrt-v1.0.2';
 
 const installOptions = {
   sandbox: {
@@ -54,8 +54,8 @@ const installOptions = {
     icon: HardDrive,
     color: '#10b981',
     options: {
-      windows: { url: `${releasesBase}/RCRT-linux-x64`, desc: 'Double-click to run' },
-      mac: { url: `${releasesBase}/RCRT-linux-x64`, desc: 'Run in terminal' },
+      windows: { url: `${releasesBase}/RCRT.exe`, desc: 'Double-click to run' },
+      mac: { url: `${releasesBase}/RCRT-mac`, desc: 'Run in terminal' },
       linux: { url: `${releasesBase}/RCRT-linux-x64`, desc: 'Run in terminal' }
     }
   }
