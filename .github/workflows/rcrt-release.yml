@@ -14,43 +14,16 @@ jobs:
       
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-gnu,x86_64-pc-windows-msvc,x86_64-apple-darwin
       
-      - name: Build Linux
+      - name: Build
         run: |
-          cargo build --release --target x86_64-unknown-linux-gnu -p rcrt-standalone
-          cp target/x86_64-unknown-linux-gnu/release/rcrt-standalone ./RCRT-linux-x64
+          cargo build --release -p rcrt-standalone
+          cp target/release/rcrt-standalone ./RCRT-linux-x64
           chmod +x ./RCRT-linux-x64
-          ls -la RCRT-linux-x64
       
-      - name: Build Windows
-        run: |
-          cargo build --release --target x86_64-pc-windows-msvc -p rcrt-standalone
-          cp target/x86_64-pc-windows-msvc/release/rcrt-standalone.exe ./RCRT.exe
-          ls -la RCRT.exe
-      
-      - name: Build Mac
-        run: |
-          cargo build --release --target x86_64-apple-darwin -p rcrt-standalone
-          cp target/x86_64-apple-darwin/release/rcrt-standalone ./RCRT-mac
-          chmod +x ./RCRT-mac
-          ls -la RCRT-mac
-      
-      - name: Upload Linux
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: RCRT-linux
-          path: RCRT-linux-x64
-      
-      - name: Upload Windows
-        uses: actions/upload-artifact@v4
-        with:
-          name: RCRT-win
-          path: RCRT.exe
-      
-      - name: Upload Mac
-        uses: actions/upload-artifact@v4
-        with:
-          name: RCRT-mac
-          path: RCRT-mac
+          name: RCRT-binaries
+          path: |
+            RCRT-linux-x64
