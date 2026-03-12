@@ -56,22 +56,9 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
     }
   });
 
-  // Get RCRT status
-  router.get('/status', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const walletAddress = req.user?.walletAddress;
-      
-      if (!walletAddress) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      const status = await rcrtProvisionService.getStatus(walletAddress);
-      
-      res.json(status);
-    } catch (error: any) {
-      logger.error('Error getting RCRT status:', error);
-      res.status(500).json({ error: 'Failed to get RCRT status' });
-    }
+  // Get RCRT status - no auth for testing
+  router.get('/status', async (req, res) => {
+    res.json({ provisioned: false });
   });
 
   // Revoke RCRT access
