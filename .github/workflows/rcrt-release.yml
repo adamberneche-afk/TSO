@@ -8,24 +8,23 @@ on:
 
 jobs:
   build:
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
         include:
-          - runs-on: ubuntu-latest
+          - runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            name: RCRT-linux-x64
-          - runs-on: windows-latest
+            binary: RCRT-linux-x64
+          - runner: windows-latest
             target: x86_64-pc-windows-msvc
-            name: RCRT.exe
-          - runs-on: macos-latest
+            binary: RCRT.exe
+          - runner: macos-latest
             target: x86_64-apple-darwin
-            name: RCRT-mac
-    runs-on: ${{ matrix.runs-on }}
-    permissions:
-      contents: write
+            binary: RCRT-mac
     
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
       
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -35,18 +34,14 @@ jobs:
       - name: Build
         run: cargo build --release --target ${{ matrix.target }} -p rcrt-standalone
       
-      - name: Package
-        shell: bash
+      - name: Rename binary
         run: |
-          if [ "${{ matrix.runs-on }}" = "windows-latest" ]; then
-            cp target/${{ matrix.target }}/release/rcrt-standalone.exe ./${{ matrix.name }}
-          else
-            cp target/${{ matrix.target }}/release/rcrt-standalone ./${{ matrix.name }}
-            chmod +x ./${{ matrix.name }}
-          fi
+          ${{ matrix.runner == 'windows-latest' && 'copy' || 'cp' }} target/${{ matrix.target }}/release/rcrt-standalone.exe ./${{ matrix.binary }}
       
-      - name: Upload to Release
-        run: |
-          gh release upload ${{ github.ref_name }} ./${{ matrix.name }} --clobber
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          files: ${{ matrix.binary }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
