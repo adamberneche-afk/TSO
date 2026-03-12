@@ -7,45 +7,80 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            binary: RCRT-linux-x64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            binary: RCRT.exe
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            binary: RCRT-mac
-
+  build-linux:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Add cross compiler
-        if: matrix.os != 'windows-latest'
-        run: rustup target add ${{ matrix.target }}
-
+      - uses: dtolnay/rust-toolchain@stable
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }} -p rcrt-standalone
-
+        run: cargo build --release -p rcrt-standalone
       - name: Package
         run: |
-          cp target/${{ matrix.target }}/release/rcrt-standalone ./${{ matrix.binary }}
-          ${{ matrix.os == 'ubuntu-latest' && 'chmod +x ./${{ matrix.binary }}' || '' }}
+          cp target/release/rcrt-standalone ./RCRT-linux-x64
+          chmod +x ./RCRT-linux-x64
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: RCRT-linux-x64
+          path: RCRT-linux-x64
 
-      - name: Upload Release
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build
+        run: cargo build --release -p rcrt-standalone
+      - name: Package
+        run: Copy-Item target\release\rcrt-standalone.exe RCRT.exe
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: RCRT.exe
+          path: RCRT.exe
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build
+        run: cargo build --release -p rcrt-standalone
+      - name: Package
+        run: |
+          cp target/release/rcrt-standalone ./RCRT-mac
+          chmod +x ./RCRT-mac
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: RCRT-mac
+          path: RCRT-mac
+
+  release:
+    needs: [build-linux, build-windows, build-mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Linux
+        uses: actions/download-artifact@v4
+        with:
+          name: RCRT-linux-x64
+      - name: Download Windows
+        uses: actions/download-artifact@v4
+        with:
+          name: RCRT.exe
+      - name: Download Mac
+        uses: actions/download-artifact@v4
+        with:
+          name: RCRT-mac
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ matrix.binary }}
-          draft: true
+          files: |
+            RCRT-linux-x64
+            RCRT.exe
+            RCRT-mac
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
