@@ -20,6 +20,11 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
     res.json({ status: 'ok' });
   });
 
+  // Test endpoint with auth - no DB call
+  router.get('/test-auth', authenticateToken, (req: AuthenticatedRequest, res) => {
+    res.json({ status: 'ok', wallet: req.user?.walletAddress });
+  });
+
   // Provision new RCRT agent
   router.post('/provision', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
     try {
