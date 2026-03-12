@@ -71,6 +71,7 @@ class RCRTAPI {
   constructor() {
     const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com/api/v1';
     this.baseUrl = `${API_BASE_URL}/rcrt`;
+    console.log('RCRT API baseUrl:', this.baseUrl);
   }
 
   private getAuthHeaders(): HeadersInit {
