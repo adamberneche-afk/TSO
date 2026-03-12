@@ -57,7 +57,7 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
   });
 
   // Get RCRT status - no auth for testing
-  router.get('/status', (req, res) => {
+  router.get('/rcrt-status', (req, res) => {
     res.json({ provisioned: false });
   });
 
