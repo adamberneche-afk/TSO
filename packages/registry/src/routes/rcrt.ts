@@ -3,8 +3,6 @@ import { rcrtProvisionService } from '../services/rcrtProvisionService';
 import { securityScannerService } from '../services/securityScannerService';
 import { authenticateToken } from '../middleware/auth';
 
-console.log('Loading RCRT routes...');
-
 interface AuthenticatedRequest extends Request {
   user?: {
     walletAddress: string;
