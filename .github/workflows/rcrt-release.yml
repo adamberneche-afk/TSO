@@ -1,4 +1,4 @@
-name: Build RCRT Standalone
+name: Build RCRT All Platforms
 
 on:
   push:
@@ -7,38 +7,50 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-linux:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release -p rcrt-standalone
-      - run: cp target/release/rcrt-standalone ./RCRT-linux-x64 && chmod +x ./RCRT-linux-x64
-      - uses: actions/upload-artifact@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          name: RCRT-linux-x64
+          targets: x86_64-unknown-linux-gnu,x86_64-pc-windows-msvc,x86_64-apple-darwin
+      
+      - name: Build Linux
+        run: |
+          cargo build --release --target x86_64-unknown-linux-gnu -p rcrt-standalone
+          cp target/x86_64-unknown-linux-gnu/release/rcrt-standalone ./RCRT-linux-x64
+          chmod +x ./RCRT-linux-x64
+          ls -la RCRT-linux-x64
+      
+      - name: Build Windows
+        run: |
+          cargo build --release --target x86_64-pc-windows-msvc -p rcrt-standalone
+          cp target/x86_64-pc-windows-msvc/release/rcrt-standalone.exe ./RCRT.exe
+          ls -la RCRT.exe
+      
+      - name: Build Mac
+        run: |
+          cargo build --release --target x86_64-apple-darwin -p rcrt-standalone
+          cp target/x86_64-apple-darwin/release/rcrt-standalone ./RCRT-mac
+          chmod +x ./RCRT-mac
+          ls -la RCRT-mac
+      
+      - name: Upload Linux
+        uses: actions/upload-artifact@v4
+        with:
+          name: RCRT-linux
           path: RCRT-linux-x64
-
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release -p rcrt-standalone
-      - run: copy target\release\rcrt-standalone.exe RCRT.exe
-      - uses: actions/upload-artifact@v4
+      
+      - name: Upload Windows
+        uses: actions/upload-artifact@v4
         with:
-          name: RCRT-windows
+          name: RCRT-win
           path: RCRT.exe
-
-  build-mac:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release -p rcrt-standalone
-      - run: cp target/release/rcrt-standalone ./RCRT-mac && chmod +x ./RCRT-mac
-      - uses: actions/upload-artifact@v4
+      
+      - name: Upload Mac
+        uses: actions/upload-artifact@v4
         with:
           name: RCRT-mac
           path: RCRT-mac
