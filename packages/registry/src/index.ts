@@ -350,8 +350,12 @@ apiV1Router.use('/memory', createMemoryBackupRoutes(prisma, logger));
 import { createRCRTRoutes } from './routes/rcrt';
 import { createKBRoutes } from './routes/kb';
 
+console.log('Registering RCRT routes...');
 apiV1Router.use('/rcrt', createRCRTRoutes(prisma, logger));
+console.log('RCRT routes registered');
+console.log('Registering KB routes...');
 apiV1Router.use('/kb', createKBRoutes(prisma, logger));
+console.log('KB routes registered');
 
 // ============================================
 // Monitoring & Observability Routes
