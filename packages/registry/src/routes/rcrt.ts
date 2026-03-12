@@ -26,7 +26,7 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
   });
 
   // Test endpoint with auth - no DB call
-  router.get('/test-auth', authenticateToken, (req: AuthenticatedRequest, res) => {
+  router.get('/test-auth', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
     res.json({ status: 'ok', wallet: req.user?.walletAddress });
   });
 

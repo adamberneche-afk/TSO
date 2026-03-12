@@ -34,7 +34,7 @@ const getPlatform = (): Platform => {
   return 'windows';
 };
 
-const releasesBase = 'https://github.com/adamberneche-afk/TSO/releases/rcrt-v1.0.2';
+const releasesBase = 'https://github.com/adamberneche-afk/TSO/releases/tag/rcrt-v1.0.2';
 
 const installOptions = {
   sandbox: {
