@@ -5,6 +5,11 @@ on:
     tags:
       - 'rcrt-v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release'
+        required: false
+        default: ''
 
 jobs:
   build-linux:
@@ -76,11 +81,13 @@ jobs:
         with:
           name: RCRT-mac
       - name: Create Release
+        if: github.event.inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           files: |
             RCRT-linux-x64
             RCRT.exe
             RCRT-mac
+          tag: ${{ github.event.inputs.tag || github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
