@@ -4,8 +4,9 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { createSkillsPrismaClient } from '../config/database';
 
-const prisma = new PrismaClient();
+const prisma = createSkillsPrismaClient();
 
 export interface AlignmentFactors {
   driftScore: number;

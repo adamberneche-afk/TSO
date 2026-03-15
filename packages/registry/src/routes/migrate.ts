@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { createSkillsPrismaClient } from '../config/database';
 
 const router = Router();
-const prisma = new PrismaClient();
+const prisma = createSkillsPrismaClient();
 
 router.post('/personality', async (req: Request, res: Response) => {
   try {
