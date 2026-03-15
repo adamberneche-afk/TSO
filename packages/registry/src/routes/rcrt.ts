@@ -6,9 +6,18 @@ const provisionedAgents = new Map<string, { token: string; createdAt: Date }>();
 export function createRCRTRoutes(prisma: any, logger: any): Router {
   const router = Router();
 
-  // Get RCRT status - checks if user has provisioned
+  // Get RCRT status - get wallet from query param or body
   router.get('/status', (req, res) => {
-    const wallet = req.query.wallet as string;
+    const wallet = (req.query.wallet as string) || (req.body && req.body.wallet);
+    
+    if (!wallet) {
+      return res.json({ 
+        provisioned: false,
+        connected: false,
+        message: 'No wallet provided - login required'
+      });
+    }
+    
     const agent = provisionedAgents.get(wallet);
     
     if (agent) {
@@ -21,14 +30,15 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
     } else {
       res.json({ 
         provisioned: false,
-        connected: false 
+        connected: false,
+        message: 'Not provisioned - click Provision to get started'
       });
     }
   });
 
   // Provision RCRT - creates a token for the user
   router.post('/provision', (req, res) => {
-    const wallet = req.query.wallet as string || req.body.wallet;
+    const wallet = (req.query.wallet as string) || (req.body && req.body.wallet);
     
     if (!wallet) {
       return res.status(400).json({ error: 'Wallet address required' });
@@ -39,6 +49,8 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
       token, 
       createdAt: new Date() 
     });
+
+    console.log('Provisioned RCRT for wallet:', wallet);
 
     res.json({
       success: true,
