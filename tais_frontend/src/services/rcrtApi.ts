@@ -1,6 +1,8 @@
 // tais_frontend/src/services/rcrtApi.ts
 // RCRT Integration API
 
+import { env } from '../lib/env';
+
 export interface RCRTStatus {
   provisioned: boolean;
   agentId?: string;
@@ -69,8 +71,8 @@ class RCRTAPI {
   private baseUrl: string;
 
   constructor() {
-    // Hardcoded for now - Vite env vars not working
-    this.baseUrl = 'https://tso.onrender.com/api/v1/rcrt';
+    // Use env wrapper
+    this.baseUrl = `${env.registryUrl}/rcrt`;
     console.log('RCRT API baseUrl:', this.baseUrl);
   }
 
@@ -90,15 +92,15 @@ class RCRTAPI {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
-    
+
     console.log('RCRT status response:', response.status, response.statusText);
-    
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Unknown error' }));
       console.error('RCRT status error:', error);
       throw new Error(error.error || 'Failed to get RCRT status');
     }
-    
+
     return response.json();
   }
 
@@ -107,12 +109,12 @@ class RCRTAPI {
       method: 'POST',
       headers: this.getAuthHeaders(),
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to provision RCRT');
     }
-    
+
     return response.json();
   }
 
@@ -122,7 +124,7 @@ class RCRTAPI {
       headers: this.getAuthHeaders(),
       body: JSON.stringify({ agentId }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to revoke RCRT');
     }
@@ -134,11 +136,11 @@ class RCRTAPI {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to refresh token');
     }
-    
+
     return response.json();
   }
 
@@ -148,11 +150,11 @@ class RCRTAPI {
       headers: this.getAuthHeaders(),
       body: JSON.stringify({ content }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to scan content');
     }
-    
+
     return response.json();
   }
 }
@@ -161,7 +163,7 @@ class KBAPI {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = 'https://tso.onrender.com/api/v1/kb';
+    this.baseUrl = `${env.registryUrl}/kb`;
   }
 
   private getAuthHeaders(): HeadersInit {
@@ -190,11 +192,11 @@ class KBAPI {
         excludeFromRCRT: options?.excludeFromRCRT || false,
       }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to register KB');
     }
-    
+
     return response.json();
   }
 
@@ -203,11 +205,11 @@ class KBAPI {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to get KB registries');
     }
-    
+
     return response.json();
   }
 
@@ -217,7 +219,7 @@ class KBAPI {
       headers: this.getAuthHeaders(),
       body: JSON.stringify({ contextType }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to update context type');
     }
@@ -229,7 +231,7 @@ class KBAPI {
       headers: this.getAuthHeaders(),
       body: JSON.stringify({ exclude }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to update RCRT exclusion');
     }
@@ -240,11 +242,11 @@ class KBAPI {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to get access history');
     }
-    
+
     return response.json();
   }
 }
@@ -253,7 +255,7 @@ class GrantAPI {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = 'https://tso.onrender.com/api/v1/oauth';
+    this.baseUrl = `${env.registryUrl}/oauth`;
   }
 
   private getAuthHeaders(): HeadersInit {
@@ -270,7 +272,7 @@ class GrantAPI {
       headers: this.getAuthHeaders(),
       body: JSON.stringify({ appId }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to add confidential grant');
     }
@@ -281,7 +283,7 @@ class GrantAPI {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to revoke confidential grant');
     }
@@ -292,11 +294,11 @@ class GrantAPI {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to get confidential grants');
     }
-    
+
     return response.json();
   }
 }
