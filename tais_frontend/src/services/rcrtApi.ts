@@ -98,8 +98,9 @@ class RCRTAPI {
   private baseUrl: string;
 
   constructor() {
-    // Use env wrapper
-    this.baseUrl = `${env.registryUrl}/rcrt`;
+    // Use env wrapper with fallback
+    const registryUrl = env.registryUrl || 'https://tso.onrender.com';
+    this.baseUrl = `${registryUrl}/rcrt`;
     console.log('RCRT API baseUrl:', this.baseUrl);
   }
 
