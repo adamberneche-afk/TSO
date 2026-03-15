@@ -114,7 +114,8 @@ class RCRTAPI {
   }
 
   async getStatus(): Promise<RCRTStatus> {
-    const wallet = localStorage.getItem('wallet_address') || localStorage.getItem('wallet');
+    const wallet = localStorage.getItem('wallet_address') || localStorage.getItem('wallet') || localStorage.getItem('walletAddress');
+    console.log('Wallet from storage:', wallet);
     const url = wallet ? `${this.baseUrl}/status?wallet=${wallet}` : `${this.baseUrl}/status`;
     console.log('Fetching RCRT status from:', url);
     const response = await fetch(url, {
