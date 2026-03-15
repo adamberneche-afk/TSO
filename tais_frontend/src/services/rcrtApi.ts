@@ -114,8 +114,8 @@ class RCRTAPI {
   }
 
   async getStatus(): Promise<RCRTStatus> {
-    const wallet = localStorage.getItem('wallet_address');
-    const url = `${this.baseUrl}/status?wallet=${wallet}`;
+    const wallet = localStorage.getItem('wallet_address') || localStorage.getItem('wallet');
+    const url = wallet ? `${this.baseUrl}/status?wallet=${wallet}` : `${this.baseUrl}/status`;
     console.log('Fetching RCRT status from:', url);
     const response = await fetch(url, {
       method: 'GET',
@@ -134,7 +134,10 @@ class RCRTAPI {
   }
 
   async provision(): Promise<RCRTProvision> {
-    const wallet = localStorage.getItem('wallet_address');
+    const wallet = localStorage.getItem('wallet_address') || localStorage.getItem('wallet');
+    if (!wallet) {
+      throw new Error('Wallet not found. Please connect your wallet first.');
+    }
     const response = await fetch(`${this.baseUrl}/provision`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
@@ -150,7 +153,7 @@ class RCRTAPI {
   }
 
   async revoke(agentId: string): Promise<void> {
-    const wallet = localStorage.getItem('wallet_address');
+    const wallet = localStorage.getItem('wallet_address') || localStorage.getItem('wallet');
     const response = await fetch(`${this.baseUrl}/provision`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
