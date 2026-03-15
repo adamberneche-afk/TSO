@@ -32,17 +32,24 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
     }
 
     try {
-      const agent = await prisma.$queryRawUnsafe(
-        `SELECT agent_id, token, created_at FROM rcrt_agents WHERE owner_id = $1 AND revoked = false ORDER BY created_at DESC LIMIT 1`,
-        wallet
-      ) as { agent_id: string; token: string; created_at: Date }[];
+      const agents = await prisma.rCRTAgent.findMany({
+        where: {
+          ownerId: wallet,
+          revoked: false
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: 1
+      });
 
-      if (agent && agent.length > 0) {
-        const a = agent[0];
+      if (agents && agents.length > 0) {
+        const a = agents[0];
         res.json({ 
           provisioned: true,
-          connected: false, // RCRT connection status would need a separate heartbeat; we don't track here
+          connected: false,
           token: a.token,
+          agentId: a.agentId,
           instructions: 'RCRT is provisioned. Make sure RCRT is running and connected to TAIS.'
         });
       } else {
@@ -76,10 +83,18 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
       const agentId = `rcrt-${crypto.randomUUID()}`;
       const now = new Date();
 
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO rcrt_agents (agent_id, owner_id, token, created_at, revoked) VALUES ($1, $2, $3, $4, false)`,
-        agentId, wallet, token, now
-      );
+      // Use typed insert via Prisma
+      await prisma.rCRTAgent.create({
+        data: {
+          agentId: agentId,
+          ownerId: wallet,
+          token: token,
+          status: 'active',
+          revoked: false,
+          provisionedAt: now,
+          createdAt: now
+        }
+      });
 
       logger.info(`RCRT provisioned for wallet ${wallet}`);
 
@@ -112,16 +127,17 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
 
     try {
       // Find wallet by token where not revoked
-      const agent = await prisma.$queryRawUnsafe(
-        `SELECT owner_id FROM rcrt_agents WHERE token = $1 AND revoked = false LIMIT 1`,
-        token
-      ) as { owner_id: string }[];
+      const agent = await prisma.rCRTAgent.findFirst({
+        where: {
+          token: token,
+          revoked: false
+        }
+      });
 
-      if (agent && agent.length > 0) {
-        const wallet = agent[0].owner_id;
+      if (agent) {
         res.json({ 
           success: true, 
-          wallet: wallet,
+          wallet: agent.ownerId,
           message: 'Connected to TAIS' 
         });
       } else {
@@ -142,16 +158,26 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
     }
     try {
       if (agentId) {
-        await prisma.$executeRawUnsafe(
-          `UPDATE rcrt_agents SET revoked = true WHERE owner_id = $1 AND agent_id = $2`,
-          wallet, agentId
-        );
+        await prisma.rCRTAgent.updateMany({
+          where: {
+            ownerId: wallet,
+            agentId: agentId
+          },
+          data: {
+            revoked: true
+          }
+        });
       } else {
         // Revoke all active tokens for wallet
-        await prisma.$executeRawUnsafe(
-          `UPDATE rcrt_agents SET revoked = true WHERE owner_id = $1 AND revoked = false`,
-          wallet
-        );
+        await prisma.rCRTAgent.updateMany({
+          where: {
+            ownerId: wallet,
+            revoked: false
+          },
+          data: {
+            revoked: true
+          }
+        });
       }
       logger.info(`RCRT revoked for wallet ${wallet}${agentId ? ` agentId ${agentId}` : ''}`);
       res.json({ success: true, message: 'RCRT access revoked' });
