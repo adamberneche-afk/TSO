@@ -48,7 +48,8 @@ class ConfigAPI {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = `${API_BASE_URL}/api/v1/configurations`;
+    // API_BASE_URL already includes /api/v1 from env var
+    this.baseUrl = `${API_BASE_URL}/configurations`;
   }
 
   private getHeaders(): HeadersInit {
