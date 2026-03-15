@@ -72,9 +72,9 @@ const prisma = process.env.RAG_DATABASE_URL && process.env.SKILLS_DATABASE_URL
 // Squad Zeta Fix: Configure trust proxy for IP spoofing prevention
 const trustedProxies = process.env.TRUSTED_PROXIES?.split(',') || false;
 
-// Initialize services
-const authService = new AuthService(prisma, logger);
-const apiKeyService = new ApiKeyService(prisma);
+// Initialize services - use skillsPrisma for auth-related services
+const authService = new AuthService(skillsPrisma, logger);
+const apiKeyService = new ApiKeyService(skillsPrisma);
 const nftService = new NFTVerificationService({
   publisherAddress: process.env.PUBLISHER_NFT_ADDRESS || process.env.GENESIS_CONTRACT || '',
   auditorAddress: process.env.AUDITOR_NFT_ADDRESS || process.env.GENESIS_CONTRACT || '',
@@ -109,7 +109,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Squad Gamma: Request logging
 app.use((req: any, res: any, next: any) => {
-  req.prisma = prisma;
+  req.prisma = skillsPrisma; // Use skillsPrisma for auth/config routes
   req.log = logger.child({ requestId: req.id });
   
   req.log.info({

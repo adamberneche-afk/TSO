@@ -3,10 +3,12 @@
 
 import { ethers } from 'ethers';
 import { PrismaClient } from '@prisma/client';
+import { createSkillsPrismaClient } from '../config/database';
 import { cacheGet, cacheSet, cacheDelete, isRedisAvailable } from './redis';
 import { createVersionSnapshot } from './configurationVersioning';
 
-const prisma = new PrismaClient();
+const skillsPrisma = createSkillsPrismaClient();
+const prisma = skillsPrisma;
 
 const GENESIS_CONTRACT = '0x11B3EfbF04F0bA505F380aC20444B6952970AdA6';
 

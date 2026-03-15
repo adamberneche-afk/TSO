@@ -1,7 +1,8 @@
 import { PrismaClient } from '@prisma/client';
+import { createSkillsPrismaClient } from '../config/database';
 import { canCreateConfiguration } from './genesisConfigLimits';
 
-const prisma = new PrismaClient();
+const prisma = createSkillsPrismaClient();
 
 const TIER_LIMITS = {
   bronze: { days: 7, maxVersions: 10 },
