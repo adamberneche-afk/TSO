@@ -42,6 +42,12 @@
 - Routes receiving `prisma` param got RAG client instead of Skills client
 - Caused 500 errors on /configurations endpoint and other auth routes
 
+**Additional Fixes:**
+- `packages/registry/src/index.ts` - Cron routes now use ragPrisma (RAG tables)
+- `tais_frontend/src/services/authApi.ts` - Logout now clears wallet_address
+- `tais_frontend/src/app/components/DeveloperPortal.tsx` - Uses consistent wallet key
+- `tais_frontend/src/services/memory/memoryInitializer.ts` - Uses consistent wallet key
+
 ---
 
 ## 🎯 DEPLOYMENT STATUS (Mar 15, 2026)
