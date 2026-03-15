@@ -61,8 +61,9 @@ class AuthAPI {
 
     const result = await response.json();
     
-    // Store token in localStorage
+    // Store token and wallet in localStorage
     localStorage.setItem('auth_token', result.token);
+    localStorage.setItem('wallet_address', result.walletAddress);
     
     return result;
   }
