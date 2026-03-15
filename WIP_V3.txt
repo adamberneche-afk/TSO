@@ -1,8 +1,46 @@
 # TAIS Platform - Development Planning V3
 **Created:** February 20, 2026  
 **Last Updated:** March 15, 2026
-**Status:** v3.4.3 - DEPLOYED ✅
-**Version:** 3.4.3 (Production)
+**Status:** v3.4.4 - BUG FIXES IN PROGRESS
+**Version:** 3.4.4 (Production)
+
+---
+
+## 🎯 BUG FIXES (Mar 15, 2026)
+
+### Dual-Database Prisma Client Fixes ✅
+- Fixed services using wrong database client in dual-db mode
+- Most routes need Skills DB (tais_registry) for auth/config data
+- Was connecting to RAG DB (tais-rag) instead
+
+**Files Fixed (Services):**
+- `packages/registry/src/services/genesisConfigLimits.ts` - Use skillsPrisma
+- `packages/registry/src/services/configurationVersioning.ts` - Use skillsPrisma
+- `packages/registry/src/services/kbEventBridge.ts` - Use skillsPrisma
+- `packages/registry/src/services/routingService.ts` - Use skillsPrisma
+- `packages/registry/src/services/memoryReports.ts` - Use skillsPrisma
+- `packages/registry/src/services/memoryReportEmail.ts` - Use skillsPrisma
+- `packages/registry/src/routes/migrate.ts` - Use skillsPrisma
+
+**Files Fixed (index.ts routes):**
+- `packages/registry/src/index.ts` - AuthService/ApiKeyService now use skillsPrisma
+- `packages/registry/src/index.ts` - req.prisma set to skillsPrisma
+- `packages/registry/src/index.ts` - analytics routes use skillsPrisma
+- `packages/registry/src/index.ts` - cto routes use skillsPrisma
+- `packages/registry/src/index.ts` - sdk/auth routes use skillsPrisma
+- `packages/registry/src/index.ts` - oauth routes use skillsPrisma
+- `packages/registry/src/index.ts` - agent routes use skillsPrisma
+- `packages/registry/src/index.ts` - billing routes use skillsPrisma
+- `packages/registry/src/index.ts` - enterprise routes use skillsPrisma
+- `packages/registry/src/index.ts` - memory routes use skillsPrisma
+- `packages/registry/src/index.ts` - rcrt routes use skillsPrisma
+- `packages/registry/src/index.ts` - guided discovery routes use skillsPrisma
+
+**Root Cause:**
+- In dual-db mode, `prisma` variable was set to `ragPrisma`
+- Services creating `new PrismaClient()` used wrong database
+- Routes receiving `prisma` param got RAG client instead of Skills client
+- Caused 500 errors on /configurations endpoint and other auth routes
 
 ---
 

@@ -250,7 +250,7 @@ apiV1Router.use('/configurations',
 import { createGuidedDiscoveryRoutes } from './routes/guidedDiscovery';
 
 apiV1Router.use('/guided-discovery',
-  createGuidedDiscoveryRoutes(prisma, logger)
+  createGuidedDiscoveryRoutes(skillsPrisma, logger)
 );
 
 // Admin-only migration endpoint for v2.7.0 hybrid config
@@ -284,73 +284,21 @@ apiV1Router.use('/rag',
 // Requires Gold tier (Genesis NFT holder)
 // ============================================
 import { createSDKAuthRoutes } from './routes/sdkAuth';
-
-apiV1Router.use('/sdk/auth', createSDKAuthRoutes(prisma, logger));
-
-// ============================================
-// OAuth Routes (v3.0.0 - Cross-App Agent Portability)
-// Third-party app authorization
-// ============================================
 import { createOAuthRoutes } from './routes/oauth';
-
-apiV1Router.use('/oauth', createOAuthRoutes(prisma, logger));
-
-// ============================================
-// Agent Context Routes (v3.0.0)
-// Cross-app agent context, memory, sessions
-// ============================================
 import { createAgentRoutes } from './routes/agent';
-
-apiV1Router.use('/agent', createAgentRoutes(prisma, logger));
-
-// ============================================
-// Billing Routes (v3.0.0 - Cross-App Agent Portability)
-// Usage tracking, invoices, and billing
-// ============================================
 import { createBillingRoutes } from './routes/billing';
-
-apiV1Router.use('/billing', rateLimiters.authenticated, authMiddleware, createBillingRoutes(prisma, logger));
-
-// ============================================
-// Enterprise Routes (v3.0.0 - Cross-App Agent Portability)
-// User permissions, org management, audit logs
-// ============================================
 import { createEnterpriseRoutes } from './routes/enterprise';
-
-apiV1Router.use('/enterprise', rateLimiters.authenticated, authMiddleware, createEnterpriseRoutes(prisma, logger));
-
-// ============================================
-// Analytics Routes
-// SDK integration tracking for weekly insights
-// ============================================
-import { createAnalyticsRoutes } from './routes/analytics';
-
-apiV1Router.use('/analytics', createAnalyticsRoutes(prisma, logger));
-
-// ============================================
-// CTO Agent Routes
-// Full app development partner (Gold tier)
-// ============================================
-import { createCTOAgentRoutes } from './routes/ctoAgent';
-
-apiV1Router.use('/cto', rateLimiters.authenticated, createCTOAgentRoutes(prisma, logger));
-
-// ============================================
-// Memory Backup Routes
-// Cloud sync for memories (Gold tier)
-// ============================================
 import { createMemoryBackupRoutes } from './routes/memoryBackup';
-
-apiV1Router.use('/memory', createMemoryBackupRoutes(prisma, logger));
-
-// ============================================
-// RCRT Integration Routes
-// Local context orchestration with TAIS as middleware
-// ============================================
 import { createRCRTRoutes } from './routes/rcrt';
 import { createKBRoutes } from './routes/kb';
 
-apiV1Router.use('/rcrt', rateLimiters.rcrt, createRCRTRoutes(prisma, logger));
+apiV1Router.use('/sdk/auth', createSDKAuthRoutes(skillsPrisma, logger));
+apiV1Router.use('/oauth', createOAuthRoutes(skillsPrisma, logger));
+apiV1Router.use('/agent', createAgentRoutes(skillsPrisma, logger));
+apiV1Router.use('/billing', rateLimiters.authenticated, authMiddleware, createBillingRoutes(skillsPrisma, logger));
+apiV1Router.use('/enterprise', rateLimiters.authenticated, authMiddleware, createEnterpriseRoutes(skillsPrisma, logger));
+apiV1Router.use('/memory', createMemoryBackupRoutes(skillsPrisma, logger));
+apiV1Router.use('/rcrt', rateLimiters.rcrt, createRCRTRoutes(skillsPrisma, logger));
 apiV1Router.use('/kb', createKBRoutes(prisma, logger));
 
 // ============================================
