@@ -320,7 +320,7 @@ app.use('/admin/migration', adminMiddleware, migrationFixRoutes);
 
 // Cron endpoints (protected by secret)
 import cronRoutes from './routes/cron';
-app.use('/admin/cron', cronRoutes(skillsPrisma, logger));
+app.use('/admin/cron', cronRoutes(ragPrisma, logger));
 
 // Mount API v1 router
 app.use('/api/v1', apiV1Router);
