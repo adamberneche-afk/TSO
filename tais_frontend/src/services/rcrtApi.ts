@@ -133,9 +133,11 @@ class RCRTAPI {
   }
 
   async provision(): Promise<RCRTProvision> {
+    const wallet = localStorage.getItem('wallet_address');
     const response = await fetch(`${this.baseUrl}/provision`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
+      body: JSON.stringify({ wallet }),
     });
 
     if (!response.ok) {
@@ -147,10 +149,11 @@ class RCRTAPI {
   }
 
   async revoke(agentId: string): Promise<void> {
+    const wallet = localStorage.getItem('wallet_address');
     const response = await fetch(`${this.baseUrl}/provision`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify({ agentId }),
+      body: JSON.stringify({ wallet, agentId }),
     });
 
     if (!response.ok) {

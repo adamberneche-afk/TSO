@@ -1,7 +1,7 @@
 // tais_frontend/src/services/authApi.ts
 // Authentication API for wallet-based JWT
 
-const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
 
 interface AuthResponse {
   token: string;

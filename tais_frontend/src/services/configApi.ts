@@ -3,7 +3,7 @@
 
 import { authApi } from './authApi';
 
-const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com/api/v1';
 
 interface ConfigStatus {
   allowed: boolean;
