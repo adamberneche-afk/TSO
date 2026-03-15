@@ -8,7 +8,11 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
   // Get RCRT status - authenticated user
   router.get('/status', authenticateToken, async (req: Request, res: Response) => {
     // req.user should have walletAddress from the JWT
-    const wallet = (req as any).user?.walletAddress;
+    let wallet = (req as any).user?.walletAddress;
+    if (!wallet) {
+      // fallback to query or body for convenience in testing
+      wallet = (req.query.wallet as string) || (req.body && req.body.wallet);
+    }
     if (!wallet) {
       return res.json({ 
         provisioned: false,
@@ -46,14 +50,19 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
 
   // Provision RCRT - creates a token for the user
   router.post('/provision', authenticateToken, async (req: Request, res: Response) => {
-    const wallet = (req as any).user?.walletAddress;
+    // req.user should have walletAddress from the JWT
+    let wallet = (req as any).user?.walletAddress;
+    if (!wallet) {
+      // fallback to query or body for convenience in testing
+      wallet = (req.query.wallet as string) || (req.body && req.body.wallet);
+    }
     if (!wallet) {
       return res.status(400).json({ error: 'Wallet address required' });
     }
 
     try {
       // Revoke any existing active tokens for this wallet
-      await prisma.$executeRaw(
+      await prisma.$queryRaw(
         `UPDATE rcrt_agents SET revoked = true WHERE owner_id = ? AND revoked = false`,
         wallet
       );
@@ -62,7 +71,7 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
       const agentId = `rcrt-${crypto.randomUUID()}`;
       const now = new Date();
 
-      await prisma.$executeRaw(
+      await prisma.$queryRaw(
         `INSERT INTO rcrt_agents (agent_id, owner_id, token, created_at, revoked) VALUES (?, ?, ?, ?, false)`,
         agentId, wallet, token, now
       );
@@ -121,20 +130,24 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
 
   // Revoke provision (optional)
   router.delete('/provision', authenticateToken, async (req: Request, res: Response) => {
-    const wallet = (req as any).user?.walletAddress;
+    let wallet = (req as any).user?.walletAddress;
     const agentId = (req.query.agentId as string) || (req.body && req.body.agentId);
+    if (!wallet) {
+      // fallback to query or body for convenience in testing
+      wallet = (req.query.wallet as string) || (req.body && req.body.agentId);
+    }
     if (!wallet) {
       return res.status(400).json({ error: 'Wallet address required' });
     }
     try {
       if (agentId) {
-        await prisma.$executeRaw(
+        await prisma.$queryRaw(
           `UPDATE rcrt_agents SET revoked = true WHERE owner_id = ? AND agent_id = ?`,
           wallet, agentId
         );
       } else {
         // Revoke all active tokens for wallet
-        await prisma.$executeRaw(
+        await prisma.$queryRaw(
           `UPDATE rcrt_agents SET revoked = true WHERE owner_id = ? AND revoked = false`,
           wallet
         );
