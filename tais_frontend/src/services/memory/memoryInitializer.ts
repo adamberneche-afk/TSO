@@ -137,7 +137,7 @@ async function extractBrowserData(): Promise<BrowserData> {
   }
 
   try {
-    const walletAddress = localStorage.getItem('walletAddress');
+    const walletAddress = localStorage.getItem('wallet_address') || localStorage.getItem('walletAddress');
     data.wallet.connected = !!walletAddress;
     data.wallet.address = walletAddress;
   } catch (e) {

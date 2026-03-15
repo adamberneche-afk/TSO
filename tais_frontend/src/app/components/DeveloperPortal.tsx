@@ -94,7 +94,7 @@ export function DeveloperPortal({ onBack }: DeveloperPortalProps) {
   }, [wallet.connected, wallet.address]);
 
   const checkWalletConnection = async () => {
-    const savedWallet = localStorage.getItem('walletAddress');
+    const savedWallet = localStorage.getItem('wallet_address') || localStorage.getItem('walletAddress');
     if (savedWallet) {
       setWallet({ connected: true, address: savedWallet });
     }
@@ -225,7 +225,7 @@ export function DeveloperPortal({ onBack }: DeveloperPortalProps) {
         });
         if (accounts.length > 0) {
           const address = accounts[0];
-          localStorage.setItem('walletAddress', address);
+          localStorage.setItem('wallet_address', address);
           setWallet({ connected: true, address });
           toast.success('Wallet connected');
         }

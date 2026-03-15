@@ -80,6 +80,7 @@ class AuthAPI {
    */
   logout(): void {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('wallet_address');
   }
 
   /**
