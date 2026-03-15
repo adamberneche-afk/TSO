@@ -15,9 +15,13 @@ import {
   Apple,
   Terminal,
   Box,
-  HardDrive
+  HardDrive,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  Filter
 } from 'lucide-react';
-import { rcrtApi, RCRTStatus } from '../../../services/rcrtApi';
+import { rcrtApi, RCRTStatus, RCRTAuditLog, AuditLogResponse } from '../../../services/rcrtApi';
 
 interface RCRTIntegrationPanelProps {
   walletAddress: string;
@@ -67,6 +71,13 @@ export function RCRTIntegrationPanel({ walletAddress }: RCRTIntegrationPanelProp
   const [provisioning, setProvisioning] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  
+  // Audit log state
+  const [showAuditLog, setShowAuditLog] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<RCRTAuditLog[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditFilter, setAuditFilter] = useState<{ action?: string; status?: string }>({});
+  const [auditPagination, setAuditPagination] = useState({ total: 0, limit: 50, offset: 0, hasMore: false });
 
   const platform = getPlatform();
 
@@ -124,6 +135,39 @@ export function RCRTIntegrationPanel({ walletAddress }: RCRTIntegrationPanelProp
       toast.error('Sync failed');
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const loadAuditLogs = async () => {
+    try {
+      setAuditLoading(true);
+      const response: AuditLogResponse = await rcrtApi.getAuditLogs({
+        ...auditFilter,
+        limit: auditPagination.limit,
+        offset: auditPagination.offset
+      });
+      setAuditLogs(response.logs);
+      setAuditPagination(response.pagination);
+    } catch (error: any) {
+      console.error('Failed to load audit logs:', error);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const toggleAuditLog = () => {
+    const newShow = !showAuditLog;
+    setShowAuditLog(newShow);
+    if (newShow && auditLogs.length === 0) {
+      loadAuditLogs();
+    }
+  };
+
+  const handleAuditFilter = (key: 'action' | 'status', value: string) => {
+    setAuditFilter(prev => ({ ...prev, [key]: value || undefined }));
+    setAuditPagination(prev => ({ ...prev, offset: 0 }));
+    if (showAuditLog) {
+      setTimeout(loadAuditLogs, 0);
     }
   };
 
@@ -308,6 +352,140 @@ export function RCRTIntegrationPanel({ walletAddress }: RCRTIntegrationPanelProp
         <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '16px', textAlign: 'center' }}>
           Recommended: <strong>Native (Direct)</strong> for easiest setup - no dependencies required
         </p>
+      </div>
+
+      {/* Audit Log Section */}
+      <div style={{ marginTop: '24px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+        <button 
+          onClick={toggleAuditLog}
+          style={{ 
+            display: 'flex', alignItems: 'center', gap: '8px', 
+            padding: '8px 0', background: 'none', border: 'none', 
+            cursor: 'pointer', fontSize: '14px', fontWeight: '600', color: '#374151'
+          }}
+        >
+          {showAuditLog ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          <FileText size={18} />
+          Audit Log
+          <span style={{ fontSize: '12px', fontWeight: 'normal', color: '#9ca3af' }}>
+            ({auditPagination.total} entries)
+          </span>
+        </button>
+
+        {showAuditLog && (
+          <div style={{ padding: '16px', background: '#f9fafb', borderRadius: '8px', marginTop: '12px' }}>
+            {/* Filters */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Filter size={14} style={{ color: '#6b7280' }} />
+                <select 
+                  value={auditFilter.action || ''}
+                  onChange={(e) => handleAuditFilter('action', e.target.value)}
+                  style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px' }}
+                >
+                  <option value="">All Actions</option>
+                  <option value="provision">Provision</option>
+                  <option value="revoke">Revoke</option>
+                  <option value="connect">Connect</option>
+                  <option value="disconnect">Disconnect</option>
+                  <option value="sync">Sync</option>
+                  <option value="route">Route</option>
+                  <option value="scan">Scan</option>
+                </select>
+              </div>
+              <select 
+                value={auditFilter.status || ''}
+                onChange={(e) => handleAuditFilter('status', e.target.value)}
+                style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px' }}
+              >
+                <option value="">All Statuses</option>
+                <option value="success">Success</option>
+                <option value="failed">Failed</option>
+                <option value="pending">Pending</option>
+              </select>
+              <button 
+                onClick={loadAuditLogs}
+                disabled={auditLoading}
+                style={{ padding: '6px 12px', border: '1px solid #d1d5db', borderRadius: '6px', background: 'white', cursor: 'pointer', fontSize: '13px' }}
+              >
+                <RefreshCw size={14} className={auditLoading ? 'animate-spin' : ''} />
+              </button>
+            </div>
+
+            {/* Log List */}
+            {auditLoading ? (
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <RefreshCw size={20} className="animate-spin" style={{ display: 'inline' }} />
+              </div>
+            ) : auditLogs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af' }}>
+                No audit logs found
+              </div>
+            ) : (
+              <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #e5e7eb', textAlign: 'left' }}>
+                      <th style={{ padding: '8px', fontWeight: '600', color: '#6b7280' }}>Timestamp</th>
+                      <th style={{ padding: '8px', fontWeight: '600', color: '#6b7280' }}>Action</th>
+                      <th style={{ padding: '8px', fontWeight: '600', color: '#6b7280' }}>Status</th>
+                      <th style={{ padding: '8px', fontWeight: '600', color: '#6b7280' }}>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLogs.map((log) => (
+                      <tr key={log.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '8px', color: '#6b7280', whiteSpace: 'nowrap' }}>
+                          {new Date(log.createdAt).toLocaleString()}
+                        </td>
+                        <td style={{ padding: '8px' }}>
+                          <span style={{ 
+                            padding: '2px 8px', borderRadius: '4px', fontSize: '12px',
+                            background: log.action === 'provision' ? '#dbeafe' : 
+                                       log.action === 'revoke' ? '#fee2e2' :
+                                       log.action === 'connect' ? '#d1fae5' : '#f3f4f6',
+                            color: log.action === 'provision' ? '#1d4ed8' : 
+                                   log.action === 'revoke' ? '#dc2626' :
+                                   log.action === 'connect' ? '#059669' : '#374151'
+                          }}>
+                            {log.action}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px' }}>
+                          <span style={{ 
+                            padding: '2px 8px', borderRadius: '4px', fontSize: '12px',
+                            background: log.status === 'success' ? '#d1fae5' : 
+                                       log.status === 'failed' ? '#fee2e2' : '#fef3c7',
+                            color: log.status === 'success' ? '#059669' : 
+                                   log.status === 'failed' ? '#dc2626' : '#d97706'
+                          }}>
+                            {log.status || 'unknown'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px', color: '#6b7280', fontSize: '12px' }}>
+                          {log.agentId && <span style={{ marginRight: '8px' }}>ID: {log.agentId?.substring(0, 8)}...</span>}
+                          {log.errorMessage && <span style={{ color: '#dc2626' }}>{log.errorMessage}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {auditPagination.hasMore && (
+              <div style={{ textAlign: 'center', marginTop: '12px' }}>
+                <button 
+                  onClick={() => { setAuditPagination(p => ({ ...p, offset: p.offset + p.limit })); loadAuditLogs(); }}
+                  style={{ padding: '6px 16px', border: '1px solid #d1d5db', borderRadius: '6px', background: 'white', cursor: 'pointer', fontSize: '13px' }}
+                >
+                  Load More
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', paddingTop: '16px', borderTop: '1px solid #e5e7eb', marginTop: '16px' }}>

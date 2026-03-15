@@ -1,9 +1,23 @@
 # RCRT Integration - Engineering Execution Plan (Revised)
 
 **Based on:** RCRT Integration PRD v2.0  
-**Updated:** March 10, 2026  
-**Timeline:** 8 weeks (4 phases)
-**Status:** ✅ ALL PHASES COMPLETE (March 9, 2026)
+**Updated:** March 15, 2026  
+**Timeline:** 12 weeks (6 phases)
+**Status:** ⚠️ PHASES 1-4 COMPLETE | PHASES 5-6 PLANNED
+
+---
+
+## Design Process Notes
+
+During implementation, several architectural decisions were made:
+
+1. **Environment Variables in Vite** - Vite's `import.meta.env` doesn't work like Node.js env vars. Created `src/lib/env.ts` wrapper for safe access.
+
+2. **PostgreSQL Persistence** - Migrated from in-memory Map to PostgreSQL (Render-hosted) for production reliability.
+
+3. **Prisma Type Casting** - `$queryRaw<Type>()` causes TypeScript build failures. Solution: cast results after query with `as Type[]`.
+
+4. **Auth Middleware** - Wallet extracted from JWT via `req.user.walletAddress`.
 
 ---
 
@@ -338,7 +352,7 @@ Create `tais_frontend/src/app/components/rcrt/RCRTIntegration.tsx`:
 ### Task 4.4: Audit Log Viewer
 **Assignee:** Frontend  
 **Estimate:** 4 hours
-**Status:** ⏳ PENDING (Not implemented - can be added later)
+**Status:** ⏳ PENDING (Moved to Sprint 9)
 
 Create audit log viewer with:
 - Routing decisions
@@ -348,12 +362,41 @@ Create audit log viewer with:
 ### Task 4.5: Integration Tests
 **Assignee:** QA  
 **Estimate:** 8 hours
-**Status:** ⏳ PENDING (Manual testing completed, automated tests to add)
+**Status:** ⏳ PENDING (Moved to Sprint 10)
 
 - [ ] Test provisioning flow
 - [ ] Test KB event → RCRT
 - [ ] Test routing decisions
 - [ ] Test security scanner
+
+---
+
+## Completed: Sprint 9-12 Planning
+
+### Sprint 9: Audit & Logging (1 week)
+- Create routing log database table
+- Build audit log API endpoints
+- Frontend audit log viewer component
+- Add filtering by date, action, user
+
+### Sprint 10: E2E Testing Infrastructure (1 week)
+- Set up test framework (Jest + Supertest)
+- Write provisioning flow test
+- Write KB event → RCRT test
+- Write routing decision test
+- Write security scanner test
+
+### Sprint 11: RCRT Binary Distribution (1 week)
+- Create Windows installer (.exe)
+- Create macOS installer (.dmg)
+- Auto-update mechanism
+- Embedded onboarding flow
+
+### Sprint 12: Hardening & Performance (1 week)
+- Rate limiting on all RCRT endpoints
+- Load testing with 1000 concurrent
+- Error handling improvements
+- Documentation updates
 
 ---
 
@@ -454,6 +497,11 @@ tais_frontend/src/
 | 1 | 1-2 | Security Layer & Provisioning | ✅ Complete |
 | 2 | 3-4 | RCRT Connection Service | ✅ Complete |
 | 3 | 5-6 | Context Routing | ✅ Complete |
-| 4 | 7-8 | UI & Testing | ✅ Complete |
+| 4 | 7-8 | UI & Testing (Partial) | ✅ Complete |
+| 9 | Week 9 | Audit & Logging | ⏳ Upcoming |
+| 10 | Week 10 | E2E Testing Infrastructure | ⏳ Upcoming |
+| 11 | Week 11 | RCRT Binary Distribution | ⏳ Upcoming |
+| 12 | Week 12 | Hardening & Performance | ⏳ Upcoming |
 
-**Total: 8 weeks** - **ALL COMPLETE** ✅
+**Phase 1-4: COMPLETE** ✅  
+**Phase 5 (Sprints 9-12): PLANNED**

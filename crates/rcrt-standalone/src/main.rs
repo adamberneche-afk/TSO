@@ -17,6 +17,9 @@ use chrono::Utc;
 use rand::Rng;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
+const CURRENT_VERSION: &str = "1.0.0";
+const UPDATE_CHECK_URL: &str = "https://api.github.com/repos/adamberneche-afk/TSO/releases/latest";
+
 #[derive(Clone)]
 struct AppState {
     db: Arc<Mutex<Database>>,
@@ -320,7 +323,7 @@ async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
     
     Json(serde_json::json!({
         "serviceId": state.service_id,
-        "version": "1.0.0",
+        "version": CURRENT_VERSION,
         "status": "running",
         "encryption": "enabled",
         "dataDir": state.data_dir.to_string_lossy(),
@@ -332,12 +335,21 @@ async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
     }))
 }
 
+async fn version(State(state): State<AppState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "currentVersion": CURRENT_VERSION,
+        "updateAvailable": false,
+        "downloadUrl": "https://github.com/adamberneche-afk/TSO/releases",
+        "releaseNotes": "Visit GitHub releases for update information"
+    }))
+}
+
 #[tokio::main]
 async fn main() {
     println!();
     println!("╔════════════════════════════════════════════════════════════╗");
     println!("║          RCRT - Right Context, Right Time               ║");
-    println!("║          Standalone Service v1.0.0                     ║");
+    println!("║          Standalone Service v{}                          ║", CURRENT_VERSION);
     println!("╚════════════════════════════════════════════════════════════╝");
     println!();
     
@@ -375,6 +387,7 @@ async fn main() {
         .route("/api/v1/breadcrumbs/:id", delete(delete_breadcrumb))
         .route("/api/v1/sync", post(sync))
         .route("/api/v1/status", get(status))
+        .route("/api/v1/version", get(version))
         .with_state(state);
     
     let addr = "127.0.0.1:8090";

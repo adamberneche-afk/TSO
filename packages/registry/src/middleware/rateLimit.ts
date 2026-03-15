@@ -124,6 +124,25 @@ export const apiKeyLimiter = rateLimit({
 });
 
 /**
+ * RCRT tier - For RCRT agent connections
+ * 100 requests per minute (higher frequency for sync operations)
+ */
+export const rcrtLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute
+  message: {
+    error: 'RCRT rate limit exceeded',
+    message: 'Too many RCRT requests. Please slow down.',
+    retryAfter: '1 minute'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    return (req as RateLimitRequest).user?.walletAddress || req.ip || 'anonymous';
+  }
+});
+
+/**
  * Export all rate limiters
  */
 export const rateLimiters = {
@@ -131,7 +150,8 @@ export const rateLimiters = {
   strict: strictLimiter,
   auth: authLimiter,
   authenticated: authenticatedLimiter,
-  apiKey: apiKeyLimiter
+  apiKey: apiKeyLimiter,
+  rcrt: rcrtLimiter
 };
 
 export default rateLimiters;

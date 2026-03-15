@@ -67,6 +67,33 @@ export interface Threat {
   location?: string;
 }
 
+export interface RCRTAuditLog {
+  id: string;
+  ownerId: string;
+  action: string;
+  agentId?: string;
+  token?: string;
+  status?: string;
+  errorMessage?: string;
+  contextType?: string;
+  targetAppId?: string;
+  breadcrumbId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  duration?: number;
+  createdAt: string;
+}
+
+export interface AuditLogResponse {
+  logs: RCRTAuditLog[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
+}
+
 class RCRTAPI {
   private baseUrl: string;
 
@@ -153,6 +180,34 @@ class RCRTAPI {
 
     if (!response.ok) {
       throw new Error('Failed to scan content');
+    }
+
+    return response.json();
+  }
+
+  async getAuditLogs(options?: {
+    action?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<AuditLogResponse> {
+    const params = new URLSearchParams();
+    if (options?.action) params.append('action', options.action);
+    if (options?.status) params.append('status', options.status);
+    if (options?.startDate) params.append('startDate', options.startDate);
+    if (options?.endDate) params.append('endDate', options.endDate);
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.offset) params.append('offset', options.offset.toString());
+
+    const response = await fetch(`${this.baseUrl}/audit?${params}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get audit logs');
     }
 
     return response.json();

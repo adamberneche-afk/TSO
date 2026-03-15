@@ -951,12 +951,15 @@ model SDKAPIKeyChallenge {
 
 // RCRT Agent - Represents a provisioned RCRT agent
 model RCRTAgent {
-  id          String    @id @default(uuid())
-  agentId     String    @unique @map("agent_id")
-  ownerId     String    @map("owner_id")
-  status      String    @default("active")
-  lastSeen    DateTime? @map("last_seen")
+  id           String    @id @default(uuid())
+  agentId      String    @unique @map("agent_id")
+  ownerId      String    @map("owner_id")
+  token        String    @map("token")
+  status       String    @default("active")
+  revoked      Boolean   @default(false)
+  lastSeen     DateTime? @map("last_seen")
   provisionedAt DateTime @default(now()) @map("provisioned_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
   @@index([ownerId])
   @@index([status])
@@ -1007,16 +1010,54 @@ model ConfidentialGrant {
 
 // Routing Log - Logs routing decisions
 model RoutingLog {
-  id          String   @id @default(uuid())
-  breadcrumbId String  @map("breadcrumb_id")
-  targetAppId String   @map("target_app_id")
-  contextType String   @map("context_type")
-  decision    String
-  reason      String?
-  timestamp   DateTime @default(now()) @map("timestamp")
+  id           String   @id @default(uuid())
+  ownerId      String   @map("owner_id")
+  breadcrumbId String?  @map("breadcrumb_id")
+  targetAppId  String?  @map("target_app_id")
+  contextType  String?  @map("context_type")
+  decision     String
+  reason       String?
+  timestamp    DateTime @default(now()) @map("timestamp")
 
+  @@index([ownerId])
   @@index([breadcrumbId])
   @@index([targetAppId])
   @@index([timestamp])
   @@map("routing_logs")
+}
+
+// RCRT Audit Log - Comprehensive audit trail for RCRT operations
+model RCRTAuditLog {
+  id            String   @id @default(uuid())
+  ownerId       String   @map("owner_id")
+  
+  // Action types: provision, revoke, connect, disconnect, sync, route, scan
+  action        String   
+  
+  // Details
+  agentId       String?  @map("agent_id")
+  token         String?  // Masked - only first 8 chars stored
+  status        String?  // success, failed, pending
+  errorMessage  String?  @map("error_message")
+  
+  // Context
+  contextType   String?  @map("context_type")
+  targetAppId   String?  @map("target_app_id")
+  breadcrumbId  String?  @map("breadcrumb_id")
+  
+  // Metadata
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  
+  // Timing
+  duration      Int?     // milliseconds
+  
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([ownerId])
+  @@index([action])
+  @@index([agentId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("rcrt_audit_logs")
 }

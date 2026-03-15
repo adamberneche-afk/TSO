@@ -350,7 +350,7 @@ apiV1Router.use('/memory', createMemoryBackupRoutes(prisma, logger));
 import { createRCRTRoutes } from './routes/rcrt';
 import { createKBRoutes } from './routes/kb';
 
-apiV1Router.use('/rcrt', createRCRTRoutes(prisma, logger));
+apiV1Router.use('/rcrt', rateLimiters.rcrt, createRCRTRoutes(prisma, logger));
 apiV1Router.use('/kb', createKBRoutes(prisma, logger));
 
 // ============================================

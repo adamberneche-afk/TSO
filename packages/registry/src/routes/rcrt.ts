@@ -32,10 +32,10 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
     }
 
     try {
-      const agent = await prisma.$queryRaw<{ agent_id: string; token: string; created_at: Date }[]>(
-        `SELECT agent_id, token, created_at FROM rcrt_agents WHERE owner_id = ? AND revoked = false ORDER BY created_at DESC LIMIT 1`,
+      const agent = await prisma.$queryRawUnsafe(
+        `SELECT agent_id, token, created_at FROM rcrt_agents WHERE owner_id = $1 AND revoked = false ORDER BY created_at DESC LIMIT 1`,
         wallet
-      );
+      ) as { agent_id: string; token: string; created_at: Date }[];
 
       if (agent && agent.length > 0) {
         const a = agent[0];
@@ -67,8 +67,8 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
 
     try {
       // Revoke any existing active tokens for this wallet
-      await prisma.$executeRaw(
-        `UPDATE rcrt_agents SET revoked = true WHERE owner_id = ? AND revoked = false`,
+      await prisma.$executeRawUnsafe(
+        `UPDATE rcrt_agents SET revoked = true WHERE owner_id = $1 AND revoked = false`,
         wallet
       );
 
@@ -76,8 +76,8 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
       const agentId = `rcrt-${crypto.randomUUID()}`;
       const now = new Date();
 
-      await prisma.$executeRaw(
-        `INSERT INTO rcrt_agents (agent_id, owner_id, token, created_at, revoked) VALUES (?, ?, ?, ?, false)`,
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO rcrt_agents (agent_id, owner_id, token, created_at, revoked) VALUES ($1, $2, $3, $4, false)`,
         agentId, wallet, token, now
       );
 
@@ -112,10 +112,10 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
 
     try {
       // Find wallet by token where not revoked
-      const agent = await prisma.$queryRaw<{ owner_id: string }[]>(
-        `SELECT owner_id FROM rcrt_agents WHERE token = ? AND revoked = false LIMIT 1`,
+      const agent = await prisma.$queryRawUnsafe(
+        `SELECT owner_id FROM rcrt_agents WHERE token = $1 AND revoked = false LIMIT 1`,
         token
-      );
+      ) as { owner_id: string }[];
 
       if (agent && agent.length > 0) {
         const wallet = agent[0].owner_id;
@@ -142,14 +142,14 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
     }
     try {
       if (agentId) {
-        await prisma.$executeRaw(
-          `UPDATE rcrt_agents SET revoked = true WHERE owner_id = ? AND agent_id = ?`,
+        await prisma.$executeRawUnsafe(
+          `UPDATE rcrt_agents SET revoked = true WHERE owner_id = $1 AND agent_id = $2`,
           wallet, agentId
         );
       } else {
         // Revoke all active tokens for wallet
-        await prisma.$executeRaw(
-          `UPDATE rcrt_agents SET revoked = true WHERE owner_id = ? AND revoked = false`,
+        await prisma.$executeRawUnsafe(
+          `UPDATE rcrt_agents SET revoked = true WHERE owner_id = $1 AND revoked = false`,
           wallet
         );
       }
@@ -158,6 +158,153 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
     } catch (error: any) {
       logger.error('Error revoking RCRT:', error);
       res.status(500).json({ error: 'Failed to revoke RCRT' });
+    }
+  });
+
+  // Get RCRT audit logs
+  router.get('/audit', async (req: Request, res: Response) => {
+    const wallet = (req.query.wallet as string) || (req.body && req.body.wallet);
+    if (!wallet) {
+      return res.status(400).json({ error: 'Wallet address required' });
+    }
+
+    const action = req.query.action as string | undefined;
+    const status = req.query.status as string | undefined;
+    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+    const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const offset = parseInt(req.query.offset as string) || 0;
+
+    try {
+      let query = `SELECT * FROM rcrt_audit_logs WHERE owner_id = $1`;
+      const params: any[] = [wallet];
+
+      if (action) {
+        query += ` AND action = $${params.length + 1}`;
+        params.push(action);
+      }
+      if (status) {
+        query += ` AND status = $${params.length + 1}`;
+        params.push(status);
+      }
+      if (startDate) {
+        query += ` AND created_at >= $${params.length + 1}`;
+        params.push(startDate);
+      }
+      if (endDate) {
+        query += ` AND created_at <= $${params.length + 1}`;
+        params.push(endDate);
+      }
+
+      query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      params.push(limit, offset);
+
+      const logs = await prisma.$queryRawUnsafe(
+        query,
+        ...params
+      ) as any[];
+
+      // Get total count for pagination
+      let countQuery = `SELECT COUNT(*) as total FROM rcrt_audit_logs WHERE owner_id = $1`;
+      const countParams: any[] = [wallet];
+      if (action) {
+        countQuery += ` AND action = $${countParams.length + 1}`;
+        countParams.push(action);
+      }
+      if (status) {
+        countQuery += ` AND status = $${countParams.length + 1}`;
+        countParams.push(status);
+      }
+      if (startDate) {
+        countQuery += ` AND created_at >= $${countParams.length + 1}`;
+        countParams.push(startDate);
+      }
+      if (endDate) {
+        countQuery += ` AND created_at <= $${countParams.length + 1}`;
+        countParams.push(endDate);
+      }
+
+      const countResult = await prisma.$queryRawUnsafe(
+        countQuery,
+        ...countParams
+      ) as { total: bigint }[];
+      const total = Number(countResult[0]?.total || 0);
+
+      res.json({
+        logs: logs.map(log => ({
+          ...log,
+          createdAt: log.created_at,
+          ownerId: log.owner_id,
+          agentId: log.agent_id,
+          errorMessage: log.error_message,
+          contextType: log.context_type,
+          targetAppId: log.target_app_id,
+          breadcrumbId: log.breadcrumb_id,
+          ipAddress: log.ip_address,
+          userAgent: log.user_agent
+        })),
+        pagination: {
+          total,
+          limit,
+          offset,
+          hasMore: offset + logs.length < total
+        }
+      });
+    } catch (error: any) {
+      logger.error('Error getting RCRT audit logs:', error);
+      res.status(500).json({ error: 'Failed to get audit logs' });
+    }
+  });
+
+  // Create audit log entry (internal)
+  router.post('/audit', async (req: Request, res: Response) => {
+    const {
+      ownerId,
+      action,
+      agentId,
+      token,
+      status,
+      errorMessage,
+      contextType,
+      targetAppId,
+      breadcrumbId,
+      ipAddress,
+      userAgent,
+      duration
+    } = req.body;
+
+    if (!ownerId || !action) {
+      return res.status(400).json({ error: 'ownerId and action are required' });
+    }
+
+    try {
+      const maskedToken = token ? token.substring(0, 8) : null;
+      const now = new Date();
+
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO rcrt_audit_logs 
+         (id, owner_id, action, agent_id, token, status, error_message, context_type, target_app_id, breadcrumb_id, ip_address, user_agent, duration, created_at) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+        crypto.randomUUID(),
+        ownerId,
+        action,
+        agentId || null,
+        maskedToken,
+        status || 'success',
+        errorMessage || null,
+        contextType || null,
+        targetAppId || null,
+        breadcrumbId || null,
+        ipAddress || null,
+        userAgent || null,
+        duration || null,
+        now
+      );
+
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error('Error creating RCRT audit log:', error);
+      res.status(500).json({ error: 'Failed to create audit log' });
     }
   });
 

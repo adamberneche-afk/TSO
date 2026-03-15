@@ -9,6 +9,9 @@ const endpoints = [
   { name: 'health', path: '/health' },
   { name: 'skills', path: '/api/v1/skills' },
   
+  // RCRT endpoints
+  { name: 'rcrt-status', path: `/api/v1/rcrt/status?wallet=${TEST_WALLET}` },
+  
   // RAG endpoints
   { name: 'rag-stats', path: `/api/v1/rag/stats?wallet=${TEST_WALLET}` },
   { name: 'rag-docs', path: `/api/v1/rag/documents?wallet=${TEST_WALLET}` },
@@ -168,6 +171,7 @@ function generateReport(results) {
   console.log('|----------|------------|------------|------------|');
   console.log('| GET /health | < 20ms | < 50ms | < 100ms |');
   console.log('| GET /api/v1/skills | < 100ms | < 200ms | < 500ms |');
+  console.log('| GET /api/v1/rcrt/* | < 50ms | < 100ms | < 200ms |');
   console.log('| GET /api/v1/oauth/* | < 100ms | < 200ms | < 500ms |');
   console.log('| GET /api/v1/agent/* | < 100ms | < 200ms | < 500ms |');
   console.log('| GET /api/v1/billing/* | < 100ms | < 200ms | < 500ms |');
