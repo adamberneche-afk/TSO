@@ -1,28 +1,38 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
+import { authenticateToken } from '../middleware/auth';
+
+function extractWallet(req: Request): string | undefined {
+  // Try authenticated user first
+  if ((req as any).user?.walletAddress) {
+    return (req as any).user.walletAddress;
+  }
+  
+  // Try JWT token
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    const token = authHeader.replace('Bearer ', '');
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      if (payload.walletAddress) {
+        return payload.walletAddress;
+      }
+    } catch (e) {
+      // invalid token
+    }
+  }
+  
+  // Fallback to query/body
+  return (req.query.wallet as string) || (req.body && req.body.wallet);
+}
 
 export function createRCRTRoutes(prisma: any, logger: any): Router {
   const router = Router();
 
-  // Get RCRT status - try to get wallet from auth token, fallback to query/body
+  // Get RCRT status - use authenticated user wallet or fallback to query/body
   router.get('/status', async (req: Request, res: Response) => {
-    let wallet: string | undefined;
-    // Try to get wallet from Authorization header (JWT contains wallet)
-    const authHeader = req.headers.authorization;
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      try {
-        // We don't have the secret here, but we can attempt to verify and decode if we had it.
-        // For now, we will skip decoding and rely on query/body fallback.
-        // In production, we would verify the token and extract walletAddress.
-        // We'll leave wallet undefined so it falls back to query/body.
-      } catch (e) {
-        // invalid token, ignore
-      }
-    }
-    if (!wallet) {
-      wallet = (req.query.wallet as string) || (req.body && req.body.wallet);
-    }
+    const wallet = extractWallet(req);
+    
     if (!wallet) {
       return res.json({ 
         provisioned: false,
@@ -67,7 +77,7 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
 
   // Provision RCRT - creates a token for the user
   router.post('/provision', async (req: Request, res: Response) => {
-    let wallet = (req.query.wallet as string) || (req.body && req.body.wallet);
+    const wallet = extractWallet(req);
     if (!wallet) {
       return res.status(400).json({ error: 'Wallet address required' });
     }
@@ -151,7 +161,7 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
 
   // Revoke provision (optional)
   router.delete('/provision', async (req: Request, res: Response) => {
-    let wallet = (req.query.wallet as string) || (req.body && req.body.wallet);
+    const wallet = extractWallet(req);
     const agentId = (req.query.agentId as string) || (req.body && req.body.agentId);
     if (!wallet) {
       return res.status(400).json({ error: 'Wallet address required' });
@@ -189,7 +199,7 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
 
   // Get RCRT audit logs
   router.get('/audit', async (req: Request, res: Response) => {
-    const wallet = (req.query.wallet as string) || (req.body && req.body.wallet);
+    const wallet = extractWallet(req);
     if (!wallet) {
       return res.status(400).json({ error: 'Wallet address required' });
     }
