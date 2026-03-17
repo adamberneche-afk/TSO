@@ -23,7 +23,7 @@ export class NftService {
   private signingKey: string | null = null;
 
   constructor(rpcUrl: string, userDataPath: string) {
-    this.provider = new ethers.JsonRpcProvider(rpcUrl);
+    this.provider = new ethers.JsonRpcProvider(rpcUrl, 1);
     this.cachePath = path.join(userDataPath, '.nft_cache.json');
     this.secretPath = path.join(userDataPath, SECRET_FILENAME);
     this.ensureSigningKey();

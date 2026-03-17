@@ -27,7 +27,7 @@ export class TokenService {
   private signingKey: string | null = null;
 
   constructor(rpcUrl: string, userDataPath: string) {
-    this.provider = new ethers.JsonRpcProvider(rpcUrl);
+    this.provider = new ethers.JsonRpcProvider(rpcUrl, 1);
     this.cachePath = path.join(userDataPath, '.token_cache.json');
     this.ensureSigningKey();
     this.loadCache();

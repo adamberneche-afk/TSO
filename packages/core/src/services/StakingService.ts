@@ -55,7 +55,7 @@ export class StakingService {
   private signingKey: string | null = null;
 
   constructor(rpcUrl: string, userDataPath: string) {
-    this.provider = new ethers.JsonRpcProvider(rpcUrl);
+    this.provider = new ethers.JsonRpcProvider(rpcUrl, 1);
     this.cachePath = path.join(userDataPath, '.staking_cache.json');
     this.ensureSigningKey();
     this.loadCache();

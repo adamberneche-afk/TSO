@@ -27,7 +27,7 @@ export class AuditRegistry {
   private auditorNftAddress: string;
 
   constructor(rpcUrl: string, userDataPath: string, auditorNftAddress?: string) {
-    this.provider = new ethers.JsonRpcProvider(rpcUrl);
+    this.provider = new ethers.JsonRpcProvider(rpcUrl, 1);
     this.cachePath = path.join(userDataPath, '.audit_cache.json');
     
     // Use provided address, env var, or default (Genesis Bundle for beta)

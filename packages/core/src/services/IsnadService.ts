@@ -34,7 +34,7 @@ export class IsnadService {
   private auditorNftAddress: string;
 
   constructor(rpcUrl: string, userDataPath: string, publisherNftAddress?: string, auditorNftAddress?: string) {
-    this.provider = new ethers.JsonRpcProvider(rpcUrl);
+    this.provider = new ethers.JsonRpcProvider(rpcUrl, 1);
     this.cachePath = path.join(userDataPath, '.isnad_cache.json');
     this.tokenService = new TokenService(rpcUrl, userDataPath);
     this.stakingService = new StakingService(rpcUrl, userDataPath);
