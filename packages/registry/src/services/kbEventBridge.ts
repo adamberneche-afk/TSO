@@ -1,8 +1,8 @@
 import { RCRTClient, KBEvent } from './rcrtClient';
 import { PrismaClient } from '@prisma/client';
-import { createSkillsPrismaClient } from '../config/database';
+import { createRAGPrismaClient } from '../config/database';
 
-const prisma = createSkillsPrismaClient();
+const prisma = createRAGPrismaClient();
 
 interface KBEventQueue {
   events: KBEvent[];

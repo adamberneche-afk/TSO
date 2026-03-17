@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
-import { createSkillsPrismaClient } from '../config/database';
+import { createRAGPrismaClient } from '../config/database';
 
-const prisma = createSkillsPrismaClient();
+const prisma = createRAGPrismaClient();
 
 export type ContextType = 'private' | 'confidential' | 'shared' | 'public';
 
