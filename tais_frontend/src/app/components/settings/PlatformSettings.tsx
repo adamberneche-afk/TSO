@@ -143,7 +143,7 @@ export function PlatformSettingsPage({ onBack }: { onBack: () => void }) {
         try {
           const token = localStorage.getItem('auth_token');
           if (token) {
-            await fetch('https://tso.onrender.com/api/v1/auth/memory-preferences', {
+            await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/auth/memory-preferences`, {
               method: 'PATCH',
               headers: {
                 'Content-Type': 'application/json',

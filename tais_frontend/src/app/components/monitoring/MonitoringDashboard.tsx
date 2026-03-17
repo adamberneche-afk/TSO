@@ -4,6 +4,8 @@ import { Badge } from '../ui/badge';
 import { Activity, Database, Cpu, MemoryStick, AlertTriangle, Clock, RefreshCw } from 'lucide-react';
 import { motion } from 'motion/react';
 
+const REGISTRY_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
+
 interface DashboardData {
   timestamp: string;
   health: {
@@ -39,7 +41,7 @@ export function MonitoringDashboard() {
 
   const fetchDashboard = async () => {
     try {
-      const response = await fetch('https://tso.onrender.com/monitoring/dashboard');
+      const response = await fetch(`${REGISTRY_URL}/monitoring/dashboard`);
       if (!response.ok) throw new Error('Failed to fetch dashboard data');
       const json = await response.json();
       setData(json);
@@ -204,12 +206,12 @@ export function MonitoringDashboard() {
       <Card className="bg-[#141415] border-[#262626] p-4">
         <h3 className="text-xs text-[#717171] uppercase tracking-widest mb-3">Prometheus Metrics</h3>
         <a 
-          href="https://tso.onrender.com/monitoring/metrics"
+          href={`${REGISTRY_URL}/monitoring/metrics`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-[#3B82F6] hover:underline text-sm font-mono"
         >
-          https://tso.onrender.com/monitoring/metrics
+          {`${REGISTRY_URL}/monitoring/metrics`}
         </a>
         <p className="text-xs text-[#717171] mt-2">
           Scrape this endpoint with Prometheus to collect metrics
