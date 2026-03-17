@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { ArrowRight, Zap, Shield, Code, Users, CheckCircle, Upload, ClipboardCheck, ExternalLink, Sparkles, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
+import { authApi } from '../../services/authApi';
 
 interface LandingPageProps {
   onStartInterview: () => void;
@@ -35,6 +36,22 @@ export function LandingPage({
   onViewDeveloper,
   onViewSettings
 }: LandingPageProps) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Check for valid session on mount
+    if (authApi.hasValidSession()) {
+      const storedWallet = authApi.getStoredWallet();
+      if (storedWallet) {
+        setIsAuthenticated(true);
+        // Auto-redirect to dashboard after brief delay
+        const timer = setTimeout(() => {
+          onViewDashboard();
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [onViewDashboard]);
   return (
     <div className="min-h-screen bg-[#0A0A0B] text-[#EDEDED] font-sans selection:bg-blue-500/30">
       {/* Header */}
