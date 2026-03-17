@@ -1,9 +1,9 @@
 # Public RAG - Quick Deployment Checklist
 
-**Status:** ✅ DEPLOYMENT COMPLETE - February 19, 2026  
+**Status:** ✅ DEPLOYMENT COMPLETE - March 17, 2026  
 **Service URL:** https://tso.onrender.com  
 **Frontend:** https://taisplatform.vercel.app  
-**Version:** 2.5.0
+**Version:** 3.3.0
 
 Use this checklist during deployment to ensure nothing is missed.
 
@@ -256,6 +256,34 @@ git push
 
 ---
 
+## Known Issues & Fixes (March 2026)
+
+### JsonRpcProvider Infinite Retry Loop
+**Problem:** JsonRpcProvider repeatedly fails with "failed to detect network" in logs
+**Cause:** Ethers v6 tries to detect network when created without chainId
+**Fix:** 
+1. Add `RPC_URL` environment variable in Render (e.g., `https://cloudflare-eth.com`)
+2. Code now passes `{ chainId: 1, name: 'Ethereum' }` to JsonRpcProvider constructor
+
+### Wallet Storage Key Inconsistency
+**Problem:** Wallet shows as null after login
+**Cause:** Frontend used different localStorage keys (`wallet`, `walletAddress`, `wallet_address`)
+**Fix:** Standardized to `wallet_address` in authApi.ts
+
+### Double /api/v1 in URLs
+**Problem:** Requests to `/api/v1/api/v1/configurations`
+**Cause:** VITE_REGISTRY_URL env var included `/api/v1` but services also added it
+**Fix:** Removed `/api/v1` from VITE_REGISTRY_URL in vercel.json and .env.production
+
+### Database Prisma Client Mismatch
+**Problem:** Services using wrong database (RAG vs Skills)
+**Fix:** 
+- RCRT routes now use `ragPrisma` (RCRTAgent table is in tais-rag)
+- OAuth, Billing, Enterprise, Memory routes use `skillsPrisma` (auth tables in tais_registry)
+- KB routes use `prisma` (ragPrisma as default)
+
+---
+
 ## Notes
 
 **✅ Deployment Date:** February 19, 2026
@@ -272,6 +300,6 @@ git push
 
 ---
 
-**Checklist Version:** 2.0  
-**Last Updated:** February 19, 2026  
+**Checklist Version:** 2.1  
+**Last Updated:** March 17, 2026  
 **Status:** ✅ ALL ITEMS COMPLETE
