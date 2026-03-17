@@ -166,7 +166,7 @@ GET  /api/v1/search/trending     # Get trending skills
 
 ### Environment Variables
 ```bash
-VITE_REGISTRY_URL=https://tso.onrender.com/api/v1
+VITE_REGISTRY_URL=https://tso.onrender.com
 VITE_GENESIS_CONTRACT=0x11B3EfbF04F0bA505F380aC20444B6952970AdA6
 VITE_RPC_URL=https://cloudflare-eth.com
 ```

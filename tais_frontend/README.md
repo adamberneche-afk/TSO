@@ -76,7 +76,7 @@ npm run build
 Create a `.env` file:
 
 ```bash
-VITE_REGISTRY_URL=https://tso.onrender.com/api/v1
+VITE_REGISTRY_URL=https://tso.onrender.com
 VITE_GENESIS_CONTRACT=0x11B3EfbF04F0bA505F380aC20444B6952970AdA6
 ```
 
