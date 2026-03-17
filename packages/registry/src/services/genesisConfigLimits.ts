@@ -20,6 +20,9 @@ const RPC_PROVIDERS = [
   'https://ethereum.publicnode.com'
 ].filter(Boolean) as string[];
 
+console.log('[NFT Verify] RPC_PROVIDERS loaded:', RPC_PROVIDERS);
+console.log('[NFT Verify] RPC_URL env var:', process.env.RPC_URL);
+
 // Cache expiration time (15 minutes - reduced from 1 hour for memory efficiency)
 const CACHE_TTL_MS = 15 * 60 * 1000;
 
@@ -180,13 +183,15 @@ export async function verifyTokenOwnership(
     // Try each RPC provider
     for (const rpcUrl of RPC_PROVIDERS) {
       try {
-        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        console.log(`[NFT Verify] Trying RPC: ${rpcUrl}`);
+        const provider = new ethers.JsonRpcProvider(rpcUrl, { chainId: 1, name: 'Ethereum' });
         const contract = new ethers.Contract(GENESIS_CONTRACT, ERC721_ABI, provider);
         
         const owner = await contract.ownerOf(tokenId);
+        console.log(`[NFT Verify] Token ${tokenId} owner: ${owner}`);
         return owner.toLowerCase() === walletAddress.toLowerCase();
-      } catch (err) {
-        console.warn(`[NFT Verify] RPC ${rpcUrl} failed for token check, trying next...`);
+      } catch (err: any) {
+        console.warn(`[NFT Verify] RPC ${rpcUrl} failed for token check:`, err.message || err);
         continue;
       }
     }
@@ -503,7 +508,7 @@ async function verifyWithFallbackRPC(walletAddress: string): Promise<NFTOwnershi
   for (const rpcUrl of RPC_PROVIDERS) {
     try {
       console.log(`[NFT Verify] Trying RPC: ${rpcUrl}`);
-      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const provider = new ethers.JsonRpcProvider(rpcUrl, { chainId: 1, name: 'Ethereum' });
       
       // Test connection with a simple call
       await provider.getBlockNumber();

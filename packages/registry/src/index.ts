@@ -75,6 +75,7 @@ const trustedProxies = process.env.TRUSTED_PROXIES?.split(',') || false;
 // Initialize services - use skillsPrisma for auth-related services
 const authService = new AuthService(skillsPrisma, logger);
 const apiKeyService = new ApiKeyService(skillsPrisma);
+console.log('[Index] RPC_URL env var:', process.env.RPC_URL);
 const nftService = new NFTVerificationService({
   publisherAddress: process.env.PUBLISHER_NFT_ADDRESS || process.env.GENESIS_CONTRACT || '',
   auditorAddress: process.env.AUDITOR_NFT_ADDRESS || process.env.GENESIS_CONTRACT || '',
@@ -298,7 +299,7 @@ apiV1Router.use('/agent', createAgentRoutes(skillsPrisma, logger));
 apiV1Router.use('/billing', rateLimiters.authenticated, authMiddleware, createBillingRoutes(skillsPrisma, logger));
 apiV1Router.use('/enterprise', rateLimiters.authenticated, authMiddleware, createEnterpriseRoutes(skillsPrisma, logger));
 apiV1Router.use('/memory', createMemoryBackupRoutes(skillsPrisma, logger));
-apiV1Router.use('/rcrt', rateLimiters.rcrt, createRCRTRoutes(skillsPrisma, logger));
+apiV1Router.use('/rcrt', rateLimiters.rcrt, createRCRTRoutes(ragPrisma, logger));
 apiV1Router.use('/kb', createKBRoutes(prisma, logger));
 
 // ============================================
