@@ -85,8 +85,8 @@ class NFTVerificationService {
     console.log('[NFT Verify] nftVerification initialize - RPC_URL:', this.config.rpcUrl);
     if (this.config.rpcUrl) {
       try {
-        // Provide chainId (1 for Ethereum mainnet) to skip network detection and prevent infinite retry
-        this.provider = new ethers.JsonRpcProvider(this.config.rpcUrl, { chainId: 1, name: 'Ethereum' });
+        // Use chainId as number to skip network detection (ethers v6 format)
+        this.provider = new ethers.JsonRpcProvider(this.config.rpcUrl, 1);
         this.logger.info('✅ NFT Verification: Provider initialized with URL:', this.config.rpcUrl);
       } catch (error: any) {
         this.logger.warn({ error: error.message }, '⚠️  NFT Verification: Failed to initialize provider');

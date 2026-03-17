@@ -184,7 +184,7 @@ export async function verifyTokenOwnership(
     for (const rpcUrl of RPC_PROVIDERS) {
       try {
         console.log(`[NFT Verify] Trying RPC: ${rpcUrl}`);
-        const provider = new ethers.JsonRpcProvider(rpcUrl, { chainId: 1, name: 'Ethereum' });
+        const provider = new ethers.JsonRpcProvider(rpcUrl, 1);
         const contract = new ethers.Contract(GENESIS_CONTRACT, ERC721_ABI, provider);
         
         const owner = await contract.ownerOf(tokenId);
@@ -508,7 +508,7 @@ async function verifyWithFallbackRPC(walletAddress: string): Promise<NFTOwnershi
   for (const rpcUrl of RPC_PROVIDERS) {
     try {
       console.log(`[NFT Verify] Trying RPC: ${rpcUrl}`);
-      const provider = new ethers.JsonRpcProvider(rpcUrl, { chainId: 1, name: 'Ethereum' });
+      const provider = new ethers.JsonRpcProvider(rpcUrl, 1);
       
       // Test connection with a simple call
       await provider.getBlockNumber();
