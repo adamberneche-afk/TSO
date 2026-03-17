@@ -3,7 +3,7 @@
 
 import { authApi } from './authApi';
 
-const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
+const API_BASE_URL = (import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com') + '/api/v1';
 
 interface ConfigStatus {
   allowed: boolean;
@@ -48,7 +48,6 @@ class ConfigAPI {
   private baseUrl: string;
 
   constructor() {
-    // API_BASE_URL already includes /api/v1 from env var
     this.baseUrl = `${API_BASE_URL}/configurations`;
   }
 
