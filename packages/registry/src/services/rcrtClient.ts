@@ -130,7 +130,7 @@ export async function createRCRTClient(
   walletAddress: string
 ): Promise<RCRTClient> {
   // Get provision from TAIS
-  const response = await fetch(`${process.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/rcrt/provision`, {
+  const response = await fetch(`${process.env.REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/rcrt/provision`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
