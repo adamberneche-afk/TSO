@@ -48,6 +48,11 @@
 - `tais_frontend/src/app/components/DeveloperPortal.tsx` - Uses consistent wallet key
 - `tais_frontend/src/services/memory/memoryInitializer.ts` - Uses consistent wallet key
 
+**Frontend URL Fixes:**
+- `tais_frontend/src/services/configApi.ts` - Now uses env var instead of hardcoded URL
+- `tais_frontend/src/app/components/settings/PlatformSettings.tsx` - Now uses env var
+- `tais_frontend/src/app/components/monitoring/MonitoringDashboard.tsx` - Now uses env var
+
 ---
 
 ## 🎯 DEPLOYMENT STATUS (Mar 15, 2026)
