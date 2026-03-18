@@ -2,11 +2,15 @@ import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import * as winston from 'winston';
 
+interface AuthenticatedRequest extends Request {
+  prisma?: PrismaClient;
+}
+
 const router = Router();
 
 // Migration fix endpoint - run once
-router.post('/fix-migration', async (req: Request, res: Response) => {
-  const prisma = (req as any).prisma as PrismaClient;
+router.post('/fix-migration', async (req: AuthenticatedRequest, res: Response) => {
+  const prisma = req.prisma as PrismaClient;
   const logger = winston.createLogger({
     level: 'info',
     format: winston.format.json(),

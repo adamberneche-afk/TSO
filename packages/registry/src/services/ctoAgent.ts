@@ -201,7 +201,7 @@ export class CTOAgentService {
 
     if (!project) return null;
 
-    const painPoints = (project.painPoints as any[]) || [];
+    const painPoints = Array.isArray(project.painPoints) ? project.painPoints : [];
     const newPainPoint: PainPoint = {
       area,
       description,
@@ -239,7 +239,7 @@ export class CTOAgentService {
 
     if (!project) return false;
 
-    const painPoints = (project.painPoints as any[]) || [];
+    const painPoints = Array.isArray(project.painPoints) ? project.painPoints : [];
     if (index >= painPoints.length) return false;
 
     painPoints[index].resolved = true;
@@ -264,14 +264,14 @@ export class CTOAgentService {
       },
     });
 
-    if (!project) return null;
-
-    const blockers = (project.blockers as any[]) || [];
-    const newBlocker: Blocker = {
-      description,
-      resolved: false,
-      createdAt: new Date().toISOString(),
-    };
+     if (!project) return null;
+     const painPoints = Array.isArray(project.painPoints) ? project.painPoints : [];
+     const newPainPoint: PainPoint = {
+       area,
+       description,
+       resolved: false,
+       createdAt: new Date().toISOString(),
+     };
 
     blockers.push(newBlocker);
 
@@ -354,8 +354,8 @@ export class CTOAgentService {
       name: project.name,
       description: project.description,
       currentPhase: project.currentPhase,
-      painPoints: (project.painPoints as any[]) || [],
-      blockers: (project.blockers as any[]) || [],
+       painPoints: Array.isArray(project.painPoints) ? project.painPoints : [],
+       blockers: Array.isArray(project.blockers) ? project.blockers : [],
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
       completedAt: project.completedAt,

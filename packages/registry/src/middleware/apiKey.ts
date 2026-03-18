@@ -11,6 +11,11 @@ export interface ApiKeyRequest extends Request {
     walletAddress: string;
   };
   apiKey?: string;
+  log?: {
+    info: (message: any, ...optional: any[]) => void;
+    error: (message: any, ...optional: any[]) => void;
+    warn: (message: any, ...optional: any[]) => void;
+  };
 }
 
 /**
@@ -42,17 +47,17 @@ export const apiKeyMiddleware = (apiKeyService: ApiKeyService) => {
       req.user = { walletAddress: validation.walletAddress! };
       req.apiKey = apiKey;
       
-      // Log API key usage
-      (req as any).log?.info({
-        walletAddress: validation.walletAddress,
-        apiKey: apiKey.substring(0, 10) + '...', // Log partial key for security
-        path: req.path,
-        method: req.method
-      }, 'API key authentication successful');
+       // Log API key usage
+       req.log?.info({
+         walletAddress: validation.walletAddress,
+         apiKey: apiKey.substring(0, 10) + '...', // Log partial key for security
+         path: req.path,
+         method: req.method
+       }, 'API key authentication successful');
       
       next();
     } catch (error) {
-      (req as any).log?.error({ error }, 'API key validation error');
+       req.log?.error({ error }, 'API key validation error');
       return res.status(500).json({
         error: 'Authentication failed',
         message: 'Unable to validate API key'

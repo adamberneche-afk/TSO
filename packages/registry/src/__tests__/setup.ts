@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../config/database';
 
 let prisma: PrismaClient | null = null;
 
@@ -7,13 +8,7 @@ declare global {
 }
 
 if (process.env.TEST_DATABASE_URL) {
-  prisma = new PrismaClient({
-    datasources: {
-      db: {
-        url: process.env.TEST_DATABASE_URL,
-      },
-    },
-  });
+  prisma = createPrismaClient();
   global.prismaTest = prisma;
 }
 

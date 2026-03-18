@@ -1,14 +1,17 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
+
+interface AuthenticatedRequest extends Request {
+  prisma?: PrismaClient;
+  ipfs?: any;
+}
 
 const router = Router();
 
-router.get('/', async (req, res) => {
-  const prisma = (req as any).prisma;
-  const ipfs = (req as any).ipfs;
-  
-  try {
-    // Check database connection
-    await prisma.$queryRaw`SELECT 1`;
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
+   
+   try {
+     // Check database connection
+     await (req.prisma as PrismaClient).$queryRaw`SELECT 1`;
     
     // Check IPFS connection if enabled
     let ipfsStatus = 'disabled';
@@ -41,11 +44,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/ready', async (req, res) => {
-  const prisma = (req as any).prisma;
+router.get('/ready', async (req: AuthenticatedRequest, res: Response) => {
   
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    await (req.prisma as PrismaClient).$queryRaw`SELECT 1`;
     res.status(200).send('OK');
   } catch (error) {
     res.status(503).send('Not Ready');

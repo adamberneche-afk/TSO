@@ -5,6 +5,16 @@ import path from 'path';
 import fs from 'fs';
 import { YaraScanner, SecurityScanResult } from '../services/yaraScanner';
 
+interface AuthenticatedRequest extends Request {
+  prisma: PrismaClient;
+  file?: Express.Multer.File;
+  log?: {
+    info: (message: any, ...optional: any[]) => void;
+    error: (message: any, ...optional: any[]) => void;
+    warn: (message: any, ...optional: any[]) => void;
+  };
+}
+
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
 
@@ -40,7 +50,7 @@ router.get('/rules', async (req: Request, res: Response) => {
 
 // POST /api/scan - Scan uploaded skill package
 router.post('/', upload.single('package'), async (req: Request, res: Response) => {
-  const prisma = (req as any).prisma as PrismaClient;
+  const prisma = req.prisma;
   
   try {
     if (!req.file) {
@@ -61,8 +71,8 @@ router.post('/', upload.single('package'), async (req: Request, res: Response) =
     // Clean up uploaded file
     fs.unlinkSync(filePath);
 
-    // Store scan result in database
-    await storeScanResult(prisma, result);
+// Store scan result in database
+await storeScanResult(req.prisma as PrismaClient, result);
 
     res.json(result);
   } catch (error: any) {
@@ -103,13 +113,12 @@ router.post('/directory', async (req: Request, res: Response) => {
 });
 
 // GET /api/scan/:skillHash - Get scan results for a skill
-router.get('/:skillHash', async (req: Request, res: Response) => {
-  const prisma = (req as any).prisma as PrismaClient;
+router.get('/:skillHash', async (req: AuthenticatedRequest, res: Response) => {
   const { skillHash } = req.params;
 
   try {
-    // Get scan results from database
-    const scanResults = await prisma.securityScan.findMany({
+     // Get scan results from database
+      const scanResults = await req.prisma.securityScan.findMany({
       where: { skillHash },
       orderBy: { createdAt: 'desc' },
       take: 10,
@@ -134,13 +143,12 @@ router.get('/:skillHash', async (req: Request, res: Response) => {
 });
 
 // POST /api/scan/:skillHash/scan - Trigger scan for existing skill
-router.post('/:skillHash/scan', async (req: Request, res: Response) => {
-  const prisma = (req as any).prisma as PrismaClient;
+router.post('/:skillHash/scan', async (req: AuthenticatedRequest, res: Response) => {
   const { skillHash } = req.params;
 
   try {
-    // Get skill from database
-    const skill = await prisma.skill.findUnique({
+     // Get skill from database
+     const skill = await (req.prisma as PrismaClient).skill.findUnique({
       where: { skillHash },
     });
 
@@ -165,8 +173,8 @@ router.post('/:skillHash/scan', async (req: Request, res: Response) => {
     // Scan the skill directory
     const result = await yaraScanner.scanDirectory(skillDir, skillHash);
 
-    // Store scan result
-    await storeScanResult(prisma, result);
+     // Store scan result
+     await storeScanResult(req.prisma as PrismaClient, result);
 
     res.json(result);
   } catch (error: any) {
@@ -178,12 +186,11 @@ router.post('/:skillHash/scan', async (req: Request, res: Response) => {
 });
 
 // GET /api/scan/:skillHash/report - Get detailed security report
-router.get('/:skillHash/report', async (req: Request, res: Response) => {
-  const prisma = (req as any).prisma as PrismaClient;
+router.get('/:skillHash/report', async (req: AuthenticatedRequest, res: Response) => {
   const { skillHash } = req.params;
 
   try {
-    const latestScan = await prisma.securityScan.findFirst({
+     const latestScan = await (req.prisma as PrismaClient).securityScan.findFirst({
       where: { skillHash },
       orderBy: { createdAt: 'desc' },
     });
@@ -201,25 +208,25 @@ router.get('/:skillHash/report', async (req: Request, res: Response) => {
   }
 });
 
-// Helper function to store scan result
-async function storeScanResult(prisma: PrismaClient, result: SecurityScanResult) {
-  try {
-    await prisma.securityScan.create({
-      data: {
-        skillHash: result.skillHash,
-        severity: result.severity,
-        findings: result.findings as any,
-        summary: result.summary,
-        scanDuration: result.scanDuration,
-        scannedFiles: result.scannedFiles,
-        scannedBytes: result.scannedBytes,
-      },
-    });
-  } catch (error) {
-    console.error('Failed to store scan result:', error);
-    // Don't throw - scanning should still succeed even if storage fails
-  }
-}
+    // Helper function to store scan result
+    async function storeScanResult(prisma: PrismaClient, result: SecurityScanResult) {
+      try {
+        await prisma.securityScan.create({
+          data: {
+            skillHash: result.skillHash,
+            severity: result.severity,
+            findings: result.findings,
+            summary: result.summary,
+            scanDuration: result.scanDuration,
+            scannedFiles: result.scannedFiles,
+            scannedBytes: result.scannedBytes,
+          },
+        });
+      } catch (error) {
+        req.log?.error({ error }, 'Failed to store scan result');
+        // Don't throw - scanning should still succeed even if storage fails
+      }
+    }
 
 // Helper function to generate security report
 function generateSecurityReport(scan: any) {

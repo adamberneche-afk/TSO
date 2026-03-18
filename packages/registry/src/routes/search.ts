@@ -1,11 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 
+interface AuthenticatedRequest extends Request {
+  prisma?: PrismaClient;
+}
+
 const router = Router();
 
 // GET /api/search - Search skills
-router.get('/', async (req: Request, res: Response) => {
-  const prisma = (req as any).prisma as PrismaClient;
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   
   try {
     const query = (req.query.q as string) || '';
@@ -42,8 +45,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // GET /api/search/categories - Get all categories
-router.get('/categories', async (req: Request, res: Response) => {
-  const prisma = (req as any).prisma as PrismaClient;
+router.get('/categories', async (req: AuthenticatedRequest, res: Response) => {
   
   try {
     const categories = await prisma.category.findMany({
@@ -59,8 +61,7 @@ router.get('/categories', async (req: Request, res: Response) => {
 });
 
 // GET /api/search/trending - Get trending skills
-router.get('/trending', async (req: Request, res: Response) => {
-  const prisma = (req as any).prisma as PrismaClient;
+router.get('/trending', async (req: AuthenticatedRequest, res: Response) => {
   
   try {
     const skills = await prisma.skill.findMany({

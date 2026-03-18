@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from './auth';
+import { normalizeWalletAddress, walletAddressesEqual } from '../utils/wallet';
 
 /**
  * Admin Authorization Middleware
@@ -18,25 +19,31 @@ export const requireAdmin = (
   adminWallets: string[]
 ) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    // First check if user is authenticated (req.user set by authenticateToken middleware)
-    if (!req.user || !req.user.walletAddress) {
-      return res.status(401).json({ 
-        error: 'Authentication required',
-        message: 'Admin access requires valid authentication'
-      });
-    }
+     // First check if user is authenticated (req.user set by authenticateToken middleware)
+     if (!req.user || !req.user.walletAddress) {
+       return res.status(401).json({ 
+         error: 'Authentication required',
+         message: 'Admin access requires valid authentication'
+       });
+     }
 
-    // Now check if authenticated user is an admin
-    const userWallet = req.user.walletAddress.toLowerCase();
-    const normalizedAdminWallets = adminWallets.map(w => w.toLowerCase());
+     // Normalize wallet addresses for comparison
+     const userWallet = normalizeWalletAddress(req.user.walletAddress);
+     if (!userWallet) {
+       return res.status(400).json({ error: 'Invalid wallet address format' });
+     }
+     
+     const normalizedAdminWallets = adminWallets
+       .map(wallet => normalizeWalletAddress(wallet))
+       .filter((wallet): wallet is string => wallet !== null);
 
-    if (!normalizedAdminWallets.includes(userWallet)) {
-      (req as any).log?.warn({ userWallet }, 'Unauthorized admin access attempt') || console.warn(`Unauthorized admin access attempt from ${userWallet}`);
-      return res.status(403).json({ 
-        error: 'Admin access required',
-        message: 'Your wallet is not authorized for admin operations'
-      });
-    }
+      if (!normalizedAdminWallets.includes(userWallet)) {
+        req.log?.warn({ userWallet: userWallet }, 'Unauthorized admin access attempt');
+        return res.status(403).json({ 
+          error: 'Admin access required',
+          message: 'Your wallet is not authorized for admin operations'
+        });
+      }
 
     // User is authenticated and is an admin
     next();

@@ -1,0 +1,34 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "TAIS Registry API",
+    "version": "1.0.0",
+    "description": "API documentation for TAIS Skill Registry"
+  },
+  "servers": [
+    {
+      "url": "https://tso.onrender.com",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:10000",
+      "description": "Development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {},
+  "tags": []
+}

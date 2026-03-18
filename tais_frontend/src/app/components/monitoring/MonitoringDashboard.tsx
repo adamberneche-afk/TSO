@@ -3,8 +3,7 @@ import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Activity, Database, Cpu, MemoryStick, AlertTriangle, Clock, RefreshCw } from 'lucide-react';
 import { motion } from 'motion/react';
-
-const REGISTRY_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
+import { api } from '../../api/client';
 
 interface DashboardData {
   timestamp: string;
@@ -41,15 +40,12 @@ export function MonitoringDashboard() {
 
   const fetchDashboard = async () => {
     try {
-      const response = await fetch(`${REGISTRY_URL}/monitoring/dashboard`);
-      if (!response.ok) throw new Error('Failed to fetch dashboard data');
-      const json = await response.json();
+      const json = await api.get<DashboardData>('/monitoring/dashboard');
       setData(json);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
-      setIsLoading(false);
       setLastRefresh(new Date());
     }
   };

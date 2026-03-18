@@ -3,6 +3,7 @@
 
 import { Router, Request, Response } from 'express';
 import { verifyNFTOwnership } from '../services/genesisConfigLimits';
+import { normalizeWalletAddress, walletAddressesEqual } from '../utils/wallet';
 
 const COST_PER_1K_INTERACTIONS = 0.10;
 const FREE_TIER_LIMIT = 1000;
@@ -23,19 +24,26 @@ export function createBillingRoutes(prisma: any, logger: any): Router {
       const authenticatedWallet = req.user?.walletAddress;
       const { wallet, app_id, start_date, end_date } = req.query;
 
-      // IDOR Fix: Verify user can only access their own data
-      if (!authenticatedWallet) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
+// IDOR Fix: Verify user can only access their own data
+       if (!authenticatedWallet) {
+         return res.status(401).json({ error: 'Authentication required' });
+       }
 
-      if (!wallet || typeof wallet !== 'string') {
-        return res.status(400).json({ error: 'wallet is required' });
-      }
+       if (!wallet || typeof wallet !== 'string') {
+         return res.status(400).json({ error: 'wallet is required' });
+       }
 
-      // IDOR Fix: Users can only access their own wallet's data
-      if (wallet.toLowerCase() !== authenticatedWallet.toLowerCase()) {
-        return res.status(403).json({ error: 'Access denied to this wallet\'s data' });
-      }
+       const normalizedWallet = normalizeWalletAddress(wallet);
+       const normalizedAuthenticatedWallet = normalizeWalletAddress(authenticatedWallet);
+       
+       if (!normalizedWallet || !normalizedAuthenticatedWallet) {
+         return res.status(400).json({ error: 'Invalid wallet address format' });
+       }
+
+       // IDOR Fix: Users can only access their own wallet's data
+       if (!walletAddressesEqual(wallet, authenticatedWallet)) {
+         return res.status(403).json({ error: 'Access denied to this wallet\'s data' });
+       }
 
       const nftResult = await verifyNFTOwnership(wallet);
       const tier = nftResult.isHolder ? (nftResult.tokenCount >= 3 ? 'gold' : 'silver') : 'free';

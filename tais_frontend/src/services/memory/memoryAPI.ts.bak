@@ -11,7 +11,6 @@ import {
 } from './types';
 import { citationValidator, relevanceFilter } from './citationValidator';
 import { reflectionSynthesizer } from './reflectionSynthesizer';
-import { api } from '../../../api/client';
 
 const MAX_WORKING_MESSAGES = 10;
 const MAX_WORKING_SIZE_KB = 50;
@@ -201,11 +200,11 @@ export class ActiveMemoryAPI {
     const conversationSummary = userMessages.length > 0
       ? userMessages[userMessages.length - 1].content.substring(0, 100) + '...'
       : 'Session with agent';
-    
+
     const userGoals = workingMemory.currentContext.intermediateReasoning.userIntent
       ? [workingMemory.currentContext.intermediateReasoning.userIntent]
       : [];
-    
+
     return { conversationSummary, userGoals };
   }
 
@@ -359,9 +358,9 @@ export class ReflectiveMemoryAPI {
     } catch (e) {
       console.error('Reflection failed:', e);
     }
-    
+
     const result = filtering.shouldPromote ? await this.promote(activeMemory) : { promoted: false };
-    
+
     return {
       validation,
       filtering: { score: filtering.score, shouldPromote: filtering.shouldPromote },
@@ -408,7 +407,7 @@ export class CoreMemoryAPI {
     if (!sourceMemory || !sourceMemory.reflection?.learnings[0]) {
       throw new Error('Memory not found or has no learnings');
     }
-    
+
     const learning = sourceMemory.reflection.learnings[0];
     
     const coreMemory = {
@@ -422,7 +421,7 @@ export class CoreMemoryAPI {
       implications: learning.actionableImplication,
       applicableContexts: learning.applicableContexts,
     };
-    
+
     await db.put('coreMemory', coreMemory);
   }
 
@@ -446,7 +445,7 @@ export class MetaMemoryAPI {
   async updateReinforcement(memoryId: string): Promise<void> {
     const db = await getMemoryDB();
     let meta = await db.get('metaMemory', memoryId);
-    
+
     if (!meta) {
       meta = {
         memoryId,
@@ -458,24 +457,24 @@ export class MetaMemoryAPI {
         contradictionRate: 0,
         applicableContexts: [],
         inapplicableContexts: [],
-        confidenceTrajectory: [0.5],
+        confidenceTrajectory: [],
         temporalDriftScore: 0,
         recommendedAction: 'keep',
         recommendedActionReason: 'New memory',
       };
     }
-    
+
     meta.timesReinforced += 1;
     meta.lastReinforced = new Date();
     meta.confidenceTrajectory.push(Math.min(1, (meta.confidenceTrajectory[meta.confidenceTrajectory.length - 1] || 0.5) + 0.02));
-    
+
     await db.put('metaMemory', meta);
   }
 
   async updateContradiction(memoryId: string): Promise<void> {
     const db = await getMemoryDB();
     let meta = await db.get('metaMemory', memoryId);
-    
+
     if (!meta) {
       meta = {
         memoryId,
@@ -493,18 +492,18 @@ export class MetaMemoryAPI {
         recommendedActionReason: 'New memory',
       };
     }
-    
+
     meta.timesContradicted += 1;
     meta.lastContradicted = new Date();
     
     const lastConfidence = meta.confidenceTrajectory[meta.confidenceTrajectory.length - 1] || 0.5;
     meta.confidenceTrajectory.push(Math.max(0, lastConfidence - 0.05));
-    
+
     if (meta.timesContradicted / Math.max(1, meta.timesReinforced) > 0.5) {
       meta.recommendedAction = 'update';
       meta.recommendedActionReason = 'Frequent contradictions suggest outdated memory';
     }
-    
+
     await db.put('metaMemory', meta);
   }
 }
@@ -534,7 +533,7 @@ export class ImmutableMemoryAPI {
       if (!memory) {
         throw new Error('Memory not found');
       }
-      
+
       memory.weight = Math.max(0.1, Math.min(2.0, newWeight));
       await db.put('immutableMemory', memory);
       return true;
@@ -584,14 +583,21 @@ export async function syncMemoriesToCloud(walletAddress: string): Promise<{
     if (allMemories.length === 0) {
       return { success: true, backedUp: 0 };
     }
-    
-    const result = await api.post('/api/v1/memory/backup', {
-      data: {
+
+    const response = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/memory/backup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         wallet: walletAddress,
         memories: allMemories,
-      }
+      }),
     });
-    
+
+    if (!response.ok) {
+      throw new Error('Backup failed');
+    }
+
+    const result = await response.json();
     console.log('[Memory] Synced to cloud:', result);
     
     return { success: true, backedUp: result.backedUp };
@@ -607,21 +613,25 @@ export async function restoreMemoriesFromCloud(walletAddress: string): Promise<{
   error?: string;
 }> {
   try {
-    const result = await api.get(`/api/v1/memory/restore?wallet=${walletAddress}`);
-    
-    const { memories } = result;
+    const response = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/memory/restore?wallet=${walletAddress}`);
+
+    if (!response.ok) {
+      throw new Error('Restore failed');
+    }
+
+    const { memories } = await response.json();
     
     if (!memories || memories.length === 0) {
       return { success: true, restored: 0 };
     }
-    
+
     // Store in local IndexedDB
     const db = await getMemoryDB();
     
     for (const memory of memories) {
       await db.put('activeMemory', memory);
     }
-    
+
     console.log('[Memory] Restored from cloud:', memories.length);
     
     return { success: true, restored: memories.length };
@@ -636,8 +646,13 @@ export async function getCloudBackupStatus(walletAddress: string): Promise<{
   lastBackup: string | null;
 }> {
   try {
-    const result = await api.get(`/api/v1/memory/status?wallet=${walletAddress}`);
-    return result;
+    const response = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/memory/status?wallet=${walletAddress}`);
+
+    if (!response.ok) {
+      throw new Error('Status check failed');
+    }
+
+    return await response.json();
   } catch (error) {
     console.error('[Memory] Backup status error:', error);
     return { backedUp: 0, lastBackup: null };

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth';
+import { PrismaClient } from '@prisma/client';
 
 /**
  * Authentication Middleware
@@ -10,6 +11,16 @@ export interface AuthenticatedRequest extends Request {
   user?: {
     walletAddress: string;
   };
+  prisma?: PrismaClient;
+  log?: {
+    info: (message: any, ...optional: any[]) => void;
+    error: (message: any, ...optional: any[]) => void;
+    warn: (message: any, ...optional: any[]) => void;
+  };
+  session?: any;
+  wallet?: string;
+  startTime?: number;
+  ipfs?: any;
 }
 
 /**

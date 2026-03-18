@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import cryptoJS from 'crypto-js';
 import { verifySignature } from '../utils/signature';
 import { verifyNFTOwnership } from '../services/genesisConfigLimits';
+import { normalizeWalletAddress, walletAddressesEqual } from '../utils/wallet';
 
 function getEncryptionKey(): string {
   const key = process.env.TOKEN_ENCRYPTION_KEY;
@@ -82,14 +83,19 @@ export function createAgentRoutes(prisma: any, logger: any): Router {
       const tier = nftResult.isHolder ? (nftResult.tokenCount >= 3 ? 'gold' : 'silver') : 'free';
       const isGold = tier === 'gold';
 
-      const configs = await prisma.agentConfiguration.findMany({
-        where: {
-          walletAddress: walletAddress.toLowerCase(),
-          isActive: true,
-        },
-        orderBy: { updatedAt: 'desc' },
-        take: 1,
-      });
+       const normalizedWallet = normalizeWalletAddress(walletAddress);
+       if (!normalizedWallet) {
+         return res.status(400).json({ error: 'Invalid wallet address' });
+       }
+       
+       const configs = await prisma.agentConfiguration.findMany({
+         where: {
+           walletAddress: normalizedWallet,
+           isActive: true,
+         },
+         orderBy: { updatedAt: 'desc' },
+         take: 1,
+       });
 
       const activeConfig = configs[0];
 
@@ -130,10 +136,10 @@ export function createAgentRoutes(prisma: any, logger: any): Router {
       }
 
       if (scopes.includes('agent:memory:read')) {
-        const memoryEntries = await prisma.agentMemoryEntry.findMany({
-          where: {
-            walletAddress: walletAddress.toLowerCase(),
-          },
+         const memoryEntries = await prisma.agentMemoryEntry.findMany({
+           where: {
+             walletAddress: normalizedWallet,
+           },
           orderBy: { createdAt: 'desc' },
           take: 50,
         });

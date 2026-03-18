@@ -137,7 +137,7 @@ export async function rollbackToVersion(
   const updated = await prisma.agentConfiguration.update({
     where: { id: configId },
     data: {
-      configData: versionData.configSnapshot as any,
+       configData: versionData.configSnapshot,
       personalityMd: versionData.personalityMd,
       version: { increment: 1 }
     }

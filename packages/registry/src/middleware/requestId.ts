@@ -8,6 +8,16 @@ import { v4 as uuidv4 } from 'uuid';
 
 export interface RequestWithId extends Request {
   id?: string;
+  log?: {
+    info: (message: any, ...optional: any[]) => void;
+    error: (message: any, ...optional: any[]) => void;
+    warn: (message: any, ...optional: any[]) => void;
+    child: (obj: { requestId: string }) => {
+      info: (message: any, ...optional: any[]) => void;
+      error: (message: any, ...optional: any[]) => void;
+      warn: (message: any, ...optional: any[]) => void;
+    };
+  };
 }
 
 /**
@@ -26,18 +36,18 @@ export const requestIdMiddleware = (
   const requestId = typeof clientRequestId === 'string' && clientRequestId.length > 0
     ? clientRequestId
     : uuidv4();
-
+  
   // Attach to request object
   req.id = requestId;
-
+  
   // Add to response headers
   res.setHeader('X-Request-ID', requestId);
-
+  
   // Add to logs if logger exists
-  if ((req as any).log) {
-    (req as any).log = (req as any).log.child({ requestId });
+  if (req.log) {
+    req.log = req.log.child({ requestId });
   }
-
+  
   next();
 };
 

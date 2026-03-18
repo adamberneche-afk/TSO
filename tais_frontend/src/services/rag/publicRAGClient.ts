@@ -6,452 +6,338 @@
 import { getE2EEEncryptionService } from './e2eeEncryption';
 import { generateEmbeddings, chunkText } from './embeddings';
 import type { 
-  PublicDocument, 
-  PublicRAGUploadRequest, 
-  PublicRAGSearchRequest,
-  PublicRAGSearchResult,
-  CommunityDocument,
-  PublicRAGStats 
+   PublicDocument, 
+   PublicRAGUploadRequest, 
+   PublicRAGSearchRequest,
+   PublicRAGSearchResult,
+   CommunityDocument,
+   PublicRAGStats 
 } from '../../types/rag-public';
 import type { Chunk } from '../../types/rag';
 import { ethers } from 'ethers';
+import { ragApi } from '../ragApi';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_RAG_API_URL || 'https://tso.onrender.com/api/v1/rag';
 
 export class PublicRAGClient {
-  private apiKey: string | null = null;
-  private walletAddress: string | null = null;
-  private encryptionService = getE2EEEncryptionService();
+   private apiKey: string | null = null;
+   private walletAddress: string | null = null;
+   private encryptionService = getE2EEEncryptionService();
 
-  constructor(apiKey?: string) {
-    if (apiKey) {
-      this.apiKey = apiKey;
-    }
-  }
+   constructor(apiKey?: string) {
+     if (apiKey) {
+       this.apiKey = apiKey;
+     }
+   }
 
-  /**
-   * Initialize with wallet authentication
-   */
-  async initializeWithWallet(): Promise<void> {
-    if (!window.ethereum) {
-      throw new Error('No wallet detected');
-    }
+   /**
+    * Initialize with wallet authentication
+    */
+   async initializeWithWallet(): Promise<void> {
+     if (!window.ethereum) {
+       throw new Error('No wallet detected');
+     }
 
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const signer = await provider.getSigner();
-    this.walletAddress = await signer.getAddress();
+     const provider = new ethers.providers.Web3Provider(window.ethereum);
+     const signer = await provider.getSigner();
+     this.walletAddress = await signer.getAddress();
 
-    // Initialize encryption service
-    await this.encryptionService.initialize(signer);
+     // Initialize encryption service
+     await this.encryptionService.initialize(signer);
 
-    // Get or create API key
-    this.apiKey = await this.getOrCreateAPIKey(signer);
-  }
+     // Get or create API key
+     this.apiKey = await this.getOrCreateAPIKey(signer);
+   }
 
-  /**
-   * Get or create API key for the user
-   */
-  private async getOrCreateAPIKey(signer: ethers.JsonRpcSigner): Promise<string> {
-    // Try to get existing key from localStorage
-    const storedKey = localStorage.getItem('tais_rag_api_key');
-    if (storedKey) {
-      return storedKey;
-    }
+   /**
+    * Get or create API key for the user
+    */
+   private async getOrCreateAPIKey(signer: ethers.JsonRpcSigner): Promise<string> {
+     // Try to get existing key from localStorage
+     const storedKey = localStorage.getItem('tais_rag_api_key');
+     if (storedKey) {
+       return storedKey;
+     }
 
-    // Create new API key by signing a message
-    const message = 'TAIS RAG API Key Creation';
-    const signature = await signer.signMessage(message);
-    
-    // Derive API key from signature
-    const encoder = new TextEncoder();
-    const hash = await crypto.subtle.digest('SHA-256', encoder.encode(signature));
-    const apiKey = btoa(String.fromCharCode(...new Uint8Array(hash))).slice(0, 32);
+     // Create new API key by signing a message
+     const message = 'TAIS RAG API Key Creation';
+     const signature = await signer.signMessage(message);
+     
+     // Derive API key from signature
+     const encoder = new TextEncoder();
+     const hash = await crypto.subtle.digest('SHA-256', encoder.encode(signature));
+     const apiKey = btoa(String.fromCharCode(...new Uint8Array(hash))).slice(0, 32);
 
-    // Store API key
-    localStorage.setItem('tais_rag_api_key', apiKey);
+     // Store API key
+     localStorage.setItem('tais_rag_api_key', apiKey);
 
-    // Register API key with backend (sends public key, not private)
-    const publicKey = this.encryptionService.getPublicKey();
-    if (publicKey) {
-      await this.registerPublicKey(publicKey);
-    }
+     // Register API key with backend (sends public key, not private)
+     const publicKey = this.encryptionService.getPublicKey();
+     if (publicKey) {
+       await this.registerPublicKey(publicKey);
+     }
 
-    return apiKey;
-  }
+     return apiKey;
+   }
 
-  /**
-   * Register user's public key with the platform
-   */
-  private async registerPublicKey(publicKey: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/users/public-key`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        wallet: this.walletAddress,
-        publicKey,
-      }),
-    });
+   /**
+    * Register user's public key with the platform
+    */
+   private async registerPublicKey(publicKey: string): Promise<void> {
+     await ragApi.registerPublicKey(this.walletAddress!, publicKey);
+   }
 
-    if (!response.ok) {
-      throw new Error('Failed to register public key');
-    }
-  }
+   /**
+    * Upload a document to Public RAG (E2EE)
+    */
+   async uploadDocument(request: PublicRAGUploadRequest): Promise<PublicDocument> {
+     if (!this.walletAddress) {
+       throw new Error('Not authenticated');
+     }
 
-  /**
-   * Upload a document to Public RAG (E2EE)
-   */
-  async uploadDocument(request: PublicRAGUploadRequest): Promise<PublicDocument> {
-    if (!this.walletAddress) {
-      throw new Error('Not authenticated');
-    }
+     const chunks = chunkText(request.content, 500, 50);
+     const embeddings = await generateEmbeddings(chunks);
+     
+     // Use community encryption for public documents, wallet encryption for private
+     const encryptionResult = request.isPublic 
+       ? await this.encryptionService.encryptForCommunity(request.content)
+       : await this.encryptionService.encrypt(request.content);
+     
+     const metadataStr = JSON.stringify({
+       title: request.title,
+       type: request.metadata.type,
+       tags: request.tags,
+       author: this.walletAddress,
+     });
+     const encryptedMetadata = request.isPublic
+       ? await this.encryptionService.encryptForCommunity(metadataStr)
+       : await this.encryptionService.encrypt(metadataStr);
 
-    const chunks = chunkText(request.content, 500, 50);
-    const embeddings = await generateEmbeddings(chunks);
-    
-    // Use community encryption for public documents, wallet encryption for private
-    const encryptionResult = request.isPublic 
-      ? await this.encryptionService.encryptForCommunity(request.content)
-      : await this.encryptionService.encrypt(request.content);
-    
-    const metadataStr = JSON.stringify({
-      title: request.title,
-      type: request.metadata.type,
-      tags: request.tags,
-      author: this.walletAddress,
-    });
-    const encryptedMetadata = request.isPublic
-      ? await this.encryptionService.encryptForCommunity(metadataStr)
-      : await this.encryptionService.encrypt(metadataStr);
+     const encryptedChunks = await Promise.all(
+       chunks.map(async (chunk, index) => {
+         const encrypted = request.isPublic
+           ? await this.encryptionService.encryptForCommunity(chunk)
+           : await this.encryptionService.encrypt(chunk);
+         const embeddingHash = await this.hashEmbedding(embeddings[index]);
+         
+         return {
+           index,
+           encryptedContent: encrypted.encrypted,
+           iv: encrypted.iv,
+           embeddingHash,
+         };
+       })
+     );
 
-    const encryptedChunks = await Promise.all(
-      chunks.map(async (chunk, index) => {
-        const encrypted = request.isPublic
-          ? await this.encryptionService.encryptForCommunity(chunk)
-          : await this.encryptionService.encrypt(chunk);
-        const embeddingHash = await this.hashEmbedding(embeddings[index]);
-        
-        return {
-          index,
-          encryptedContent: encrypted.encrypted,
-          iv: encrypted.iv,
-          embeddingHash,
-        };
-      })
-    );
+     const publicKey = this.encryptionService.getPublicKey();
+     if (!publicKey) {
+       throw new Error('Public key not available');
+     }
 
-    const publicKey = this.encryptionService.getPublicKey();
-    if (!publicKey) {
-      throw new Error('Public key not available');
-    }
+     const result = await ragApi.uploadDocument({
+       wallet: this.walletAddress,
+       encryptedData: encryptionResult.encrypted,
+       encryptedMetadata: encryptedMetadata.encrypted,
+       iv: encryptionResult.iv,
+       salt: encryptionResult.salt,
+       ownerPublicKey: publicKey,
+       isPublic: request.isPublic,
+       tags: request.tags,
+       chunks: encryptedChunks,
+     });
 
-    const response = await fetch(`${API_BASE_URL}/documents`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        wallet: this.walletAddress,
-        encryptedData: encryptionResult.encrypted,
-        encryptedMetadata: encryptedMetadata.encrypted,
-        iv: encryptionResult.iv,
-        salt: encryptionResult.salt,
-        ownerPublicKey: publicKey,
-        isPublic: request.isPublic,
-        tags: request.tags,
-        chunks: encryptedChunks,
-      }),
-    });
+     return result;
+   }
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to upload document');
-    }
+   /**
+    * Hash embedding for privacy-preserving search index
+    * We don't store actual embeddings on server, only hashes
+    */
+   private async hashEmbedding(embedding: number[]): Promise<string> {
+     const str = embedding.map(n => n.toFixed(4)).join(',');
+     const encoder = new TextEncoder();
+     const hash = await crypto.subtle.digest('SHA-256', encoder.encode(str));
+     return btoa(String.fromCharCode(...new Uint8Array(hash)));
+   }
 
-    return await response.json();
-  }
+   /**
+    * Search Public RAG
+    * Returns encrypted results that must be decrypted client-side
+    */
+   async search(request: PublicRAGSearchRequest): Promise<PublicRAGSearchResult[]> {
+     if (!this.apiKey) {
+       throw new Error('Not authenticated');
+     }
 
-  /**
-   * Hash embedding for privacy-preserving search index
-   * We don't store actual embeddings on server, only hashes
-   */
-  private async hashEmbedding(embedding: number[]): Promise<string> {
-    const str = embedding.map(n => n.toFixed(4)).join(',');
-    const encoder = new TextEncoder();
-    const hash = await crypto.subtle.digest('SHA-256', encoder.encode(str));
-    return btoa(String.fromCharCode(...new Uint8Array(hash)));
-  }
+     // Generate query embedding
+     const queryEmbeddings = await generateEmbeddings([request.query]);
+     const queryHash = await this.hashEmbedding(queryEmbeddings[0]);
 
-  /**
-   * Search Public RAG
-   * Returns encrypted results that must be decrypted client-side
-   */
-  async search(request: PublicRAGSearchRequest): Promise<PublicRAGSearchResult[]> {
-    if (!this.apiKey) {
-      throw new Error('Not authenticated');
-    }
+     const results = await ragApi.search({
+       wallet: this.walletAddress,
+       queryHash,
+       topK: request.topK || 10,
+       filters: request.filters,
+     });
 
-    // Generate query embedding
-    const queryEmbeddings = await generateEmbeddings([request.query]);
-    const queryHash = await this.hashEmbedding(queryEmbeddings[0]);
+     return results;
+   }
 
-    const response = await fetch(`${API_BASE_URL}/search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        wallet: this.walletAddress,
-        queryHash,
-        topK: request.topK || 10,
-        filters: request.filters,
-      }),
-    });
+   /**
+    * Decrypt search result
+    */
+   async decryptResult(result: PublicRAGSearchResult): Promise<{
+     content: string;
+     metadata: any;
+   }> {
+     const isCommunityDoc = this.encryptionService.isCommunitySalt(result.salt);
 
-    if (!response.ok) {
-      throw new Error('Search failed');
-    }
+     // Decrypt content - use community decryption for public docs
+     const content = isCommunityDoc
+       ? await this.encryptionService.decryptCommunity(result.encryptedContent, result.iv, result.salt)
+       : await this.encryptionService.decrypt(result.encryptedContent, result.iv, result.salt);
 
-    const results = await response.json();
-    return results;
-  }
+     // Parse metadata (it's also encrypted but returned as part of search result)
+     const metadata = JSON.parse(content); // Content contains both text and metadata
 
-  /**
-   * Decrypt search result
-   */
-  async decryptResult(result: PublicRAGSearchResult): Promise<{
-    content: string;
-    metadata: any;
-  }> {
-    const isCommunityDoc = this.encryptionService.isCommunitySalt(result.salt);
+     return { content, metadata };
+   }
 
-    // Decrypt content - use community decryption for public docs
-    const content = isCommunityDoc
-      ? await this.encryptionService.decryptCommunity(result.encryptedContent, result.iv, result.salt)
-      : await this.encryptionService.decrypt(result.encryptedContent, result.iv, result.salt);
+   /**
+    * Get document by ID
+    */
+   async getDocument(documentId: string): Promise<PublicDocument> {
+     if (!this.walletAddress) {
+       throw new Error('Not authenticated');
+     }
 
-    // Parse metadata (it's also encrypted but returned as part of search result)
-    const metadata = JSON.parse(content); // Content contains both text and metadata
+     const result = await ragApi.getDocument(this.walletAddress, documentId);
+     return result;
+   }
 
-    return { content, metadata };
-  }
+   /**
+    * Download and decrypt document
+    */
+   async downloadDocument(documentId: string): Promise<{
+     content: string;
+     metadata: any;
+     chunks: string[];
+   }> {
+     if (!this.walletAddress) {
+       throw new Error('Not authenticated');
+     }
 
-  /**
-   * Get document by ID
-   */
-  async getDocument(documentId: string): Promise<PublicDocument> {
-    if (!this.walletAddress) {
-      throw new Error('Not authenticated');
-    }
+     const doc = await ragApi.getDocument(this.walletAddress, documentId);
 
-    const response = await fetch(`${API_BASE_URL}/documents/${documentId}?wallet=${this.walletAddress}`);
+     // Check if document has encrypted data
+     if (!doc.encryptedData || !doc.iv || !doc.salt) {
+       throw new Error('Document is not available or not properly encrypted');
+     }
 
-    if (!response.ok) {
-      throw new Error('Failed to get document');
-    }
+     // Check if user is the document owner
+     const isOwner = doc.walletAddress?.toLowerCase() === this.walletAddress?.toLowerCase();
+     const isPublicDoc = doc.isPublic;
 
-    return await response.json();
-  }
+     let content: string;
+     let metadataStr: string;
 
-  /**
-   * Download and decrypt document
-   */
-  async downloadDocument(documentId: string): Promise<{
-    content: string;
-    metadata: any;
-    chunks: string[];
-  }> {
-    const doc = await this.getDocument(documentId);
+     // For PUBLIC docs: ALWAYS use community key (even for owner, since that's what was used to encrypt)
+     // For PRIVATE docs: use wallet key
+     if (isPublicDoc) {
+       // Try community decryption first for public docs
+       try {
+         content = await this.encryptionService.decryptCommunity(doc.encryptedData, doc.iv, doc.salt);
+       } catch {
+         // Fallback to wallet key for old public docs
+         try {
+           content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
+         } catch {
+           throw new Error('This document was uploaded with old encryption and cannot be decrypted by others. Please re-upload it as a new public document.');
+         }
+       }
+       try {
+         metadataStr = await this.encryptionService.decryptCommunity(doc.encryptedMetadata, doc.iv, doc.salt);
+       } catch {
+         try {
+           metadataStr = await this.encryptionService.decrypt(doc.encryptedMetadata, doc.iv, doc.salt);
+         } catch {
+           metadataStr = '{}';
+         }
+       }
+     } else if (isOwner) {
+       // Owner can always decrypt with their wallet key
+       content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
+       metadataStr = await this.encryptionService.decrypt(doc.encryptedMetadata, doc.iv, doc.salt);
+     } else {
+       // Private/shared docs - use wallet decryption
+       content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
+       metadataStr = await this.encryptionService.decrypt(doc.encryptedMetadata, doc.iv, doc.salt);
+     }
 
-    // Check if document has encrypted data
-    if (!doc.encryptedData || !doc.iv || !doc.salt) {
-      throw new Error('Document is not available or not properly encrypted');
-    }
+     const metadata = JSON.parse(metadataStr);
 
-    // Check if user is the document owner
-    const isOwner = doc.walletAddress?.toLowerCase() === this.walletAddress?.toLowerCase();
-    const isPublicDoc = doc.isPublic;
+     const chunks = await ragApi.getDocumentChunks(this.walletAddress, documentId);
+     
+     return { content, metadata, chunks };
+   }
 
-    let content: string;
-    let metadataStr: string;
+   /**
+    * Share document with another user
+    */
+   async shareDocument(documentId: string, recipientPublicKey: string): Promise<void> {
+     if (!this.walletAddress) {
+       throw new Error('Not authenticated');
+     }
 
-    // For PUBLIC docs: ALWAYS use community key (even for owner, since that's what was used to encrypt)
-    // For PRIVATE docs: use wallet key
-    if (isPublicDoc) {
-      console.log('[DEBUG] encryptedData sample:', doc.encryptedData?.slice(0, 50));
-      console.log('[DEBUG] iv sample:', doc.iv?.slice(0, 30));
-      console.log('[DEBUG] salt sample:', doc.salt);
-      // Try community decryption first for public docs
-      try {
-        console.log('[DEBUG] Attempting community decrypt for public doc, salt:', doc.salt?.slice(0, 20));
-        content = await this.encryptionService.decryptCommunity(doc.encryptedData, doc.iv, doc.salt);
-        console.log('[DEBUG] Community decrypt SUCCESS');
-      } catch (e: any) {
-        console.log('[DEBUG] Community decrypt failed:', e.message);
-        // Fallback to wallet key for old public docs
-        try {
-          console.log('[DEBUG] Attempting wallet decrypt for public doc');
-          content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
-          console.log('[DEBUG] Wallet decrypt SUCCESS');
-        } catch (e2: any) {
-          console.log('[DEBUG] Wallet decrypt also failed:', e2.message);
-          throw new Error('This document was uploaded with old encryption and cannot be decrypted by others. Please re-upload it as a new public document.');
-        }
-      }
-      try {
-        metadataStr = await this.encryptionService.decryptCommunity(doc.encryptedMetadata, doc.iv, doc.salt);
-      } catch {
-        try {
-          metadataStr = await this.encryptionService.decrypt(doc.encryptedMetadata, doc.iv, doc.salt);
-        } catch {
-          metadataStr = '{}';
-        }
-      }
-    } else if (isOwner) {
-      // Owner can always decrypt with their wallet key
-      content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
-      metadataStr = await this.encryptionService.decrypt(doc.encryptedMetadata, doc.iv, doc.salt);
-    } else {
-      // Private/shared docs - use wallet decryption
-      content = await this.encryptionService.decrypt(doc.encryptedData, doc.iv, doc.salt);
-      metadataStr = await this.encryptionService.decrypt(doc.encryptedMetadata, doc.iv, doc.salt);
-    }
+     await ragApi.shareDocument({
+       wallet: this.walletAddress,
+       documentId,
+       recipientPublicKey,
+     });
+   }
 
-    const metadata = JSON.parse(metadataStr);
+   /**
+    * Get community documents (public/shared)
+    */
+   async getCommunityDocuments(limit: number = 20, offset: number = 0): Promise<CommunityDocument[]> {
+     const result = await ragApi.getCommunityDocuments({ limit, offset });
+     return result;
+   }
 
-    const response = await fetch(`${API_BASE_URL}/documents/${documentId}/chunks?wallet=${this.walletAddress}`);
+   /**
+    * Get my documents
+    */
+   async getMyDocuments(): Promise<PublicDocument[]> {
+     if (!this.walletAddress) {
+       throw new Error('Not authenticated');
+     }
 
-    const encryptedChunks = await response.json();
-    
-    const chunks = await Promise.all(
-      encryptedChunks.map(async (chunk: any) => {
-        // For public docs: always try community key first (even for owner)
-        if (isPublicDoc) {
-          try {
-            return await this.encryptionService.decryptCommunity(chunk.encryptedContent, chunk.iv, doc.salt);
-          } catch {
-            try {
-              return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, doc.salt);
-            } catch {
-              return '[Decryption failed]';
-            }
-          }
-        }
-        // For private docs
-        if (isOwner) {
-          return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, doc.salt);
-        }
-        return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, doc.salt);
-      })
-    );
+     const result = await ragApi.getMyDocuments(this.walletAddress);
+     return result;
+   }
 
-    return { content, metadata, chunks };
-  }
+   /**
+    * Delete document
+    */
+   async deleteDocument(documentId: string): Promise<void> {
+     if (!this.walletAddress) {
+       throw new Error('Not authenticated');
+     }
 
-  /**
-   * Share document with another user
-   */
-  async shareDocument(documentId: string, recipientPublicKey: string): Promise<void> {
-    if (!this.walletAddress) {
-      throw new Error('Not authenticated');
-    }
+     await ragApi.deleteDocument(this.walletAddress, documentId);
+   }
 
-    const response = await fetch(`${API_BASE_URL}/documents/${documentId}/share`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        wallet: this.walletAddress,
-        recipientPublicKey,
-      }),
-    });
+   /**
+    * Get Public RAG stats
+    */
+   async getStats(): Promise<PublicRAGStats> {
+     if (!this.walletAddress) {
+       throw new Error('Not authenticated');
+     }
 
-    if (!response.ok) {
-      throw new Error('Failed to share document');
-    }
-  }
-
-  /**
-   * Get community documents (public/shared)
-   */
-  async getCommunityDocuments(limit: number = 20, offset: number = 0): Promise<CommunityDocument[]> {
-    const response = await fetch(
-      `${API_BASE_URL}/community?limit=${limit}&offset=${offset}`
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to get community documents');
-    }
-
-    const data = await response.json();
-    return data.documents || [];
-  }
-
-  /**
-   * Get my documents
-   */
-  async getMyDocuments(): Promise<PublicDocument[]> {
-    if (!this.walletAddress) {
-      throw new Error('Not authenticated');
-    }
-
-    const response = await fetch(`${API_BASE_URL}/documents?wallet=${this.walletAddress}`);
-
-    if (!response.ok) {
-      throw new Error('Failed to get documents');
-    }
-
-    const data = await response.json();
-    return data.documents || [];
-  }
-
-  /**
-   * Delete document
-   */
-  async deleteDocument(documentId: string): Promise<void> {
-    if (!this.walletAddress) {
-      throw new Error('Not authenticated');
-    }
-
-    const response = await fetch(`${API_BASE_URL}/documents/${documentId}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        wallet: this.walletAddress,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to delete document');
-    }
-  }
-
-  /**
-   * Get Public RAG stats
-   */
-  async getStats(): Promise<PublicRAGStats> {
-    if (!this.walletAddress) {
-      throw new Error('Not authenticated');
-    }
-
-    const response = await fetch(`${API_BASE_URL}/stats?wallet=${this.walletAddress}`);
-
-    if (!response.ok) {
-      throw new Error('Failed to get stats');
-    }
-
-    const data = await response.json();
-    return {
-      ...data,
-      documentCount: data.myDocuments || 0,
-      storageUsedFormatted: formatBytes(data.storageUsed || 0),
-      storageLimitFormatted: '10 MB',
-    };
-  }
+     const result = await ragApi.getStats(this.walletAddress);
+     return result;
+   }
 }
 
 // Singleton instance

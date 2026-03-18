@@ -1,12 +1,30 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { authenticateToken } from '../middleware/auth';
+import { PrismaClient } from '@prisma/client';
+
+interface UserWithWallet {
+  walletAddress: string;
+}
 
 function extractWallet(req: Request): string | undefined {
-  // Try authenticated user first
-  if ((req as any).user?.walletAddress) {
-    return (req as any).user.walletAddress;
+  // Try to get wallet from Authorization header (JWT)
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    const token = authHeader.replace('Bearer ', '');
+    try {
+      // Decode JWT payload (base64url)
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      if (payload.walletAddress) {
+        return payload.walletAddress;
+      }
+    } catch {
+      // invalid token, continue to other sources
+    }
   }
+  // Fallback to query/body
+  return (req.query.wallet as string) || (req.body && (req.body as Record<string, any>).wallet as string);
+}
   
   // Try JWT token
   const authHeader = req.headers.authorization;
@@ -235,10 +253,24 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
       query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
       params.push(limit, offset);
 
-      const logs = await prisma.$queryRawUnsafe(
-        query,
-        ...params
-      ) as any[];
+       const logs = await prisma.$queryRawUnsafe<
+         Array<{
+           id: string;
+           owner_id: string;
+           action: string;
+           agent_id: string | null;
+           token: string | null;
+           status: string | null;
+           error_message: string | null;
+           context_type: string | null;
+           target_app_id: string | null;
+           breadcrumb_id: string | null;
+           ip_address: string | null;
+           user_agent: string | null;
+           duration: number | null;
+           created_at: Date;
+         }>
+       >(query, ...params);
 
       // Get total count for pagination
       let countQuery = `SELECT COUNT(*) as total FROM rcrt_audit_logs WHERE owner_id = $1`;

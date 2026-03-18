@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { verifySignature } from '../utils/signature';
 import crypto from 'crypto';
 
@@ -13,7 +14,9 @@ interface RAGSession {
   bytesUploaded: number;
 }
 
-const sessions = new Map<string, RAGSession>();
+// Database-backed session storage instead of in-memory Map
+// This provides persistence and scalability across multiple instances
+
 const SESSION_DURATION_MS = 60 * 60 * 1000; // 1 hour
 const MAX_SESSIONS_PER_WALLET = 3;
 
@@ -21,44 +24,116 @@ function generateSessionId(): string {
   return 'rag_sess_' + crypto.randomBytes(32).toString('hex');
 }
 
+// In-memory cache for active sessions to reduce database queries
+// This is a performance optimization - the source of truth is still the database
+const sessionCache = new Map<string, { session: RAGSession; expiry: number }>();
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
 export function getActiveSessions(): Map<string, RAGSession> {
-  return sessions;
+  // Note: This is primarily for debugging/monitoring
+  // In production, you'd query the database directly
+  return new Map();
 }
 
-export function getSession(sessionId: string): RAGSession | null {
-  const session = sessions.get(sessionId);
-  if (!session) return null;
+export async function getSession(prisma: PrismaClient, sessionId: string): Promise<RAGSession | null> {
+  // Check cache first
+  const cached = sessionCache.get(sessionId);
+  if (cached && Date.now() < cached.expiry) {
+    return cached.session;
+  }
   
-  if (session.expiresAt < new Date()) {
-    sessions.delete(sessionId);
+  // Remove expired cache entry
+  if (cached) {
+    sessionCache.delete(sessionId);
+  }
+  
+  // Query database
+  const session = await prisma.rAGSession.findUnique({
+    where: { sessionId }
+  });
+  
+  if (!session) {
     return null;
   }
   
-  return session;
+  // Check if expired
+  if (session.expiresAt < new Date()) {
+    await prisma.rAGSession.delete({
+      where: { sessionId }
+    });
+    return null;
+  }
+  
+  // Cache the session
+  sessionCache.set(sessionId, {
+    session: {
+      sessionId: session.sessionId,
+      walletAddress: session.walletAddress,
+      tier: session.tier,
+      createdAt: session.createdAt,
+      expiresAt: session.expiresAt,
+      lastActivityAt: session.lastActivityAt,
+      documentCount: session.documentCount,
+      bytesUploaded: session.bytesUploaded
+    },
+    expiry: Date.now() + CACHE_DURATION_MS
+  });
+  
+  return {
+    sessionId: session.sessionId,
+    walletAddress: session.walletAddress,
+    tier: session.tier,
+    createdAt: session.createdAt,
+    expiresAt: session.expiresAt,
+    lastActivityAt: session.lastActivityAt,
+    documentCount: session.documentCount,
+    bytesUploaded: session.bytesUploaded
+  };
 }
 
-export function updateSessionActivity(sessionId: string, bytesAdded: number = 0): void {
-  const session = sessions.get(sessionId);
-  if (!session) return;
-  
-  session.lastActivityAt = new Date();
-  session.bytesUploaded += bytesAdded;
-  session.documentCount++;
-}
-
-export function cleanupExpiredSessions(): number {
-  const now = new Date();
-  let cleaned = 0;
-  
-  sessions.forEach((session, sessionId) => {
-    if (session.expiresAt < now) {
-      sessions.delete(sessionId);
-      cleaned++;
+export async function updateSessionActivity(prisma: PrismaClient, sessionId: string, bytesAdded: number = 0): Promise<void> {
+  // Update database
+  await prisma.rAGSession.update({
+    where: { sessionId },
+    data: {
+      lastActivityAt: new Date(),
+      bytesUploaded: {
+        increment: bytesAdded
+      },
+      documentCount: {
+        increment: 1
+      }
     }
   });
   
-  return cleaned;
+  // Update cache if exists
+  const cached = sessionCache.get(sessionId);
+  if (cached) {
+    cached.session.lastActivityAt = new Date();
+    cached.session.bytesUploaded += bytesAdded;
+    cached.session.documentCount++;
+  }
 }
+
+export async function cleanupExpiredSessions(prisma: PrismaClient): Promise<number> {
+  const result = await prisma.rAGSession.deleteMany({
+    where: {
+      expiresAt: {
+        lt: new Date()
+      }
+    }
+  });
+  
+  // Clear cache entries for deleted sessions
+  // Note: In a production system with multiple instances, 
+  // you'd want to use Redis pub/sub or similar to sync cache invalidation
+  // For now, we'll rely on cache expiration
+  
+  return result.count;
+}
+
+export function createSessionRoutes(prisma: PrismaClient, logger: any): any {
+  const router = require('express').Router();
 
 export function createSessionRoutes(prisma: any, logger: any): any {
   const router = require('express').Router();
@@ -133,61 +208,65 @@ export function createSessionRoutes(prisma: any, logger: any): any {
     }
   });
 
-  router.get('/status', async (req: Request, res: Response) => {
-    try {
-      const sessionToken = req.headers['x-session-token'] as string;
+   router.get('/status', async (req: Request, res: Response) => {
+     try {
+       const sessionToken = req.headers['x-session-token'] as string;
 
-      if (!sessionToken) {
-        return res.status(401).json({ error: 'Session token required' });
-      }
+       if (!sessionToken) {
+         return res.status(401).json({ error: 'Session token required' });
+       }
 
-      const session = getSession(sessionToken);
-      if (!session) {
-        return res.status(401).json({ 
-          error: 'Invalid or expired session',
-          code: 'SESSION_EXPIRED'
-        });
-      }
+       const session = await getSession(prisma, sessionToken);
+       if (!session) {
+         return res.status(401).json({ 
+           error: 'Invalid or expired session',
+           code: 'SESSION_EXPIRED'
+         });
+       }
 
-      const remainingMs = session.expiresAt.getTime() - Date.now();
+       const remainingMs = session.expiresAt.getTime() - Date.now();
 
-      res.json({
-        valid: true,
-        walletAddress: session.walletAddress,
-        tier: session.tier,
-        createdAt: session.createdAt.toISOString(),
-        expiresAt: session.expiresAt.toISOString(),
-        expiresIn: Math.max(0, Math.floor(remainingMs / 1000)),
-        documentCount: session.documentCount,
-        bytesUploaded: session.bytesUploaded,
-        lastActivityAt: session.lastActivityAt.toISOString(),
-      });
-    } catch (error) {
-      logger.error('Error checking session status:', error);
-      res.status(500).json({ error: 'Failed to check session' });
-    }
-  });
+       res.json({
+         valid: true,
+         walletAddress: session.walletAddress,
+         tier: session.tier,
+         createdAt: session.createdAt.toISOString(),
+         expiresAt: session.expiresAt.toISOString(),
+         expiresIn: Math.max(0, Math.floor(remainingMs / 1000)),
+         documentCount: session.documentCount,
+         bytesUploaded: session.bytesUploaded,
+         lastActivityAt: session.lastActivityAt.toISOString(),
+       });
+     } catch (error) {
+       logger.error('Error checking session status:', error);
+       res.status(500).json({ error: 'Failed to check session' });
+     }
+   });
 
-  router.delete('/end', async (req: Request, res: Response) => {
-    try {
-      const sessionToken = req.headers['x-session-token'] as string;
+   router.delete('/end', async (req: Request, res: Response) => {
+     try {
+       const sessionToken = req.headers['x-session-token'] as string;
 
-      if (!sessionToken) {
-        return res.status(400).json({ error: 'Session token required' });
-      }
+       if (!sessionToken) {
+         return res.status(400).json({ error: 'Session token required' });
+       }
 
-      const session = sessions.get(sessionToken);
-      if (session) {
-        logger.info(`[RAG Session] Ended session ${sessionToken} for ${session.walletAddress}`);
-        sessions.delete(sessionToken);
-      }
+       const session = await getSession(prisma, sessionToken);
+       if (session) {
+         logger.info(`[RAG Session] Ended session ${sessionToken} for ${session.walletAddress}`);
+         await prisma.rAGSession.delete({
+           where: { sessionId: sessionToken }
+         });
+         // Also remove from cache
+         sessionCache.delete(sessionToken);
+       }
 
-      res.json({ success: true, message: 'Session ended' });
-    } catch (error) {
-      logger.error('Error ending session:', error);
-      res.status(500).json({ error: 'Failed to end session' });
-    }
-  });
+       res.json({ success: true, message: 'Session ended' });
+     } catch (error) {
+       logger.error('Error ending session:', error);
+       res.status(500).json({ error: 'Failed to end session' });
+     }
+   });
 
   return router;
 }
@@ -215,8 +294,8 @@ export function sessionAuthMiddleware(req: Request, res: Response, next: NextFun
     });
   }
 
-  (req as any).session = session;
-  (req as any).wallet = session.walletAddress;
+   req.session = session;
+   req.wallet = session.walletAddress;
 
   updateSessionActivity(sessionToken);
 
@@ -224,7 +303,7 @@ export function sessionAuthMiddleware(req: Request, res: Response, next: NextFun
 }
 
 export function requireSessionOrWallet(req: Request, res: Response, next: NextFunction) {
-  const session = (req as any).session;
+  const session = ('session' in req && req.session !== undefined) ? req.session as RAGSession | undefined : undefined;
   const wallet = req.body?.wallet || req.query?.wallet;
 
   if (!session && !wallet) {

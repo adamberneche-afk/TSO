@@ -4,10 +4,17 @@ import { AuthService } from '../services/auth';
 import { ApiKeyService } from '../services/apiKey';
 import { authLoginSchema, apiKeySchema, validateInput, sanitizeValidationErrors } from '../validation/schemas';
 
-/**
- * Auth Routes
- * Squad Alpha - Fully secured authentication endpoints
- */
+interface AuthenticatedRequest extends Request {
+  user?: {
+    walletAddress: string;
+  };
+  prisma?: PrismaClient;
+  log?: {
+    info: (message: any, ...optional: any[]) => void;
+    error: (message: any, ...optional: any[]) => void;
+    warn: (message: any, ...optional: any[]) => void;
+  };
+}
 
 const router = Router();
 
@@ -15,10 +22,9 @@ const router = Router();
  * POST /api/v1/auth/nonce
  * Get a nonce for signature verification
  */
-router.post('/nonce', async (req: Request, res: Response) => {
+router.post('/nonce', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const prisma = (req as any).prisma as PrismaClient;
-    const authService = new AuthService(prisma);
+    const authService = new AuthService(req.prisma as PrismaClient);
     
     const { walletAddress } = req.body;
     
@@ -43,7 +49,7 @@ router.post('/nonce', async (req: Request, res: Response) => {
       expiresIn: '5 minutes'
     });
   } catch (error) {
-    (req as any).log?.error({ error }, 'Nonce generation error') || console.error('Nonce generation error:', error);
+     req.log?.error({ error }, 'Nonce generation error');
     res.status(500).json({
       error: 'Failed to generate nonce',
       message: 'Please try again later'
@@ -56,9 +62,9 @@ router.post('/nonce', async (req: Request, res: Response) => {
  * Authenticate with wallet signature
  * CRITICAL FIX-2: Now verifies Ethereum signatures properly
  */
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const prisma = (req as any).prisma as PrismaClient;
+    const prisma = req.prisma as PrismaClient;
     const authService = new AuthService(prisma);
     
     // Squad Beta: Validate input using Zod
@@ -82,7 +88,7 @@ router.post('/login', async (req: Request, res: Response) => {
       expiresIn
     });
   } catch (error) {
-    (req as any).log?.error({ error }, 'Login error') || console.error('Login error:', error);
+     req.log?.error({ error }, 'Login error');
     res.status(401).json({
       error: 'Authentication failed',
       message: error instanceof Error ? error.message : 'Invalid credentials'
@@ -94,10 +100,9 @@ router.post('/login', async (req: Request, res: Response) => {
  * POST /api/v1/auth/verify
  * Verify JWT token
  */
-router.post('/verify', async (req: Request, res: Response) => {
+router.post('/verify', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const prisma = (req as any).prisma as PrismaClient;
-    const authService = new AuthService(prisma);
+    const authService = new AuthService(req.prisma as PrismaClient);
     
     const { token } = req.body;
     
@@ -128,11 +133,10 @@ router.post('/verify', async (req: Request, res: Response) => {
  * Generate API key (requires authentication)
  * HIGH-1 FIX: Now requires valid authentication
  */
-router.post('/api-key', async (req: any, res: Response) => {
+router.post('/api-key', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const prisma = req.prisma as PrismaClient;
-    const authService = new AuthService(prisma);
-    const apiKeyService = new ApiKeyService(prisma);
+    const authService = new AuthService(req.prisma as PrismaClient);
+    const apiKeyService = new ApiKeyService(req.prisma as PrismaClient);
     
     // Extract and validate token
     const authHeader = req.headers.authorization;
@@ -174,7 +178,7 @@ router.post('/api-key', async (req: any, res: Response) => {
       message: 'Store this API key securely. It will not be shown again.'
     });
   } catch (error) {
-    (req as any).log?.error({ error }, 'API key generation error') || console.error('API key generation error:', error);
+     req.log?.error({ error }, 'API key generation error');
     res.status(401).json({
       error: 'Authentication failed',
       message: error instanceof Error ? error.message : 'Invalid token'
@@ -186,11 +190,10 @@ router.post('/api-key', async (req: any, res: Response) => {
  * GET /api/v1/auth/api-keys
  * List all API keys for authenticated user
  */
-router.get('/api-keys', async (req: any, res: Response) => {
+router.get('/api-keys', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const prisma = req.prisma as PrismaClient;
-    const authService = new AuthService(prisma);
-    const apiKeyService = new ApiKeyService(prisma);
+    const authService = new AuthService(req.prisma as PrismaClient);
+    const apiKeyService = new ApiKeyService(req.prisma as PrismaClient);
     
     // Extract and validate token
     const authHeader = req.headers.authorization;
@@ -223,11 +226,10 @@ router.get('/api-keys', async (req: any, res: Response) => {
  * Logout user and invalidate JWT token
  * Squad KAPPA Fix: INFO-1 - JWT token revocation
  */
-router.post('/logout', async (req: any, res: Response) => {
+router.post('/logout', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const prisma = req.prisma as PrismaClient;
-    const authService = new AuthService(prisma);
-    const tokenBlacklist = new (await import('../services/tokenBlacklist')).TokenBlacklistService(prisma);
+    const authService = new AuthService(req.prisma as PrismaClient);
+    const tokenBlacklist = new (await import('../services/tokenBlacklist')).TokenBlacklistService(req.prisma as PrismaClient);
     
     // Extract token
     const authHeader = req.headers.authorization;
@@ -246,16 +248,16 @@ router.post('/logout', async (req: any, res: Response) => {
     // Add token to blacklist
     await tokenBlacklist.blacklistToken(token, decoded.walletAddress);
     
-    req.log.info({
-      walletAddress: decoded.walletAddress
-    }, 'User logged out, token blacklisted');
+     req.log?.info({
+       walletAddress: decoded.walletAddress
+     }, 'User logged out, token blacklisted');
     
     res.json({
       message: 'Logged out successfully',
       walletAddress: decoded.walletAddress
     });
   } catch (error) {
-    req.log.error({ error }, 'Logout failed');
+     req.log?.error({ error }, 'Logout failed');
     res.status(401).json({
       error: 'Logout failed',
       message: error instanceof Error ? error.message : 'Invalid token'
@@ -264,10 +266,9 @@ router.post('/logout', async (req: any, res: Response) => {
 });
 
 // GET /api/v1/auth/memory-preferences - Get memory report preferences
-router.get('/memory-preferences', async (req: Request, res: Response) => {
+router.get('/memory-preferences', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const prisma = (req as any).prisma as PrismaClient;
-    const authService = new AuthService(prisma);
+    const authService = new AuthService(req.prisma as PrismaClient);
     
     const authHeader = req.headers.authorization;
     const token = authService.extractTokenFromHeader(authHeader);
@@ -278,15 +279,15 @@ router.get('/memory-preferences', async (req: Request, res: Response) => {
     
     const decoded = authService.validateToken(token);
     
-    let prefs = await prisma.memoryReportPreferences.findUnique({
+    let prefs = await (req.prisma as PrismaClient).memoryReportPreferences.findUnique({
       where: { walletAddress: decoded.walletAddress },
     });
     
-    if (!prefs) {
-      prefs = await prisma.memoryReportPreferences.create({
-        data: { walletAddress: decoded.walletAddress },
-      });
-    }
+     if (!prefs) {
+       prefs = await (req.prisma as PrismaClient).memoryReportPreferences.create({
+         data: { walletAddress: decoded.walletAddress },
+       });
+     }
     
     res.json(prefs);
   } catch (error) {
@@ -295,10 +296,9 @@ router.get('/memory-preferences', async (req: Request, res: Response) => {
 });
 
 // PATCH /api/v1/auth/memory-preferences - Update memory report preferences
-router.patch('/memory-preferences', async (req: Request, res: Response) => {
+router.patch('/memory-preferences', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const prisma = (req as any).prisma as PrismaClient;
-    const authService = new AuthService(prisma);
+    const authService = new AuthService(req.prisma as PrismaClient);
     
     const authHeader = req.headers.authorization;
     const token = authService.extractTokenFromHeader(authHeader);
@@ -309,41 +309,41 @@ router.patch('/memory-preferences', async (req: Request, res: Response) => {
     
     const decoded = authService.validateToken(token);
     
-    const {
-      reportFrequency,
-      includeDriftStats,
-      includeUsagePatterns,
-      includeAppUsage,
-      includeRagPools,
-      includeAlignmentIndex,
-      notifyOnFlag,
-      notifyOnDrift,
-    } = req.body;
-    
-    const prefs = await prisma.memoryReportPreferences.upsert({
-      where: { walletAddress: decoded.walletAddress },
-      update: {
-        ...(reportFrequency && { reportFrequency }),
-        ...(includeDriftStats !== undefined && { includeDriftStats }),
-        ...(includeUsagePatterns !== undefined && { includeUsagePatterns }),
-        ...(includeAppUsage !== undefined && { includeAppUsage }),
-        ...(includeRagPools !== undefined && { includeRagPools }),
-        ...(includeAlignmentIndex !== undefined && { includeAlignmentIndex }),
-        ...(notifyOnFlag !== undefined && { notifyOnFlag }),
-        ...(notifyOnDrift !== undefined && { notifyOnDrift }),
-      },
-      create: {
-        walletAddress: decoded.walletAddress,
-        reportFrequency: reportFrequency || 'weekly',
-        includeDriftStats: includeDriftStats ?? true,
-        includeUsagePatterns: includeUsagePatterns ?? true,
-        includeAppUsage: includeAppUsage ?? true,
-        includeRagPools: includeRagPools ?? true,
-        includeAlignmentIndex: includeAlignmentIndex ?? true,
-        notifyOnFlag: notifyOnFlag ?? true,
-        notifyOnDrift: notifyOnDrift ?? true,
-      },
-    });
+     const {
+       reportFrequency,
+       includeDriftStats,
+       includeUsagePatterns,
+       includeAppUsage,
+       includeRagPools,
+       includeAlignmentIndex,
+       notifyOnFlag,
+       notifyOnDrift,
+     } = req.body;
+     
+     const prefs = await (req.prisma as PrismaClient).memoryReportPreferences.upsert({
+       where: { walletAddress: decoded.walletAddress },
+       update: {
+         ...(reportFrequency && { reportFrequency }),
+         ...(includeDriftStats !== undefined && { includeDriftStats }),
+         ...(includeUsagePatterns !== undefined && { includeUsagePatterns }),
+         ...(includeAppUsage !== undefined && { includeAppUsage }),
+         ...(includeRagPools !== undefined && { includeRagPools }),
+         ...(includeAlignmentIndex !== undefined && { includeAlignmentIndex }),
+         ...(notifyOnFlag !== undefined && { notifyOnFlag }),
+         ...(notifyOnDrift !== undefined && { notifyOnDrift }),
+       },
+       create: {
+         walletAddress: decoded.walletAddress,
+         reportFrequency: reportFrequency || 'weekly',
+         includeDriftStats: includeDriftStats ?? true,
+         includeUsagePatterns: includeUsagePatterns ?? true,
+         includeAppUsage: includeAppUsage ?? true,
+         includeRagPools: includeRagPools ?? true,
+         includeAlignmentIndex: includeAlignmentIndex ?? true,
+         notifyOnFlag: notifyOnFlag ?? true,
+         notifyOnDrift: notifyOnDrift ?? true,
+       },
+     });
     
     res.json(prefs);
   } catch (error) {

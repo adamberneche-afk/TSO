@@ -24,7 +24,7 @@ export interface AnalyticsEvent {
   source: 'sdk_assistant' | 'cto_agent' | 'api' | 'guided_discovery';
   walletAddress?: string;
   sessionId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   duration?: number;
   errorType?: string;
   errorMessage?: string;
@@ -174,10 +174,10 @@ export class AnalyticsService {
           type: e.errorType || 'unknown',
           count: e._count,
         })),
-        featuresUsed: features.map(f => ({
-          feature: (f.metadata as any)?.feature || 'unknown',
-          count: f._count,
-        })),
+         featuresUsed: features.map(f => ({
+           feature: (f.metadata?.feature ?? 'unknown') as string,
+           count: f._count,
+         })),
         avgTimeToFirstCall: timing._avg.duration || null,
       },
       cto: {
@@ -191,15 +191,15 @@ export class AnalyticsService {
     };
   }
 
-  private aggregatePainPoints(events: any[]): Array<{ area: string; count: number }> {
+    private aggregatePainPoints(events: any[]): Array<{ area: string; count: number }> {
     const areaCounts = new Map<string, number>();
     
     events.forEach(event => {
-      const metadata = event.metadata as any;
+      const metadata = event.metadata;
       const area = metadata?.area || 'unknown';
       areaCounts.set(area, (areaCounts.get(area) || 0) + 1);
     });
-
+    
     return Array.from(areaCounts.entries())
       .map(([area, count]) => ({ area, count }))
       .sort((a, b) => b.count - a.count)
@@ -234,7 +234,7 @@ export class AnalyticsService {
     if (ctoPainPoints.length > 0) {
       const areaCounts = new Map<string, number>();
       ctoPainPoints.forEach((p: any) => {
-        const area = (p.metadata as any)?.area || 'unknown';
+        const area = ((p.metadata as Record<string, unknown>)?.area ?? 'unknown') as string;
         areaCounts.set(area, (areaCounts.get(area) || 0) + 1);
       });
 
@@ -256,19 +256,19 @@ export class AnalyticsService {
   async generateWeeklyReport(weekStart: Date): Promise<void> {
     const insights = await this.getWeeklyInsights(weekStart);
 
-    await this.prisma.weeklyInsightsReport.create({
-      data: {
-        weekStart,
-        weekEnd: insights.period.end,
-        reportData: insights as any,
-        sessionsStarted: insights.sdk.sessionsStarted,
-        sessionsCompleted: insights.sdk.sessionsCompleted,
-        errorsEncountered: insights.sdk.errorsEncountered,
-        topPainPoints: insights.cto.topPainPoints as any,
-        topErrors: insights.sdk.topErrors as any,
-        suggestions: insights.recommendations as any,
-      },
-    });
+await this.prisma.weeklyInsightsReport.create({
+       data: {
+         weekStart,
+         weekEnd: insights.period.end,
+         reportData: insights,
+         sessionsStarted: insights.sdk.sessionsStarted,
+         sessionsCompleted: insights.sdk.sessionsCompleted,
+         errorsEncountered: insights.sdk.errorsEncountered,
+         topPainPoints: insights.cto.topPainPoints,
+         topErrors: insights.sdk.topErrors,
+         suggestions: insights.recommendations,
+       },
+     });
   }
 }
 

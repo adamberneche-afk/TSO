@@ -11,27 +11,28 @@ import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Settings, 
-  Key, 
-  Database, 
-  Brain, 
-  DollarSign, 
-  Shield, 
-  FolderOpen, 
-  Save,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  Bell,
-  HardDrive,
-  Zap,
-  MessageSquare,
-  FileText,
-  Eye
+   Settings, 
+   Key, 
+   Database, 
+   Brain, 
+   DollarSign, 
+   Shield, 
+   FolderOpen, 
+   Save,
+   Loader2,
+   CheckCircle2,
+   AlertCircle,
+   Bell,
+   HardDrive,
+   Zap,
+   MessageSquare,
+   FileText,
+   Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWallet } from '@/hooks/useWallet';
 import { LLM_PROVIDERS, type LLMProvider } from '@/types/llm';
+import { api } from '@/api/client';
 
 interface AppModelPreference {
   appId: string;
@@ -139,32 +140,27 @@ export function PlatformSettingsPage({ onBack }: { onBack: () => void }) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
       
-      if (isConnected && wallet.signer) {
-        try {
-          const token = localStorage.getItem('auth_token');
-          if (token) {
-            await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/auth/memory-preferences`, {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                reportFrequency: settings.memoryReports.frequency,
-                includeDriftStats: settings.memoryReports.includeDriftStats,
-                includeUsagePatterns: settings.memoryReports.includeUsagePatterns,
-                includeAppUsage: settings.memoryReports.includeAppUsage,
-                includeRagPools: settings.memoryReports.includeRagPools,
-                includeAlignmentIndex: settings.memoryReports.includeAlignmentIndex,
-                notifyOnFlag: settings.memoryReports.notifyOnFlag,
-                notifyOnDrift: settings.memoryReports.notifyOnDrift,
-              }),
-            });
-          }
-        } catch (e) {
-          console.warn('Failed to sync with backend:', e);
-        }
-      }
+       if (isConnected && wallet.signer) {
+         try {
+           const token = localStorage.getItem('auth_token');
+           if (token) {
+             await api.patch('/api/v1/auth/memory-preferences', {
+               data: {
+                 reportFrequency: settings.memoryReports.frequency,
+                 includeDriftStats: settings.memoryReports.includeDriftStats,
+                 includeUsagePatterns: settings.memoryReports.includeUsagePatterns,
+                 includeAppUsage: settings.memoryReports.includeAppUsage,
+                 includeRagPools: settings.memoryReports.includeRagPools,
+                 includeAlignmentIndex: settings.memoryReports.includeAlignmentIndex,
+                 notifyOnFlag: settings.memoryReports.notifyOnFlag,
+                 notifyOnDrift: settings.memoryReports.notifyOnDrift,
+               }
+             });
+           }
+         } catch (e) {
+           console.warn('Failed to sync with backend:', e);
+         }
+       }
       
       toast.success('Settings saved');
     } catch (e) {

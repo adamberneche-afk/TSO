@@ -12,6 +12,27 @@ import RAGAccessControl from '../services/ragAccessControl';
 import { createRAGStorageService } from '../services/ragStorage';
 import { getSession, updateSessionActivity, sessionAuthMiddleware } from '../services/ragSession';
 
+interface AuthenticatedRequest extends Request {
+  session?: {
+    sessionId: string;
+    walletAddress: string;
+    tier: string;
+    createdAt: Date;
+    expiresAt: Date;
+    lastActivityAt: Date;
+    documentCount: number;
+    bytesUploaded: number;
+  };
+  wallet?: string;
+  startTime?: number;
+  prisma?: PrismaClient;
+  log?: {
+    info: (message: any, ...optional: any[]) => void;
+    error: (message: any, ...optional: any[]) => void;
+    warn: (message: any, ...optional: any[]) => void;
+  };
+}
+
 export function createRAGRoutes(
   prisma: PrismaClient,
   logger: any
@@ -30,9 +51,9 @@ export function createRAGRoutes(
    * Upload encrypted document
    * Supports session-based auth (X-Session-Token header) or wallet param
    */
-  router.post('/documents', async (req: Request, res: Response) => {
+  router.post('/documents', async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const session = (req as any).session;
+      const session = req.session;
       let wallet = session?.walletAddress || req.body.wallet;
       
       const { encryptedData, encryptedMetadata, iv, salt, ownerPublicKey, isPublic, tags, chunks } = req.body;
@@ -120,7 +141,7 @@ export function createRAGRoutes(
           documentId: doc.id,
           ipAddress: req.ip,
           userAgent: req.headers['user-agent'] || '',
-          duration: Date.now() - (req as any).startTime,
+            duration: Date.now() - (req.startTime ?? 0),
         },
       });
 

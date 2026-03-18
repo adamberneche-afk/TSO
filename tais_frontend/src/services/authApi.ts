@@ -1,7 +1,5 @@
-// tais_frontend/src/services/authApi.ts
-// Authentication API for wallet-based JWT
-
-const API_BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
+import { api } from '@/api/client';
+import { useWallet } from '@/hooks/useWallet';
 
 interface AuthResponse {
   token: string;
@@ -15,65 +13,37 @@ interface NonceResponse {
   expiresIn: string;
 }
 
-class AuthAPI {
-  private baseUrl: string;
-
-  constructor() {
-    this.baseUrl = `${API_BASE_URL}/api/v1/auth`;
-  }
-
+export const authApi = {
   /**
    * Get nonce for wallet signature
    */
   async getNonce(walletAddress: string): Promise<NonceResponse> {
-    const response = await fetch(`${this.baseUrl}/nonce`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress }),
+    return api.post<NonceResponse>('/api/v1/auth/nonce', { 
+      data: { walletAddress } 
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to get nonce');
-    }
-
-    return response.json();
-  }
+  },
 
   /**
    * Authenticate with wallet signature
    */
   async login(walletAddress: string, signature: string, nonce: string): Promise<AuthResponse> {
-    const response = await fetch(`${this.baseUrl}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        walletAddress,
-        signature,
-        nonce,
-      }),
+    const result = await api.post<AuthResponse>('/api/v1/auth/login', { 
+      data: { walletAddress, signature, nonce } 
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Authentication failed');
-    }
-
-    const result = await response.json();
     
     // Store token and wallet in localStorage
     localStorage.setItem('auth_token', result.token);
     localStorage.setItem('wallet_address', result.walletAddress);
     
     return result;
-  }
+  },
 
   /**
    * Get stored token
    */
   getToken(): string | null {
     return localStorage.getItem('auth_token');
-  }
+  },
 
   /**
    * Clear token (logout)
@@ -81,7 +51,7 @@ class AuthAPI {
   logout(): void {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('wallet_address');
-  }
+  },
 
   /**
    * Verify token and get wallet address
@@ -102,7 +72,7 @@ class AuthAPI {
     } catch {
       return null;
     }
-  }
+  },
 
   /**
    * Check if current wallet matches JWT
@@ -111,7 +81,7 @@ class AuthAPI {
     const tokenWallet = this.getWalletFromToken();
     if (!tokenWallet) return false;
     return tokenWallet.toLowerCase() === currentWallet.toLowerCase();
-  }
+  },
 
   /**
    * Check if user has valid authenticated session
@@ -139,7 +109,7 @@ class AuthAPI {
     } catch {
       return false;
     }
-  }
+  },
 
   /**
    * Get stored wallet address (checks multiple keys for compatibility)
@@ -147,6 +117,4 @@ class AuthAPI {
   getStoredWallet(): string | null {
     return localStorage.getItem('wallet_address') || localStorage.getItem('walletAddress') || localStorage.getItem('wallet');
   }
-}
-
-export const authApi = new AuthAPI();
+};

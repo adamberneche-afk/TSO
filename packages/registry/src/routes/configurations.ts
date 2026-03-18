@@ -33,7 +33,8 @@ interface AuthenticatedRequest extends Request {
   };
   body: any;
   params: {
-    id: string;
+    id?: string;
+    ver?: string;
   };
 }
 
@@ -394,10 +395,10 @@ router.get('/:id/versions', async (req: AuthenticatedRequest, res: Response) => 
  * Get specific version details
  */
 router.get('/:id/versions/:ver', async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const walletAddress = req.user?.walletAddress;
-    const configId = req.params.id;
-    const version = parseInt((req.params as any).ver);
+   try {
+     const walletAddress = req.user?.walletAddress;
+     const configId = req.params.id;
+     const version = parseInt(req.params.ver ?? '0', 10);
     
     if (!walletAddress) {
       return res.status(401).json({ error: 'Authentication required' });
@@ -430,7 +431,7 @@ router.post('/:id/rollback/:ver', async (req: AuthenticatedRequest, res: Respons
   try {
     const walletAddress = req.user?.walletAddress;
     const configId = req.params.id;
-    const version = parseInt((req.params as any).ver);
+    const version = parseInt(req.params.ver ?? '0', 10);
     
     if (!walletAddress) {
       return res.status(401).json({ error: 'Authentication required' });

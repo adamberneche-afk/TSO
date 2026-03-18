@@ -1,7 +1,8 @@
-// tais_frontend/src/services/rcrtApi.ts
-// RCRT Integration API
-
+import { api } from '@/api/client';
 import { env } from '../lib/env';
+
+// The base path for RCRT endpoints
+const RCRT_BASE = '/api/v1/rcrt';
 
 export interface RCRTStatus {
   provisioned: boolean;
@@ -94,106 +95,70 @@ export interface AuditLogResponse {
   };
 }
 
-class RCRTAPI {
-  private baseUrl: string;
-
-  constructor() {
-    // Use env wrapper with fallback
-    const registryUrl = env.registryUrl || 'https://tso.onrender.com';
-    this.baseUrl = `${registryUrl}/api/v1/rcrt`;
-    console.log('RCRT API baseUrl:', this.baseUrl);
-  }
-
-  private getAuthHeaders(): HeadersInit {
-    const token = localStorage.getItem('auth_token');
-    console.log('Auth token present:', !!token);
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  }
-
+/**
+ * RCRT API service
+ */
+export const rcrtApi = {
+  /**
+   * Get RCRT provisioning status
+   */
   async getStatus(): Promise<RCRTStatus> {
     const wallet = localStorage.getItem('wallet_address') || localStorage.getItem('wallet') || localStorage.getItem('walletAddress');
-    console.log('Wallet from storage:', wallet);
-    const url = wallet ? `${this.baseUrl}/status?wallet=${wallet}` : `${this.baseUrl}/status`;
-    console.log('Fetching RCRT status from:', url);
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
-
-    console.log('RCRT status response:', response.status, response.statusText);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('RCRT status error:', error);
-      throw new Error(error.error || 'Failed to get RCRT status');
+    if (wallet) {
+      return api.get<RCRTStatus>(`${RCRT_BASE}/status`, {
+        params: { wallet }
+      });
     }
+    return api.get<RCRTStatus>(`${RCRT_BASE}/status`);
+  },
 
-    return response.json();
-  }
-
+  /**
+   * Provision RCRT agent
+   */
   async provision(): Promise<RCRTProvision> {
     const wallet = localStorage.getItem('wallet_address') || localStorage.getItem('wallet');
     if (!wallet) {
       throw new Error('Wallet not found. Please connect your wallet first.');
     }
-    const response = await fetch(`${this.baseUrl}/provision`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify({ wallet }),
+    return api.post<RCRTProvision>(`${RCRT_BASE}/provision`, {
+      data: { wallet }
     });
+  },
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to provision RCRT');
-    }
-
-    return response.json();
-  }
-
+  /**
+   * Revoke RCRT agent
+   */
   async revoke(agentId: string): Promise<void> {
     const wallet = localStorage.getItem('wallet_address') || localStorage.getItem('wallet');
-    const response = await fetch(`${this.baseUrl}/provision`, {
-      method: 'DELETE',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify({ wallet, agentId }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to revoke RCRT');
+    if (!wallet) {
+      throw new Error('Wallet not found. Please connect your wallet first.');
     }
-  }
+    await api.delete(`${RCRT_BASE}/provision`, {
+      data: { wallet, agentId }
+    });
+  },
 
+  /**
+   * Refresh RCRT token
+   */
   async refreshToken(refreshToken: string): Promise<{ token: string; refreshToken: string }> {
-    const response = await fetch(`${this.baseUrl}/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
+    return api.post<{ token: string; refreshToken: string }>(`${RCRT_BASE}/refresh`, {
+      data: { refreshToken }
     });
+  },
 
-    if (!response.ok) {
-      throw new Error('Failed to refresh token');
-    }
-
-    return response.json();
-  }
-
+  /**
+   * Scan content for security threats
+   */
   async scanContent(content: string): Promise<SecurityScanResult> {
-    const response = await fetch(`${this.baseUrl}/scan`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify({ content }),
+    return api.post<SecurityScanResult>(`${RCRT_BASE}/scan`, {
+      data: { content }
     });
+  },
 
-    if (!response.ok) {
-      throw new Error('Failed to scan content');
-    }
-
-    return response.json();
-  }
-
+  /**
+   * Get audit logs
+   */
   async getAuditLogs(options?: {
     action?: string;
     status?: string;
@@ -202,6 +167,7 @@ class RCRTAPI {
     limit?: number;
     offset?: number;
   }): Promise<AuditLogResponse> {
+    let url = `${RCRT_BASE}/audit`;
     const params = new URLSearchParams();
     if (options?.action) params.append('action', options.action);
     if (options?.status) params.append('status', options.status);
@@ -210,34 +176,21 @@ class RCRTAPI {
     if (options?.limit) params.append('limit', options.limit.toString());
     if (options?.offset) params.append('offset', options.offset.toString());
 
-    const response = await fetch(`${this.baseUrl}/audit?${params}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get audit logs');
+    if (params.toString()) {
+      url += `?${params}`;
     }
 
-    return response.json();
+    return api.get<AuditLogResponse>(url);
   }
-}
+};
 
-class KBAPI {
-  private baseUrl: string;
-
-  constructor() {
-    this.baseUrl = `${env.registryUrl}/kb`;
-  }
-
-  private getAuthHeaders(): HeadersInit {
-    const token = localStorage.getItem('auth_token');
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  }
-
+/**
+ * KB API service
+ */
+export const kbApi = {
+  /**
+   * Register a knowledge base
+   */
   async registerKB(
     kbId: string,
     options?: {
@@ -246,127 +199,73 @@ class KBAPI {
       excludeFromRCRT?: boolean;
     }
   ): Promise<{ success: boolean; kbId: string; contextType: string }> {
-    const response = await fetch(`${this.baseUrl}/register`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify({
+    return api.post<{ success: boolean; kbId: string; contextType: string }>(`/api/v1/kb/register`, {
+      data: {
         kbId,
         appId: options?.appId,
         contextType: options?.contextType || 'public',
         excludeFromRCRT: options?.excludeFromRCRT || false,
-      }),
+      }
     });
+  },
 
-    if (!response.ok) {
-      throw new Error('Failed to register KB');
-    }
-
-    return response.json();
-  }
-
+  /**
+   * Get all KB registries
+   */
   async getRegistries(): Promise<{ kbRegistries: KBRegistry[] }> {
-    const response = await fetch(`${this.baseUrl}/registry`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
+    return api.get<{ kbRegistries: KBRegistry[] }>(`/api/v1/kb/registry`);
+  },
 
-    if (!response.ok) {
-      throw new Error('Failed to get KB registries');
-    }
-
-    return response.json();
-  }
-
+  /**
+   * Update context type for a KB
+   */
   async updateContextType(kbId: string, contextType: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/${kbId}/context-type`, {
-      method: 'PATCH',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify({ contextType }),
+    await api.patch(`/api/v1/kb/${kbId}/context-type`, {
+      data: { contextType }
     });
+  },
 
-    if (!response.ok) {
-      throw new Error('Failed to update context type');
-    }
-  }
-
+  /**
+   * Set RCRT exclusion for a KB
+   */
   async setExcludeFromRCRT(kbId: string, exclude: boolean): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/${kbId}/exclude-rcrt`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify({ exclude }),
+    await api.post(`/api/v1/kb/${kbId}/exclude-rcrt`, {
+      data: { exclude }
     });
+  },
 
-    if (!response.ok) {
-      throw new Error('Failed to update RCRT exclusion');
-    }
-  }
-
+  /**
+   * Get access history for a KB
+   */
   async getAccessHistory(kbId: string): Promise<{ accessHistory: KBAccessHistory[] }> {
-    const response = await fetch(`${this.baseUrl}/${kbId}/access`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get access history');
-    }
-
-    return response.json();
+    return api.get<{ accessHistory: KBAccessHistory[] }>(`/api/v1/kb/${kbId}/access`);
   }
-}
+};
 
-class GrantAPI {
-  private baseUrl: string;
-
-  constructor() {
-    this.baseUrl = `${env.registryUrl}/oauth`;
-  }
-
-  private getAuthHeaders(): HeadersInit {
-    const token = localStorage.getItem('auth_token');
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  }
-
+/**
+ * Grant API service
+ */
+export const grantApi = {
+  /**
+   * Add a confidential grant
+   */
   async addConfidentialGrant(appId: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/confidential-grant`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify({ appId }),
+    await api.post(`/api/v1/oauth/confidential-grant`, {
+      data: { appId }
     });
+  },
 
-    if (!response.ok) {
-      throw new Error('Failed to add confidential grant');
-    }
-  }
-
+  /**
+   * Revoke a confidential grant
+   */
   async revokeConfidentialGrant(appId: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/confidential-grant/${appId}`, {
-      method: 'DELETE',
-      headers: this.getAuthHeaders(),
-    });
+    await api.delete(`/api/v1/oauth/confidential-grant/${appId}`);
+  },
 
-    if (!response.ok) {
-      throw new Error('Failed to revoke confidential grant');
-    }
-  }
-
+  /**
+   * Get all confidential grants
+   */
   async getConfidentialGrants(): Promise<{ grants: ConfidentialGrant[] }> {
-    const response = await fetch(`${this.baseUrl}/confidential-grants`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get confidential grants');
-    }
-
-    return response.json();
+    return api.get<{ grants: ConfidentialGrant[] }>(`/api/v1/oauth/confidential-grants`);
   }
-}
-
-export const rcrtApi = new RCRTAPI();
-export const kbApi = new KBAPI();
-export const grantApi = new GrantAPI();
+};

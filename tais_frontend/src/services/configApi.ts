@@ -1,9 +1,4 @@
-// tais_frontend/src/services/configApi.ts
-// API client for agent configuration persistence
-
-import { authApi } from './authApi';
-
-const API_BASE_URL = (import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com') + '/api/v1';
+import { api } from '@/api/client';
 
 interface ConfigStatus {
   allowed: boolean;
@@ -44,57 +39,13 @@ interface NFTVerificationResult {
   error?: string;
 }
 
-class ConfigAPI {
-  private baseUrl: string;
-
-  constructor() {
-    this.baseUrl = `${API_BASE_URL}/configurations`;
-  }
-
-  private getHeaders(): HeadersInit {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-
-    const token = authApi.getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    return headers;
-  }
-
-  private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...this.getHeaders(),
-        ...options.headers,
-      },
-    });
-
-    if (response.status === 401) {
-      // Token expired or invalid
-      authApi.logout();
-      throw new Error('Authentication required. Please connect your wallet.');
-    }
-
-    return response;
-  }
-
+export const configApi = {
   /**
    * Check configuration status and limits
    */
   async getStatus(): Promise<ConfigStatus> {
-    const response = await this.fetchWithAuth(`${this.baseUrl}/status`);
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to get configuration status');
-    }
-
-    return response.json();
-  }
+    return api.get<ConfigStatus>('/api/v1/configurations/status');
+  },
 
   /**
    * Get all configurations for the authenticated wallet
@@ -105,15 +56,8 @@ class ConfigAPI {
     used: number;
     remaining: number;
   }> {
-    const response = await this.fetchWithAuth(this.baseUrl);
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to get configurations');
-    }
-
-    return response.json();
-  }
+    return api.get('/api/v1/configurations');
+  },
 
   /**
    * Save a new configuration
@@ -123,22 +67,10 @@ class ConfigAPI {
     configData: any,
     description?: string
   ): Promise<SaveConfigResponse> {
-    const response = await this.fetchWithAuth(this.baseUrl, {
-      method: 'POST',
-      body: JSON.stringify({
-        name,
-        configData,
-        description,
-      }),
+    return api.post<SaveConfigResponse>('/api/v1/configurations', {
+      data: { name, configData, description }
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to save configuration');
-    }
-
-    return response.json();
-  }
+  },
 
   /**
    * Update an existing configuration
@@ -151,18 +83,10 @@ class ConfigAPI {
       configData?: any;
     }
   ): Promise<{ success: boolean; configuration: AgentConfiguration }> {
-    const response = await this.fetchWithAuth(`${this.baseUrl}/${configId}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates),
+    return api.put(`/api/v1/configurations/${configId}`, {
+      data: updates
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to update configuration');
-    }
-
-    return response.json();
-  }
+  },
 
   /**
    * Delete (soft delete) a configuration
@@ -172,31 +96,15 @@ class ConfigAPI {
     remaining: number;
     limit: number;
   }> {
-    const response = await this.fetchWithAuth(`${this.baseUrl}/${configId}`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to delete configuration');
-    }
-
-    return response.json();
-  }
+    return api.delete(`/api/v1/configurations/${configId}`);
+  },
 
   /**
    * Verify NFT ownership
    */
   async verifyNFTOwnership(): Promise<NFTVerificationResult> {
-    const response = await this.fetchWithAuth(`${this.baseUrl}/nft/verify`);
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to verify NFT ownership');
-    }
-
-    return response.json();
-  }
+    return api.get<NFTVerificationResult>('/api/v1/configurations/nft/verify');
+  },
 
   /**
    * Get version history for a configuration
@@ -214,29 +122,15 @@ class ConfigAPI {
       expiresAt: string | null;
     }>;
   }> {
-    const response = await this.fetchWithAuth(`${this.baseUrl}/${configId}/versions`);
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to get versions');
-    }
-
-    return response.json();
-  }
+    return api.get(`/api/v1/configurations/${configId}/versions`);
+  },
 
   /**
    * Get specific version details
    */
   async getVersionDetails(configId: string, version: number): Promise<any> {
-    const response = await this.fetchWithAuth(`${this.baseUrl}/${configId}/versions/${version}`);
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to get version details');
-    }
-
-    return response.json();
-  }
+    return api.get(`/api/v1/configurations/${configId}/versions/${version}`);
+  },
 
   /**
    * Rollback to a specific version
@@ -246,24 +140,6 @@ class ConfigAPI {
     config: AgentConfiguration;
     message: string;
   }> {
-    const response = await this.fetchWithAuth(`${this.baseUrl}/${configId}/rollback/${version}`, {
-      method: 'POST',
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to rollback');
-    }
-
-    return response.json();
+    return api.post(`/api/v1/configurations/${configId}/rollback/${version}`);
   }
-}
-
-export const configApi = new ConfigAPI();
-export type {
-  ConfigStatus,
-  AgentConfiguration,
-  SaveConfigResponse,
-  NFTVerificationResult,
 };
-export default configApi;

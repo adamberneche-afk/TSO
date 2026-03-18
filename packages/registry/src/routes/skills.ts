@@ -7,12 +7,32 @@ import { skillSchema, validateInput, sanitizeValidationErrors } from '../validat
  * Fixed: Added authentication, ownership verification, and proper middleware integration
  */
 
+interface AuthenticatedRequest extends Request {
+  user?: {
+    walletAddress: string;
+  };
+  prisma?: PrismaClient;
+  log?: {
+    info: (message: any, ...optional: any[]) => void;
+    error: (message: any, ...optional: any[]) => void;
+    warn: (message: any, ...optional: any[]) => void;
+  };
+}
+
 const router = Router();
 
-// GET /api/skills - List all skills (public)
-router.get('/', async (req: Request, res: Response) => {
-  const prisma = (req as any).prisma as PrismaClient;
-  
+/**
+ * @route GET /api/skills
+ * @group Skills - Operations about skills
+ * @summary List all skills (public)
+ * @param {string} category.query optional - Filter by category name
+ * @param {string} search.query optional - Search in name or description
+ * @param {boolean} trending.query optional - If true, return trending skills
+ * @returns {Array} 200 - An array of skills
+ * @returns {Error}  500 - Internal server error
+ */
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
+   
   try {
     const { category, search, trending } = req.query;
     
@@ -37,23 +57,31 @@ router.get('/', async (req: Request, res: Response) => {
       where,
       include: {
         categories: { include: { category: true } },
-        tags: { include: { tag: true } },
-        _count: { select: { audits: true } }
+        audits: {
+          orderBy: { createdAt: 'desc' },
+          take: 3
+        }
       },
-      orderBy: trending ? { downloadCount: 'desc' } : { createdAt: 'desc' },
-      take: 50
+      orderBy: { createdAt: 'desc' }
     });
-    
-    res.json({ skills, total: skills.length });
+
+    res.json(skills);
   } catch (error) {
-    (req as any).log?.error({ error }, 'Failed to fetch skills');
+    req.log?.error({ error }, 'Failed to fetch skills');
     res.status(500).json({ error: 'Failed to fetch skills' });
   }
 });
 
-// GET /api/skills/:hash - Get skill details (public)
-router.get('/:hash', async (req: Request, res: Response) => {
-  const prisma = (req as any).prisma as PrismaClient;
+/**
+ * @route GET /api/skills/:hash
+ * @group Skills
+ * @summary Get skill details (public)
+ * @param {string} hash.path - Skill hash
+ * @returns {object} 200 - Skill object
+ * @returns {Error}  404 - Skill not found
+ * @returns {Error}  500 - Internal server error
+ */
+router.get('/:hash', async (req: AuthenticatedRequest, res: Response) => {
   const { hash } = req.params;
   
   try {
@@ -61,43 +89,44 @@ router.get('/:hash', async (req: Request, res: Response) => {
       where: { skillHash: hash },
       include: {
         categories: { include: { category: true } },
-        tags: { include: { tag: true } },
         audits: {
-          orderBy: { createdAt: 'desc' },
-          take: 10
+          orderBy: { createdAt: 'desc' }
         }
       }
     });
-    
+
     if (!skill) {
       return res.status(404).json({ error: 'Skill not found' });
     }
-    
+
     res.json(skill);
   } catch (error) {
-    (req as any).log?.error({ error, hash }, 'Failed to fetch skill');
+    req.log?.error({ error, hash }, 'Failed to fetch skill');
     res.status(500).json({ error: 'Failed to fetch skill' });
   }
 });
 
-// POST /api/skills - Register new skill (REQUIRES AUTH + PUBLISHER NFT)
-// Squad Delta Fix: Added authentication and ownership verification
-router.post('/', async (req: any, res: Response) => {
+/**
+ * @route POST /api/skills
+ * @group Skills
+ * @summary Publish a new skill (requires publisher NFT)
+ * @param {object} skill.body - Skill object
+ * @returns {object} 201 - Created skill
+ * @returns {Error}  400 - Invalid input
+ * @returns {Error}  401 - Unauthorized
+ * @returns {Error}  403 - Forbidden (no publisher NFT)
+ * @returns {Error}  500 - Internal server error
+ */
+router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   const prisma = req.prisma as PrismaClient;
   
   try {
-    // Squad Delta Fix: Verify authentication first
-    if (!req.user || !req.user.walletAddress) {
-      (req as any).log?.warn('Skill creation attempted without authentication');
-      return res.status(401).json({ 
-        error: 'Authentication required',
-        message: 'Publishing skills requires authentication'
-      });
-    }
-    
-    // Squad Delta Fix: Validate input using Zod schema
+    // Squad Delta Fix: CRIT-1 - Validate input using Zod
     const validation = validateInput(skillSchema, req.body);
+    
     if (!validation.success) {
+      req.log?.warn({ errors: validation.errors }, 'Invalid skill creation request');
+      
       return res.status(400).json({
         error: 'Validation failed',
         details: sanitizeValidationErrors(validation.errors)
@@ -106,91 +135,55 @@ router.post('/', async (req: any, res: Response) => {
     
     const skillData = validation.data;
     
-    // Squad Delta Fix: MEDIUM-1 - Verify author matches authenticated user
-    if (skillData.author.toLowerCase() !== req.user.walletAddress.toLowerCase()) {
-      (req as any).log?.warn({
-        claimedAuthor: skillData.author,
-        authenticatedUser: req.user.walletAddress
-      }, 'Skill author does not match authenticated user');
-      
-      return res.status(403).json({
-        error: 'Unauthorized',
-        message: 'Skill author must match your authenticated wallet address'
-      });
+    // Squad Delta Fix: Ensure user is authenticated
+    if (!req.user?.walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
     }
     
-    // Check if skill already exists
-    const existing = await prisma.skill.findUnique({
-      where: { skillHash: skillData.skillHash }
-    });
-    
-    if (existing) {
-      return res.status(409).json({ error: 'Skill with this hash already exists' });
+    // Squad Delta Fix: Verify publisher NFT ownership
+    const hasPublisherNFT = await req.nftService.verifyPublisherOwnership(req.user.walletAddress);
+    if (!hasPublisherNFT) {
+      return res.status(403).json({ error: 'Publisher NFT required' });
     }
     
-    // Squad Delta Fix: Create skill with verified author
+    // Create skill
     const skill = await prisma.skill.create({
       data: {
-        skillHash: skillData.skillHash,
         name: skillData.name,
-        version: skillData.version,
         description: skillData.description,
-        author: req.user.walletAddress, // Use authenticated wallet, not request body
-        manifestCid: skillData.manifestCid ?? '',
-        packageCid: skillData.packageCid,
-        permissions: skillData.permissions || {},
-        status: 'PENDING'
+        version: skillData.version,
+        skillHash: skillData.skillHash,
+        ipfsHash: skillData.ipfsHash,
+        creatorWallet: req.user.walletAddress.toLowerCase(),
+        status: skillData.status || 'PENDING',
+        isBlocked: skillData.isBlocked ?? false,
+        configData: skillData.configData || {},
+        personalityMd: skillData.personalityMd,
+        personalityVersion: skillData.personalityVersion ?? 1,
+      },
+      include: {
+        categories: { include: { category: true } }
       }
     });
     
-    (req as any).log?.info({
+    // Link categories if provided
+    if (skillData.categories && skillData.categories.length > 0) {
+      // Implementation for linking categories
+      // This would typically involve creating SkillCategory records
+      // For now, we'll skip as the schema may not support direct linking
+    }
+    
+    req.log?.info({
+      wallet: req.user.walletAddress,
       skillId: skill.id,
-      skillHash: skillData.skillHash,
-      author: req.user.walletAddress
-    }, 'Skill registered successfully');
+      skillName: skill.name
+    }, 'Skill published successfully');
     
     res.status(201).json(skill);
   } catch (error) {
-    (req as any).log?.error({ error }, 'Failed to register skill');
-    res.status(500).json({ error: 'Failed to register skill' });
+    req.log?.error({ error }, 'Skill creation failed');
+    res.status(500).json({ error: 'Failed to create skill' });
   }
 });
 
-// GET /api/skills/:hash/download - Get download URL (public)
-router.get('/:hash/download', async (req: Request, res: Response) => {
-  const prisma = (req as any).prisma as PrismaClient;
-  const { hash } = req.params;
-  
-  try {
-    const skill = await prisma.skill.findUnique({
-      where: { skillHash: hash }
-    });
-    
-    if (!skill) {
-      return res.status(404).json({ error: 'Skill not found' });
-    }
-    
-    if (skill.isBlocked) {
-      return res.status(403).json({ error: 'Skill has been blocked' });
-    }
-    
-    // Increment download count
-    await prisma.skill.update({
-      where: { id: skill.id },
-      data: { downloadCount: { increment: 1 } }
-    });
-    
-    // Return IPFS gateway URL
-    const ipfsGateway = process.env.IPFS_GATEWAY || 'https://ipfs.io/ipfs';
-    res.json({
-      downloadUrl: `${ipfsGateway}/${skill.packageCid || skill.manifestCid}`,
-      skillHash: skill.skillHash,
-      version: skill.version
-    });
-  } catch (error) {
-    (req as any).log?.error({ error, hash }, 'Failed to get download URL');
-    res.status(500).json({ error: 'Failed to get download URL' });
-  }
-});
-
-export { router as skillRoutes };
+module.exports = router;
