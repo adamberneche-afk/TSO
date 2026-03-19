@@ -7,14 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed - Code Quality & Architecture Improvements (Mar 17, 2026)
-- **Database Client Consistency** - Centralized configuration management with validated environment variables
-- **Prisma Client Usage** - All routes now consistently use `req.prisma` instead of creating new clients
-- **Session Management** - RAG sessions now use database-backed storage instead of in-memory Map for scalability
-- **Error Handling** - Standardized on `req.log?.` pattern throughout codebase
-- **Wallet Address Handling** - Created wallet normalization utilities and applied consistently
-- **Middleware & Security** - Standardized middleware chaining and fixed security gaps
-- **Configuration Clarity** - Eliminated confusing dual DATABASE_URL vs RAG_DATABASE_URL vs SKILLS_DATABASE_URL usage
+### Fixed - TypeScript Build Errors & Navigation Consistency (Mar 19, 2026)
+- **Build Fixes** - Resolved TypeScript compilation errors in registry package that prevented Render deployment
+  - Fixed skill creation to use correct Prisma model fields
+  - Resolved analytics service type mismatches
+  - Fixed configuration versioning JsonValue assignment
+  - Corrected CTO Agent service method names and types
+  - Fixed NFT verification service exports
+  - Updated NFT auth middleware to use correct service methods
+  - Fixed weekly insights email service import
+  - Corrected RAG session query parameter handling
+  - Updated validation schemas to include missing fields
+- **Frontend Consistency** - Changed 'Home' to 'Back' throughout frontend for consistent navigation
+  - Updated ErrorBoundary.tsx: Changed 'Go Home' button to 'Back'
+  - Updated MemoryArchivePage.tsx: Changed home button tooltip from 'Go to Home' to 'Go back'
+
+## [3.4.4] - 2026-03-19
+### Fixed
+- Resolved TypeScript compilation errors preventing Render deployment
+- Fixed navigation consistency (Home → Back buttons)
+- Improved error handling in session auth middleware
+- Fixed NFT service method references in middleware
+- Corrected Prisma client usage in CTO Agent service
+
+## [3.4.0] - 2026-03-09
 
 ### Added - API Contract & Client Generation (Mar 17, 2026)
 - **OpenAPI Specification** - Generated OpenAPI 3.0 spec from backend route definitions (`packages/registry/docs/openapi.json`)
