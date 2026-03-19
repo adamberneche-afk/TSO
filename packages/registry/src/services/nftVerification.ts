@@ -211,7 +211,7 @@ export class NFTService {
 }
 
 // Keep the original exports for backward compatibility
-export { NFTVerificationService, CircuitBreaker };
-export default NFTVerificationService;
+export { NFTService as NFTVerificationService, CircuitBreaker };
+export default NFTService;
 
 export * from './genesisConfigLimits';

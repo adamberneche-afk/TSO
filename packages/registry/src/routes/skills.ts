@@ -151,7 +151,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunc
     const skillData = validation.data;
     
     // Squad Delta Fix: Ensure user is authenticated
-    if (!req.user?.walletAddress) {
+    if (!req.user || !req.user.walletAddress) {
       return res.status(401).json({ error: 'Authentication required' });
     }
     
@@ -165,32 +165,27 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunc
       return res.status(403).json({ error: 'Publisher NFT required' });
     }
     
-    // Create skill
-    const skill = await req.prisma.skill.create({
-      data: {
-        name: skillData.name,
-        description: skillData.description,
-        version: skillData.version,
-        skillHash: skillData.skillHash,
-        ipfsHash: skillData.ipfsHash,
-        creatorWallet: req.user.walletAddress.toLowerCase(),
-        status: skillData.status || 'PENDING',
-        isBlocked: skillData.isBlocked ?? false,
-        configData: skillData.configData || {},
-        personalityMd: skillData.personalityMd,
-        personalityVersion: skillData.personalityVersion ?? 1,
-      },
-      include: {
-        categories: { include: { category: true } }
-      }
-    });
+    // At this point, we know req.user and req.user.walletAddress are defined
+    const creatorWallet = req.user!.walletAddress.toLowerCase();
     
-    // Link categories if provided
-    if (skillData.categories && skillData.categories.length > 0) {
-      // Implementation for linking categories
-      // This would typically involve creating SkillCategory records
-      // For now, we'll skip as the schema may not support direct linking
-    }
+      // Create skill
+      const skill = await req.prisma.skill.create({
+        data: {
+          name: skillData.name,
+          description: skillData.description,
+          version: skillData.version,
+          skillHash: skillData.skillHash,
+          manifestCid: skillData.manifestCid,
+          packageCid: skillData.packageCid,
+          author: req.user.walletAddress.toLowerCase(),
+          permissions: skillData.permissions || {},
+          status: skillData.status || 'PENDING',
+          isBlocked: skillData.isBlocked ?? false,
+        }
+      });
+      
+      // Link categories if provided
+      // TODO: Implement proper category linking when schema supports it
     
     req.log?.info({
       wallet: req.user.walletAddress,

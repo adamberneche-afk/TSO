@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { createSkillsPrismaClient } from '../config/database';
 import { canCreateConfiguration } from './genesisConfigLimits';
 
@@ -134,14 +134,14 @@ export async function rollbackToVersion(
     throw new Error('Version not found');
   }
   
-  const updated = await prisma.agentConfiguration.update({
-    where: { id: configId },
-    data: {
-       configData: versionData.configSnapshot,
-      personalityMd: versionData.personalityMd,
-      version: { increment: 1 }
-    }
-  });
+    const updated = await prisma.agentConfiguration.update({
+     where: { id: configId },
+     data: {
+        configData: versionData.configSnapshot as any,
+        personalityMd: versionData.personalityMd,
+        version: { increment: 1 }
+     }
+   });
   
   await createVersionSnapshot(
     configId,

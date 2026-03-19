@@ -33,11 +33,27 @@ export const skillSchema = z.object({
     .optional(),
   
   manifestCid: z.string()
-    .regex(/^Qm[1-9A-HJ-NP-Za-km-z]{44}$/, 'Invalid manifest CID format')
-    .optional(),
+    .regex(/^Qm[1-9A-HJ-NP-Za-km-z]{44}$/, 'Invalid manifest CID format'),
   
   packageCid: z.string()
     .regex(/^Qm[1-9A-HJ-NP-Za-km-z]{44}$/, 'Invalid package CID format')
+    .optional(),
+    
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'])
+    .optional(),
+    
+  isBlocked: z.boolean()
+    .optional(),
+    
+  configData: z.record(z.unknown())
+    .optional(),
+    
+  personalityMd: z.string()
+    .optional(),
+    
+  personalityVersion: z.number()
+    .int()
+    .min(1)
     .optional()
 });
 

@@ -3,6 +3,21 @@ import { PrismaClient } from '@prisma/client';
 import { verifySignature } from '../utils/signature';
 import crypto from 'crypto';
 
+// Extend Express Request type to include our custom properties
+interface AuthenticatedRequest extends Request {
+  session?: {
+    sessionId: string;
+    walletAddress: string;
+    tier: string;
+    createdAt: Date;
+    expiresAt: Date;
+    lastActivityAt: Date;
+    documentCount: number;
+    bytesUploaded: bigint;
+  };
+  wallet?: string;
+}
+
 interface RAGSession {
   sessionId: string;
   walletAddress: string;
@@ -180,9 +195,9 @@ export async function startSession(prisma: PrismaClient, walletAddress: string):
   return sessionId;
 }
 
-export function sessionAuthMiddleware(req: Request, res: Response, next: NextFunction) {
-  const sessionToken = req.headers['x-session-token'] as string;
-  const walletFromBody = req.body?.wallet;
+export function sessionAuthMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+   const sessionToken = req.headers['x-session-token'] as string;
+   const walletFromBody = req.body?.wallet;
 
   if (!sessionToken) {
     return next();
@@ -265,12 +280,17 @@ export function createSessionRoutes(prisma: PrismaClient, logger: any): Router {
     }
   });
 
-  router.get('/active', async (req: Request, res: Response) => {
-    try {
-      const { walletAddress } = req.query;
-      if (!walletAddress) {
-        return res.status(400).json({ error: 'Wallet address is required' });
-      }
+    router.get('/active', async (req: Request, res: Response) => {
+     try {
+       let walletAddress: string | undefined = req.query.walletAddress as string | undefined;
+       
+       if (Array.isArray(walletAddress)) {
+         walletAddress = walletAddress[0];
+       }
+       
+       if (!walletAddress) {
+         return res.status(400).json({ error: 'Wallet address is required' });
+       }
 
       const session = await getActiveSession(prisma, walletAddress);
       if (!session) {

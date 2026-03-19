@@ -4,7 +4,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import AnalyticsService from './analytics';
+import { AnalyticsService } from './analytics';
 
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 const INSIGHTS_EMAIL = 'taisplatform@gmail.com';

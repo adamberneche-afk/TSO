@@ -3,7 +3,7 @@
  * Tracks SDK integration events for weekly insights
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 export type AnalyticsEventType = 
   | 'session_started'
@@ -24,7 +24,7 @@ export interface AnalyticsEvent {
   source: 'sdk_assistant' | 'cto_agent' | 'api' | 'guided_discovery';
   walletAddress?: string;
   sessionId?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Prisma.JsonValue;
   duration?: number;
   errorType?: string;
   errorMessage?: string;
@@ -120,9 +120,9 @@ export class AnalyticsService {
     // Features used
     const featureCounts: Record<string, number> = {};
     sdkEvents
-      .filter(e => e.eventType === 'feature_used' && e.metadata?.feature)
+      .filter(e => e.eventType === 'feature_used' && e.metadata && typeof e.metadata === 'object' && e.metadata !== null && !Array.isArray(e.metadata) && 'feature' in e.metadata)
       .forEach(e => {
-        const feature = e.metadata?.feature as string;
+        const feature = (e.metadata as { feature: string }).feature;
         featureCounts[feature] = (featureCounts[feature] || 0) + 1;
       });
     const featuresUsed = Object.entries(featureCounts)
@@ -140,7 +140,7 @@ export class AnalyticsService {
     // CTO insights
     const ctoEvents = events.filter(e => e.source === 'cto_agent');
     const projectsCreated = ctoEvents.filter(e => e.eventType === 'mvp_launched').length;
-    const projectsCompleted = ctoEvents.filter(e => e.eventType === 'mvp_launched' && e.metadata?.status === 'completed').length;
+    const projectsCompleted = ctoEvents.filter(e => e.eventType === 'mvp_launched' && e.metadata && typeof e.metadata === 'object' && e.metadata !== null && !Array.isArray(e.metadata) && 'status' in e.metadata && e.metadata.status === 'completed').length;
     
     // Average time to launch
     const launchedProjects = ctoEvents.filter(e => e.eventType === 'mvp_launched' && e.duration);
@@ -151,9 +151,9 @@ export class AnalyticsService {
     // Top pain points
     const painPointCounts: Record<string, number> = {};
     ctoEvents
-      .filter(e => e.eventType === 'pain_point_reported' && e.metadata?.area)
+      .filter(e => e.eventType === 'pain_point_reported' && e.metadata && typeof e.metadata === 'object' && e.metadata !== null && !Array.isArray(e.metadata) && 'area' in e.metadata)
       .forEach(e => {
-        const area = e.metadata?.area as string;
+        const area = (e.metadata as { area: string }).area;
         painPointCounts[area] = (painPointCounts[area] || 0) + 1;
       });
     const topPainPoints = Object.entries(painPointCounts)
@@ -164,9 +164,9 @@ export class AnalyticsService {
     // Common blockers
     const blockerCounts: Record<string, number> = {};
     ctoEvents
-      .filter(e => e.eventType === 'blocker_reported' && e.metadata?.description)
+      .filter(e => e.eventType === 'blocker_reported' && e.metadata && typeof e.metadata === 'object' && e.metadata !== null && !Array.isArray(e.metadata) && 'description' in e.metadata)
       .forEach(e => {
-        const description = e.metadata?.description as string;
+        const description = (e.metadata as { description: string }).description;
         blockerCounts[description] = (blockerCounts[description] || 0) + 1;
       });
     const commonBlockers = Object.entries(blockerCounts)

@@ -26,7 +26,7 @@ export interface CTOProject {
   id: string;
   walletAddress: string;
   name: string;
-  description?: string;
+  description: string | null;
   currentPhase: CTOPhase;
 }
 
@@ -70,17 +70,19 @@ export class CTOAgentService {
     ];
   }
 
-  // Project management methods
-  async createProject(walletAddress: string, name: string, description?: string): Promise<CTOProject> {
-    try {
-      const project = await this.prisma.cTOProject.create({
-        data: {
-          walletAddress: walletAddress.toLowerCase(),
-          name,
-          description,
-          currentPhase: 'planning'
-        }
-      });
+   // Project management methods
+   async createProject(walletAddress: string, name: string, description?: string): Promise<CTOProject> {
+     try {
+       const project = await this.prisma.cTOAgentProject.create({
+         data: {
+           walletAddress: walletAddress.toLowerCase(),
+           name,
+           description,
+           currentPhase: 'planning',
+           painPoints: [],
+           blockers: []
+         }
+       });
 
       // Track event
       await this.analytics.trackEvent({
@@ -103,16 +105,16 @@ export class CTOAgentService {
     }
   }
 
-  async getUserProjects(walletAddress: string): Promise<CTOProject[]> {
-    try {
-      const projects = await this.prisma.cTOProject.findMany({
-        where: {
-          walletAddress: walletAddress.toLowerCase()
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      });
+   async getUserProjects(walletAddress: string): Promise<CTOProject[]> {
+     try {
+       const projects = await this.prisma.cTOAgentProject.findMany({
+         where: {
+           walletAddress: walletAddress.toLowerCase()
+         },
+         orderBy: {
+           createdAt: 'desc'
+         }
+       });
 
       return projects.map(p => ({
         id: p.id,
@@ -127,11 +129,11 @@ export class CTOAgentService {
     }
   }
 
-  async getProjectDetails(id: string): Promise<CTOProject | null> {
-    try {
-      const project = await this.prisma.cTOProject.findUnique({
-        where: { id }
-      });
+   async getProjectDetails(id: string): Promise<CTOProject | null> {
+     try {
+       const project = await this.prisma.cTOAgentProject.findUnique({
+         where: { id }
+       });
 
       if (!project) {
         return null;
@@ -150,14 +152,14 @@ export class CTOAgentService {
     }
   }
 
-  async updateProjectPhase(id: string, phase: CTOPhase): Promise<CTOProject | null> {
-    try {
-      const project = await this.prisma.cTOProject.update({
-        where: { id },
-        data: {
-          currentPhase: phase
-        }
-      });
+   async updateProjectPhase(id: string, phase: CTOPhase): Promise<CTOProject | null> {
+     try {
+       const project = await this.prisma.cTOAgentProject.update({
+         where: { id },
+         data: {
+           currentPhase: phase
+         }
+       });
 
       return {
         id: project.id,
@@ -172,90 +174,161 @@ export class CTOAgentService {
     }
   }
 
-  // Pain point methods
-  async addPainPoint(projectId: string, area: string, description: string): Promise<PainPoint | null> {
-    try {
-      const painPoint = await this.prisma.painPoint.create({
+   // Pain point methods
+   async addPainPoint(projectId: string, area: string, description: string): Promise<PainPoint | null> {
+     try {
+       // Get the project first
+       const project = await this.prisma.cTOAgentProject.findUnique({
+         where: { id: projectId }
+       });
+
+       if (!project) {
+         throw new Error(`Project not found: ${projectId}`);
+       }
+
+      // Parse existing painPoints or initialize empty array
+      const painPoints: { area: string; description: string; resolved: boolean }[] = 
+        Array.isArray(project.painPoints) ? project.painPoints as { area: string; description: string; resolved: boolean }[] : [];
+
+      // Add new pain point
+      const newPainPoint = { area, description, resolved: false };
+      const updatedPainPoints = [...painPoints, newPainPoint];
+
+      // Update the project with new painPoints
+      const updatedProject = await this.prisma.cTOAgentProject.update({
+        where: { id: projectId },
         data: {
-          projectId,
-          area,
-          description,
-          resolved: false
+          painPoints: updatedPainPoints
         }
       });
 
       return {
-        area: painPoint.area,
-        description: painPoint.description,
-        resolved: painPoint.resolved,
-        createdAt: painPoint.createdAt.toISOString()
+        ...newPainPoint,
+        createdAt: new Date().toISOString()
       };
-    } catch (error) {
-      console.error('[CTO Agent] Failed to add pain point:', error);
-      throw error;
-    }
-  }
+     } catch (error) {
+       console.error('[CTO Agent] Failed to add pain point:', error);
+       throw error;
+     }
+   }
 
-  async resolvePainPoint(projectId: string, painPointId: string): Promise<PainPoint | null> {
-    try {
-      const painPoint = await this.prisma.painPoint.update({
-        where: { id: painPointId, projectId },
+   async resolvePainPoint(projectId: string, painPointIndex: number): Promise<PainPoint | null> {
+     try {
+       // Get the project first
+       const project = await this.prisma.cTOAgentProject.findUnique({
+         where: { id: projectId }
+       });
+
+       if (!project) {
+         throw new Error(`Project not found: ${projectId}`);
+       }
+
+      // Parse existing painPoints or initialize empty array
+      const painPoints: { area: string; description: string; resolved: boolean }[] = 
+        Array.isArray(project.painPoints) ? project.painPoints as { area: string; description: string; resolved: boolean }[] : [];
+
+      // Check if index is valid
+      if (painPointIndex < 0 || painPointIndex >= painPoints.length) {
+        throw new Error(`Invalid pain point index: ${painPointIndex}`);
+      }
+
+      // Resolve the pain point at the specified index
+      painPoints[painPointIndex].resolved = true;
+
+      // Update the project with modified painPoints
+      await this.prisma.cTOAgentProject.update({
+        where: { id: projectId },
         data: {
-          resolved: true
+          painPoints: painPoints
         }
       });
 
       return {
-        area: painPoint.area,
-        description: painPoint.description,
-        resolved: painPoint.resolved,
-        createdAt: painPoint.createdAt.toISOString()
+        ...painPoints[painPointIndex],
+        createdAt: new Date().toISOString()
       };
-    } catch (error) {
-      console.error('[CTO Agent] Failed to resolve pain point:', error);
-      throw error;
-    }
-  }
+     } catch (error) {
+       console.error('[CTO Agent] Failed to resolve pain point:', error);
+       throw error;
+     }
+   }
 
-  // Blocker methods
-  async addBlocker(projectId: string, description: string): Promise<Blocker | null> {
-    try {
-      const blocker = await this.prisma.blocker.create({
+   // Blocker methods
+   async addBlocker(projectId: string, description: string): Promise<Blocker | null> {
+     try {
+       // Get the project first
+       const project = await this.prisma.cTOAgentProject.findUnique({
+         where: { id: projectId }
+       });
+
+       if (!project) {
+         throw new Error(`Project not found: ${projectId}`);
+       }
+
+      // Parse existing blockers or initialize empty array
+      const blockers: { description: string; resolved: boolean }[] = 
+        Array.isArray(project.blockers) ? project.blockers as { description: string; resolved: boolean }[] : [];
+
+      // Add new blocker
+      const newBlocker = { description, resolved: false };
+      const updatedBlockers = [...blockers, newBlocker];
+
+      // Update the project with new blockers
+      const updatedProject = await this.prisma.cTOAgentProject.update({
+        where: { id: projectId },
         data: {
-          projectId,
-          description,
-          resolved: false
+          blockers: updatedBlockers
         }
       });
 
       return {
-        description: blocker.description,
-        resolved: blocker.resolved,
-        createdAt: blocker.createdAt.toISOString()
+        ...newBlocker,
+        createdAt: new Date().toISOString()
       };
-    } catch (error) {
-      console.error('[CTO Agent] Failed to add blocker:', error);
-      throw error;
-    }
-  }
+     } catch (error) {
+       console.error('[CTO Agent] Failed to add blocker:', error);
+       throw error;
+     }
+   }
 
-  async resolveBlocker(projectId: string, blockerId: string): Promise<Blocker | null> {
-    try {
-      const blocker = await this.prisma.blocker.update({
-        where: { id: blockerId, projectId },
+   async resolveBlocker(projectId: string, blockerIndex: number): Promise<Blocker | null> {
+     try {
+       // Get the project first
+       const project = await this.prisma.cTOAgentProject.findUnique({
+         where: { id: projectId }
+       });
+
+       if (!project) {
+         throw new Error(`Project not found: ${projectId}`);
+       }
+
+      // Parse existing blockers or initialize empty array
+      const blockers: { description: string; resolved: boolean }[] = 
+        Array.isArray(project.blockers) ? project.blockers as { description: string; resolved: boolean }[] : [];
+
+      // Check if index is valid
+      if (blockerIndex < 0 || blockerIndex >= blockers.length) {
+        throw new Error(`Invalid blocker index: ${blockerIndex}`);
+      }
+
+      // Resolve the blocker at the specified index
+      blockers[blockerIndex].resolved = true;
+
+      // Update the project with modified blockers
+      await this.prisma.cTOAgentProject.update({
+        where: { id: projectId },
         data: {
-          resolved: true
+          blockers: blockers
         }
       });
 
       return {
-        description: blocker.description,
-        resolved: blocker.resolved,
-        createdAt: blocker.createdAt.toISOString()
+        ...blockers[blockerIndex],
+        createdAt: new Date().toISOString()
       };
-    } catch (error) {
-      console.error('[CTO Agent] Failed to resolve blocker:', error);
-      throw error;
-    }
-  }
+     } catch (error) {
+       console.error('[CTO Agent] Failed to resolve blocker:', error);
+       throw error;
+     }
+   }
 }

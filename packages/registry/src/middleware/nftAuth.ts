@@ -33,28 +33,28 @@ export const requirePublisherNFT = (
 
     const walletAddress = req.user.walletAddress;
 
-    try {
-      // Verify publisher NFT ownership
-      const hasPublisherNFT = await nftService.isPublisher(walletAddress);
+     try {
+       // Verify publisher NFT ownership
+       const hasPublisherNFT = await nftService.verifyPublisherOwnership(walletAddress);
 
-      if (!hasPublisherNFT) {
-        return res.status(403).json({
-          error: 'Publisher NFT required',
-          message: 'Publishing skills requires a THINK Genesis NFT or Publisher NFT'
-        });
-      }
+       if (!hasPublisherNFT) {
+         return res.status(403).json({
+           error: 'Publisher NFT required',
+           message: 'Publishing skills requires a THINK Genesis NFT or Publisher NFT'
+         });
+       }
 
-      // User has publisher NFT, allow to proceed
-      next();
-    } catch (error) {
-      // Squad Zeta MEDIUM-3 Fix: Use safe logging utility
-      safeLog(req, 'error', 'Publisher NFT verification error', { error, walletAddress });
-      
-      return res.status(500).json({
-        error: 'NFT verification failed',
-        message: 'Unable to verify NFT ownership'
-      });
-    }
+       // User has publisher NFT, allow to proceed
+       next();
+     } catch (error) {
+       // Squad Zeta MEDIUM-3 Fix: Use safe logging utility
+       safeLog(req, 'error', 'Publisher NFT verification error', { error, walletAddress });
+       
+       return res.status(500).json({
+         error: 'NFT verification failed',
+         message: 'Unable to verify NFT ownership'
+       });
+     }
   };
 };
 
@@ -76,28 +76,28 @@ export const requireAuditorNFT = (
 
     const walletAddress = req.user.walletAddress;
 
-    try {
-      // Verify auditor NFT ownership
-      const hasAuditorNFT = await nftService.isAuditor(walletAddress);
+     try {
+       // Verify auditor NFT ownership
+       const hasAuditorNFT = await nftService.verifyAuditorOwnership(walletAddress);
 
-      if (!hasAuditorNFT) {
-        return res.status(403).json({
-          error: 'Auditor NFT required',
-          message: 'Submitting audits requires a THINK Genesis NFT or Auditor NFT'
-        });
-      }
+       if (!hasAuditorNFT) {
+         return res.status(403).json({
+           error: 'Auditor NFT required',
+           message: 'Submitting audits requires a THINK Genesis NFT or Auditor NFT'
+         });
+       }
 
-      // User has auditor NFT, allow to proceed
-      next();
-    } catch (error) {
-      // Squad Zeta MEDIUM-3 Fix: Use safe logging utility
-      safeLog(req, 'error', 'Auditor NFT verification error', { error, walletAddress });
-      
-      return res.status(500).json({
-        error: 'NFT verification failed',
-        message: 'Unable to verify NFT ownership'
-      });
-    }
+       // User has auditor NFT, allow to proceed
+       next();
+     } catch (error) {
+       // Squad Zeta MEDIUM-3 Fix: Use safe logging utility
+       safeLog(req, 'error', 'Auditor NFT verification error', { error, walletAddress });
+       
+       return res.status(500).json({
+         error: 'NFT verification failed',
+         message: 'Unable to verify NFT ownership'
+       });
+     }
   };
 };
 
@@ -117,11 +117,11 @@ export const requireAnyNFT = (
 
     const walletAddress = req.user.walletAddress;
 
-    try {
-      const [isPublisher, isAuditor] = await Promise.all([
-        nftService.isPublisher(walletAddress),
-        nftService.isAuditor(walletAddress)
-      ]);
+     try {
+       const [isPublisher, isAuditor] = await Promise.all([
+         nftService.verifyPublisherOwnership(walletAddress),
+         nftService.verifyAuditorOwnership(walletAddress)
+       ]);
 
       if (!isPublisher && !isAuditor) {
         return res.status(403).json({

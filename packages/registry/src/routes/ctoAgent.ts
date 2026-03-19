@@ -158,45 +158,55 @@ export function createCTOAgentRoutes(prisma: PrismaClient, logger: any): Router 
     }
   });
 
-  // Resolve pain point
-  router.post('/projects/:id/pain-points/:painPointId/resolve', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const { id, painPointId } = req.params;
+   // Resolve pain point
+   router.post('/projects/:id/pain-points/:painPointId/resolve', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+     try {
+       const { id, painPointId } = req.params;
+       const painPointIndex = parseInt(painPointId, 10);
 
-      const painPoint = await service.resolvePainPoint(id, painPointId);
+       if (isNaN(painPointIndex)) {
+         return res.status(400).json({ error: 'Invalid pain point ID' });
+       }
 
-      if (!painPoint) {
-        return res.status(404).json({ error: 'Pain point not found' });
-      }
+       const painPoint = await service.resolvePainPoint(id, painPointIndex);
 
-      req.log?.info(`[CTO Agent] Resolved pain point ${painPointId} in project ${id}`);
+       if (!painPoint) {
+         return res.status(404).json({ error: 'Pain point not found' });
+       }
 
-      res.json(painPoint);
-    } catch (error) {
-      req.log?.error({ error }, 'Error resolving pain point');
-      next(error);
-    }
-  });
+       req.log?.info(`[CTO Agent] Resolved pain point ${painPointId} in project ${id}`);
 
-  // Resolve blocker
-  router.post('/projects/:id/blockers/:blockerId/resolve', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const { id, blockerId } = req.params;
+       res.json(painPoint);
+     } catch (error) {
+       req.log?.error({ error }, 'Error resolving pain point');
+       next(error);
+     }
+   });
 
-      const blocker = await service.resolveBlocker(id, blockerId);
+   // Resolve blocker
+   router.post('/projects/:id/blockers/:blockerId/resolve', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+     try {
+       const { id, blockerId } = req.params;
+       const blockerIndex = parseInt(blockerId, 10);
 
-      if (!blocker) {
-        return res.status(404).json({ error: 'Blocker not found' });
-      }
+       if (isNaN(blockerIndex)) {
+         return res.status(400).json({ error: 'Invalid blocker ID' });
+       }
 
-      req.log?.info(`[CTO Agent] Resolved blocker ${blockerId} in project ${id}`);
+       const blocker = await service.resolveBlocker(id, blockerIndex);
 
-      res.json(blocker);
-    } catch (error) {
-      req.log?.error({ error }, 'Error resolving blocker');
-      next(error);
-    }
-  });
+       if (!blocker) {
+         return res.status(404).json({ error: 'Blocker not found' });
+       }
+
+       req.log?.info(`[CTO Agent] Resolved blocker ${blockerId} in project ${id}`);
+
+       res.json(blocker);
+     } catch (error) {
+       req.log?.error({ error }, 'Error resolving blocker');
+       next(error);
+     }
+   });
 
   return router;
 }
