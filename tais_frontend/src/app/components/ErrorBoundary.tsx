@@ -96,13 +96,13 @@ export class ErrorBoundary extends Component<Props, State> {
                   >
                     Reload Page
                   </Button>
-                  <Button
-                    onClick={() => (window.location.href = '/')}
-                    variant="outline"
-                    className="border-[#333333] text-white hover:bg-[#1a1a1a]"
-                  >
-                    Go Home
-                  </Button>
+                 <Button
+                   onClick={() => (window.location.href = '/')}
+                   variant="outline"
+                   className="border-[#333333] text-white hover:bg-[#1a1a1a]"
+                 >
+                   Back
+                 </Button>
                 </div>
               </div>
             </div>

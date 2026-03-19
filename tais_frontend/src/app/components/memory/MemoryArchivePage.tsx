@@ -302,14 +302,14 @@ export function MemoryArchivePage() {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => window.location.href = '/'}
-            title="Go to Home"
-          >
-            <Home className="w-5 h-5" />
-          </Button>
+           <Button 
+             variant="ghost" 
+             size="icon"
+             onClick={() => window.location.href = '/'}
+             title="Go back"
+           >
+             <Home className="w-5 h-5" />
+           </Button>
           <div>
             <h1 className="text-3xl font-bold">Memory Archive</h1>
             <p className="text-muted-foreground mt-1">
