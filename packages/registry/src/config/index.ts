@@ -45,9 +45,9 @@ export const SecurityConfigSchema = z.object({
   corsOrigin: z.string().optional().transform(val => 
     val?.split(',').map(s => s.trim()).filter(Boolean) || []
   ),
-  rateLimitStandard: z.number().default('100'),
-  rateLimitStrict: z.number().default('10'),
-  rateLimitAuth: z.number().default('5'),
+  rateLimitStandard: z.number().default(100),
+  rateLimitStrict: z.number().default(10),
+  rateLimitAuth: z.number().default(5),
 });
 
 /**

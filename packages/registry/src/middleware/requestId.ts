@@ -12,7 +12,7 @@ export interface RequestWithId extends Request {
     info: (message: any, ...optional: any[]) => void;
     error: (message: any, ...optional: any[]) => void;
     warn: (message: any, ...optional: any[]) => void;
-    child: (obj: { requestId: string }) => {
+    child?: (obj: { requestId: string }) => {
       info: (message: any, ...optional: any[]) => void;
       error: (message: any, ...optional: any[]) => void;
       warn: (message: any, ...optional: any[]) => void;
@@ -43,10 +43,10 @@ export const requestIdMiddleware = (
   // Add to response headers
   res.setHeader('X-Request-ID', requestId);
   
-  // Add to logs if logger exists
-  if (req.log) {
-    req.log = req.log.child({ requestId });
-  }
+    // Add to logs if logger exists and has child method
+    if (req.log && typeof req.log.child === 'function') {
+      req.log = req.log.child({ requestId });
+    }
   
   next();
 };

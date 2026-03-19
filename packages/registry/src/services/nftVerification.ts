@@ -48,23 +48,26 @@ class CircuitBreaker {
   
   private onSuccess() {
     this.failures = 0;
-    this.state = 'CLOSED';
+    if (this.state === 'HALF_OPEN') {
+      this.state = 'CLOSED';
+    }
   }
   
   private onFailure() {
-    this.failures++;
+    this.failures += 1;
     this.lastFailureTime = Date.now();
     if (this.failures >= this.threshold) {
       this.state = 'OPEN';
     }
   }
   
-  getState(): string {
+  getState(): 'CLOSED' | 'OPEN' | 'HALF_OPEN' {
     return this.state;
   }
 }
 
-class NFTVerificationService {
+// NFT Service class - Fixed export name to match usage
+export class NFTService {
   private provider: ethers.JsonRpcProvider | null = null;
   private publisherContract: ethers.Contract | null = null;
   private auditorContract: ethers.Contract | null = null;
@@ -82,18 +85,13 @@ class NFTVerificationService {
 
   private initialize() {
     // Initialize provider if RPC URL is available
-    console.log('[NFT Verify] nftVerification initialize - RPC_URL:', this.config.rpcUrl);
     if (this.config.rpcUrl) {
       try {
-        // Use chainId as number to skip network detection (ethers v6 format)
-        this.provider = new ethers.JsonRpcProvider(this.config.rpcUrl, 1);
-        this.logger.info('✅ NFT Verification: Provider initialized with URL:', this.config.rpcUrl);
-      } catch (error: any) {
-        this.logger.warn({ error: error.message }, '⚠️  NFT Verification: Failed to initialize provider');
-        this.provider = null;
+        this.provider = new ethers.JsonRpcProvider(this.config.rpcUrl);
+        this.logger.info('✅ NFT Verification: Provider initialized');
+      } catch (error) {
+        this.logger.warn({ error }, '⚠️  NFT Verification: Failed to initialize provider');
       }
-    } else {
-      this.logger.warn('⚠️  NFT Verification: No RPC URL provided');
     }
 
     // Initialize publisher contract
@@ -133,7 +131,7 @@ class NFTVerificationService {
    * Check if wallet owns publisher NFT (THINK Genesis Bundle or custom)
    * Squad Zeta CRITICAL-2 Fix: Fail-closed behavior - throws error if contract not configured
    */
-  async isPublisher(walletAddress: string): Promise<boolean> {
+  async verifyPublisherOwnership(walletAddress: string): Promise<boolean> {
     // Squad Zeta CRITICAL-2 Fix: Fail-closed instead of fail-open
     if (!this.publisherContract) {
       this.logger.error('NFT Verification: Publisher contract not configured');
@@ -145,15 +143,15 @@ class NFTVerificationService {
       const balance = await this.circuitBreaker.execute(async () => {
         return await this.publisherContract!.balanceOf(walletAddress);
       });
-      
+
       const hasNFT = balance > 0n;
-      
+
       if (hasNFT) {
         this.logger.info({ walletAddress }, `✅ Wallet owns publisher NFT`);
       } else {
         this.logger.info({ walletAddress }, `❌ Wallet does not own publisher NFT`);
       }
-      
+
       return hasNFT;
     } catch (error) {
       this.logger.error({ error, walletAddress }, '❌ Error checking publisher NFT');
@@ -166,7 +164,7 @@ class NFTVerificationService {
    * Check if wallet owns auditor NFT (THINK Genesis Bundle or custom)
    * Squad Zeta CRITICAL-2 Fix: Fail-closed behavior - throws error if contract not configured
    */
-  async isAuditor(walletAddress: string): Promise<boolean> {
+  async verifyAuditorOwnership(walletAddress: string): Promise<boolean> {
     // Squad Zeta CRITICAL-2 Fix: Fail-closed instead of fail-open
     if (!this.auditorContract) {
       this.logger.error('NFT Verification: Auditor contract not configured');
@@ -178,15 +176,15 @@ class NFTVerificationService {
       const balance = await this.circuitBreaker.execute(async () => {
         return await this.auditorContract!.balanceOf(walletAddress);
       });
-      
+
       const hasNFT = balance > 0n;
-      
+
       if (hasNFT) {
         this.logger.info({ walletAddress }, `✅ Wallet owns auditor NFT`);
       } else {
         this.logger.info({ walletAddress }, `❌ Wallet does not own auditor NFT`);
       }
-      
+
       return hasNFT;
     } catch (error) {
       this.logger.error({ error, walletAddress }, '❌ Error checking auditor NFT');
@@ -212,6 +210,7 @@ class NFTVerificationService {
   }
 }
 
+// Keep the original exports for backward compatibility
 export { NFTVerificationService, CircuitBreaker };
 export default NFTVerificationService;
 

@@ -15,7 +15,7 @@ import type {
 } from '../../types/rag-public';
 import type { Chunk } from '../../types/rag';
 import { ethers } from 'ethers';
-import { ragApi } from '../ragApi';
+import { ragApi } from './ragApi';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_RAG_API_URL || 'https://tso.onrender.com/api/v1/rag';
 

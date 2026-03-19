@@ -1,20 +1,39 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 
+// Extend Express Request type to include our custom properties
 interface AuthenticatedRequest extends Request {
+  user?: {
+    walletAddress: string;
+  };
   prisma?: PrismaClient;
+  log?: {
+    info: (message: any, ...optional: any[]) => void;
+    error: (message: any, ...optional: any[]) => void;
+    warn: (message: any, ...optional: any[]) => void;
+  };
 }
 
 const router = Router();
 
 // GET /api/search - Search skills
-router.get('/', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  // Check if prisma is available
+  if (!req.prisma) {
+    return res.status(500).json({ error: 'Database connection not available' });
+  }
   
   try {
-    const query = (req.query.q as string) || '';
-    const limit = parseInt(req.query.limit as string) || 20;
+    const { query, limit, offset } = req.query;
     
-    const skills = await prisma.skill.findMany({
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ error: 'Search query is required' });
+    }
+    
+    const limitNum = parseInt(limit as string) || 20;
+    const offsetNum = parseInt(offset as string) || 0;
+    
+    const skills = await req.prisma.skill.findMany({
       where: {
         status: 'APPROVED',
         isBlocked: false,
@@ -23,7 +42,8 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
           { description: { contains: query, mode: 'insensitive' } }
         ]
       },
-      take: limit,
+      take: limitNum,
+      skip: offsetNum,
       orderBy: [
         { trustScore: 'desc' },
         { downloadCount: 'desc' }
@@ -40,50 +60,8 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       skills
     });
   } catch (error) {
-    res.status(500).json({ error: 'Search failed' });
-  }
-});
-
-// GET /api/search/categories - Get all categories
-router.get('/categories', async (req: AuthenticatedRequest, res: Response) => {
-  
-  try {
-    const categories = await prisma.category.findMany({
-      include: {
-        _count: { select: { skills: true } }
-      }
-    });
-    
-    res.json({ categories });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch categories' });
-  }
-});
-
-// GET /api/search/trending - Get trending skills
-router.get('/trending', async (req: AuthenticatedRequest, res: Response) => {
-  
-  try {
-    const skills = await prisma.skill.findMany({
-      where: {
-        status: 'APPROVED',
-        isBlocked: false
-      },
-      take: 10,
-      orderBy: [
-        { downloadCount: 'desc' }
-      ],
-      select: {
-        name: true,
-        skillHash: true,
-        downloadCount: true,
-        trustScore: true
-      }
-    });
-    
-    res.json({ skills });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch trending skills' });
+    req.log?.error({ error }, 'Search failed');
+    next(error);
   }
 });
 

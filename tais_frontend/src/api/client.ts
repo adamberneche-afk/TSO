@@ -1,5 +1,5 @@
 import type { OpenAPIV3 } from 'openapi-types';
-import { getToken } from '@/hooks/useWallet';
+import { authApi } from '@/services/authApi';
 
 // Base URL from env or default
 const BASE_URL = import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
@@ -35,12 +35,12 @@ async function request<T = any>(
     'Content-Type': 'application/json',
   };
 
-  if (useAuth) {
-    const token = getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-  }
+   if (useAuth) {
+     const token = authApi.getToken();
+     if (token) {
+       headers['Authorization'] = `Bearer ${token}`;
+     }
+   }
 
   const options: RequestInitOverride = {
     method,

@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { adminActionSchema, validateInput, sanitizeValidationErrors } from '../validation/schemas';
 import { requireAdmin } from '../middleware/admin';
@@ -15,17 +15,10 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-/**
- * Admin Routes - Squad ETA
- * Fixed: CRIT-1 - Input validation on all admin endpoints
- * Fixed: MED-2 - Structured error logging
- */
-
 const router = Router();
 
 // GET /api/admin/stats - Get platform statistics (admin only)
-router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
-  
+router.get('/stats', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     // Squad ETA Fix: Add structured logging
     req.log?.info({
@@ -40,11 +33,11 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
       totalAudits,
       maliciousAudits
     ] = await Promise.all([
-      (req.prisma as PrismaClient).skill.count(),
-      (req.prisma as PrismaClient).skill.count({ where: { status: 'PENDING' } }),
-      (req.prisma as PrismaClient).skill.count({ where: { isBlocked: true } }),
-      (req.prisma as PrismaClient).audit.count(),
-      (req.prisma as PrismaClient).audit.count({ where: { status: 'MALICIOUS' } })
+      req.prisma?.skill.count(),
+      req.prisma?.skill.count({ where: { status: 'PENDING' } }),
+      req.prisma?.skill.count({ where: { isBlocked: true } }),
+      req.prisma?.audit.count(),
+      req.prisma?.audit.count({ where: { status: 'MALICIOUS' } })
     ]);
     
     res.json({
@@ -69,9 +62,22 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });
+
+// POST /api/admin/skills/:id/block - Block a skill (admin only)
+// Squad ETA Fix: CRIT-1 - Input validation
+router.post('/skills/:id/block', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+  
+  try {
+    // Squad ETA Fix: CRIT-1 - Validate input
+    const validation = validateInput(adminActionSchema, {
+      skillId: id,
+      action: 'block',
+      ...req.body
+    });
     
     if (!validation.success) {
-      req.log.warn({
+      req.log?.warn({
         admin: req.user?.walletAddress,
         skillId: id,
         errors: validation.errors
@@ -86,7 +92,7 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
     const { reason } = validation.data;
     
     // Squad ETA Fix: Validate skill exists
-    const skill = await prisma.skill.findUnique({
+    const skill = await req.prisma?.skill.findUnique({
       where: { id }
     });
     
@@ -100,7 +106,7 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
     }
     
     // Block the skill
-    const updatedSkill = await prisma.skill.update({
+    const updatedSkill = await req.prisma?.skill.update({
       where: { id },
       data: {
         isBlocked: true,
@@ -110,10 +116,10 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
     });
     
     // Squad ETA Fix: Structured logging
-    req.log.info({
+    req.log?.info({
       admin: req.user?.walletAddress,
       skillId: id,
-      skillName: skill.name,
+      skillName: skill?.name,
       reason
     }, 'Skill blocked by admin');
     
@@ -123,21 +129,20 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
     });
   } catch (error) {
     // Squad ETA Fix: MED-2 - Structured error logging
-    req.log.error({
+    req.log?.error({
       error,
       admin: req.user?.walletAddress,
       action: 'block_skill',
       skillId: id
     }, 'Failed to block skill');
     
-    res.status(500).json({ error: 'Failed to block skill' });
+    next(error);
   }
 });
 
 // POST /api/admin/skills/:id/unblock - Unblock a skill (admin only)
 // Squad ETA Fix: CRIT-1 - Input validation
-router.post('/skills/:id/unblock', async (req: any, res: Response) => {
-  const prisma = req.prisma as PrismaClient;
+router.post('/skills/:id/unblock', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const { id } = req.params;
   
   try {
@@ -149,7 +154,7 @@ router.post('/skills/:id/unblock', async (req: any, res: Response) => {
     });
     
     if (!validation.success) {
-      req.log.warn({
+      req.log?.warn({
         admin: req.user?.walletAddress,
         skillId: id,
         errors: validation.errors
@@ -163,7 +168,7 @@ router.post('/skills/:id/unblock', async (req: any, res: Response) => {
     
     const { reason } = validation.data;
     
-    const skill = await prisma.skill.findUnique({
+    const skill = await req.prisma?.skill.findUnique({
       where: { id }
     });
     
@@ -175,7 +180,7 @@ router.post('/skills/:id/unblock', async (req: any, res: Response) => {
       return res.status(409).json({ error: 'Skill is not blocked' });
     }
     
-    const updatedSkill = await prisma.skill.update({
+    const updatedSkill = await req.prisma?.skill.update({
       where: { id },
       data: {
         isBlocked: false,
@@ -184,10 +189,10 @@ router.post('/skills/:id/unblock', async (req: any, res: Response) => {
       }
     });
     
-    req.log.info({
+    req.log?.info({
       admin: req.user?.walletAddress,
       skillId: id,
-      skillName: skill.name,
+      skillName: skill?.name,
       reason
     }, 'Skill unblocked by admin');
     
@@ -196,21 +201,20 @@ router.post('/skills/:id/unblock', async (req: any, res: Response) => {
       skill: updatedSkill
     });
   } catch (error) {
-    req.log.error({
+    req.log?.error({
       error,
       admin: req.user?.walletAddress,
       action: 'unblock_skill',
       skillId: id
     }, 'Failed to unblock skill');
     
-    res.status(500).json({ error: 'Failed to unblock skill' });
+    next(error);
   }
 });
 
 // POST /api/admin/skills/:id/verify - Manually verify a skill (admin only)
 // Squad ETA Fix: CRIT-1 - Input validation
-router.post('/skills/:id/verify', async (req: any, res: Response) => {
-  const prisma = req.prisma as PrismaClient;
+router.post('/skills/:id/verify', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const { id } = req.params;
   
   try {
@@ -222,7 +226,7 @@ router.post('/skills/:id/verify', async (req: any, res: Response) => {
     });
     
     if (!validation.success) {
-      req.log.warn({
+      req.log?.warn({
         admin: req.user?.walletAddress,
         skillId: id,
         errors: validation.errors
@@ -236,7 +240,7 @@ router.post('/skills/:id/verify', async (req: any, res: Response) => {
     
     const { reason } = validation.data;
     
-    const skill = await prisma.skill.findUnique({
+    const skill = await req.prisma?.skill.findUnique({
       where: { id }
     });
     
@@ -248,7 +252,7 @@ router.post('/skills/:id/verify', async (req: any, res: Response) => {
       return res.status(409).json({ error: 'Skill is already verified' });
     }
     
-    const updatedSkill = await prisma.skill.update({
+    const updatedSkill = await req.prisma?.skill.update({
       where: { id },
       data: {
         status: 'APPROVED',
@@ -256,10 +260,10 @@ router.post('/skills/:id/verify', async (req: any, res: Response) => {
       }
     });
     
-    req.log.info({
+    req.log?.info({
       admin: req.user?.walletAddress,
       skillId: id,
-      skillName: skill.name,
+      skillName: skill?.name,
       reason
     }, 'Skill verified by admin');
     
@@ -268,55 +272,51 @@ router.post('/skills/:id/verify', async (req: any, res: Response) => {
       skill: updatedSkill
     });
   } catch (error) {
-    req.log.error({
+    req.log?.error({
       error,
       admin: req.user?.walletAddress,
       action: 'verify_skill',
       skillId: id
     }, 'Failed to verify skill');
     
-    res.status(500).json({ error: 'Failed to verify skill' });
+    next(error);
   }
 });
 
 // GET /api/admin/memory-reports/aggregates - Get anonymized memory report aggregates
-router.get('/memory-reports/aggregates', async (req: any, res: Response) => {
-  const prisma = req.prisma as PrismaClient;
-  
+router.get('/memory-reports/aggregates', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    req.log.info({
+    req.log?.info({
       admin: req.user?.walletAddress,
       action: 'view_memory_aggregates'
     }, 'Admin viewing memory report aggregates');
     
     const limit = parseInt(req.query.limit as string) || 12;
     
-    const aggregates = await prisma.memoryReportAggregate.findMany({
+    const aggregates = await req.prisma?.memoryReportAggregate.findMany({
       orderBy: { periodStart: 'desc' },
       take: limit,
     });
     
     res.json({
       aggregates,
-      count: aggregates.length
+      count: aggregates?.length ?? 0
     });
   } catch (error) {
-    req.log.error({
+    req.log?.error({
       error,
       admin: req.user?.walletAddress,
       action: 'view_memory_aggregates'
     }, 'Failed to fetch memory report aggregates');
     
-    res.status(500).json({ error: 'Failed to fetch aggregates' });
+    next(error);
   }
 });
 
 // GET /api/admin/memory-reports/flagged - Get flagged user accounts
-router.get('/memory-reports/flagged', async (req: any, res: Response) => {
-  const prisma = req.prisma as PrismaClient;
-  
+router.get('/memory-reports/flagged', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    req.log.info({
+    req.log?.info({
       admin: req.user?.walletAddress,
       action: 'view_flagged_users'
     }, 'Admin viewing flagged memory reports');
@@ -329,7 +329,7 @@ router.get('/memory-reports/flagged', async (req: any, res: Response) => {
       where.flagSeverity = severity;
     }
     
-    const flagged = await prisma.memoryReport.findMany({
+    const flagged = await req.prisma?.memoryReport.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -348,21 +348,21 @@ router.get('/memory-reports/flagged', async (req: any, res: Response) => {
     
     res.json({
       flagged,
-      count: flagged.length,
+      count: flagged?.length ?? 0,
       summary: {
-        high: flagged.filter(f => f.flagSeverity === 'high').length,
-        medium: flagged.filter(f => f.flagSeverity === 'medium').length,
-        low: flagged.filter(f => f.flagSeverity === 'low').length,
+        high: flagged?.filter(f => f.flagSeverity === 'high').length ?? 0,
+        medium: flagged?.filter(f => f.flagSeverity === 'medium').length ?? 0,
+        low: flagged?.filter(f => f.flagSeverity === 'low').length ?? 0
       }
     });
   } catch (error) {
-    req.log.error({
+    req.log?.error({
       error,
       admin: req.user?.walletAddress,
       action: 'view_flagged_users'
     }, 'Failed to fetch flagged reports');
     
-    res.status(500).json({ error: 'Failed to fetch flagged reports' });
+    next(error);
   }
 });
 

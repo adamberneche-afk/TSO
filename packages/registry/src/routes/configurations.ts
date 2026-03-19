@@ -46,29 +46,32 @@ const router = Router();
  */
 router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.user?.walletAddress;
-    
-    if (!walletAddress) {
-      return res.status(401).json({
-        error: 'Authentication required',
-        allowed: false
-      });
+    if (!req.user?.walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
     }
+    const walletAddress = req.user.walletAddress;
     
     const status = await canCreateConfiguration(walletAddress);
-    const configs = await getWalletConfigurations(walletAddress);
+    
+    // Calculate used and tier based on the response
+    const used = status.currentCount;
+    let tier = 'bronze';
+    if (status.limit >= 50) {
+      tier = 'gold';
+    } else if (status.limit >= 20) {
+      tier = 'silver';
+    }
     
     res.json({
-      ...status,
-      configurations: configs
+      allowed: status.allowed,
+      limit: status.limit,
+      used: used,
+      walletAddress,
+      tier: tier
     });
-    
   } catch (error) {
     logger.error('Error checking configuration status', error);
-    res.status(500).json({
-      error: 'Failed to check configuration status',
-      allowed: false
-    });
+    res.status(500).json({ error: 'Failed to check configuration status' });
   }
 });
 
@@ -78,132 +81,148 @@ router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
  */
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.user?.walletAddress;
-    
-    if (!walletAddress) {
-      return res.status(401).json({
-        error: 'Authentication required'
-      });
+    if (!req.user?.walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
     }
+    const walletAddress = req.user.walletAddress;
     
     const configs = await getWalletConfigurations(walletAddress);
-    const status = await canCreateConfiguration(walletAddress);
     
     res.json({
       configurations: configs,
-      limit: status.limit,
-      used: status.currentCount,
-      remaining: status.remaining
+      count: configs.length
     });
-    
   } catch (error) {
-    logger.error('Error fetching configurations', error);
-    res.status(500).json({
-      error: 'Failed to fetch configurations'
-    });
+    logger.error('Error getting wallet configurations', error);
+    res.status(500).json({ error: 'Failed to get configurations' });
   }
 });
 
 /**
  * POST /api/configurations
- * Save a new configuration
+ * Create a new configuration
  */
 router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.user?.walletAddress;
-    
-    if (!walletAddress) {
-      return res.status(401).json({
-        error: 'Authentication required'
-      });
+    if (!req.user?.walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
     }
-    
-    const { name, configData, description, personalityMd } = req.body;
+    const walletAddress = req.user.walletAddress;
+    const { name, description, configData, personalityMd } = req.body;
     
     // Validation
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return res.status(400).json({
-        error: 'Configuration name is required'
-      });
-    }
+    const updates: any = {};
     
-    if (!configData || typeof configData !== 'object') {
-      return res.status(400).json({
-        error: 'Configuration data is required'
-      });
-    }
-    
-    if (name.length > 100) {
-      return res.status(400).json({
-        error: 'Configuration name must be less than 100 characters'
-      });
-    }
-    
-    if (description && description.length > 500) {
-      return res.status(400).json({
-        error: 'Description must be less than 500 characters'
-      });
-    }
-    
-    // Validate personality markdown size (50KB max for gold tier)
-    if (personalityMd && typeof personalityMd === 'string') {
-      const personalitySize = Buffer.byteLength(personalityMd, 'utf8');
-      const maxPersonalitySize = 50 * 1024; // 50KB
-      if (personalitySize > maxPersonalitySize) {
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.trim().length === 0) {
         return res.status(400).json({
-          error: `Personality markdown exceeds maximum size of 50KB (current: ${(personalitySize / 1024).toFixed(1)}KB)`
+          error: 'Configuration name cannot be empty'
         });
       }
+      if (name.length > 100) {
+        return res.status(400).json({
+          error: 'Configuration name must be less than 100 characters'
+        });
+      }
+      updates.name = name.trim();
     }
     
-    // Check limits
-    const check = await canCreateConfiguration(walletAddress);
+    if (description !== undefined) {
+      if (description.length > 500) {
+        return res.status(400).json({
+          error: 'Description must be less than 500 characters'
+        });
+      }
+      updates.description = description.trim();
+    }
     
-    if (!check.allowed) {
-      return res.status(403).json({
-        error: check.error || 'Configuration limit reached',
-        limit: check.limit,
-        used: check.currentCount
-      });
+    if (configData !== undefined) {
+      if (typeof configData !== 'object') {
+        return res.status(400).json({
+          error: 'Configuration data must be an object'
+        });
+      }
+      updates.configData = configData;
+    }
+    
+    if (personalityMd !== undefined) {
+      if (personalityMd !== null && typeof personalityMd !== 'string') {
+        return res.status(400).json({
+          error: 'Personality markdown must be a string or null'
+        });
+      }
+      // Validate personality markdown size (50KB max for gold tier)
+      if (personalityMd) {
+        const personalitySize = Buffer.byteLength(personalityMd, 'utf8');
+        const maxPersonalitySize = 50 * 1024; // 50KB
+        if (personalitySize > maxPersonalitySize) {
+          return res.status(400).json({
+            error: `Personality markdown exceeds maximum size of 50KB (current: ${(personalitySize / 1024).toFixed(1)}KB)`
+          });
+        }
+      }
+      updates.personalityMd = personalityMd;
     }
     
     // Save configuration
-    const result = await saveConfiguration(
-      walletAddress,
-      name.trim(),
-      configData,
-      description?.trim(),
-      personalityMd
-    );
+    const config = await saveConfiguration(walletAddress, name, configData, description, personalityMd);
     
-    res.status(201).json({
+    res.json({
       success: true,
-      configuration: result.config,
-      limit: result.limit,
-      remaining: result.remaining
+      configuration: config
     });
-    
   } catch (error) {
     logger.error('Error saving configuration', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'Failed to save configuration'
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to save configuration' });
+  }
+});
+
+/**
+ * GET /api/configurations/:id
+ * Get configuration by ID
+ */
+router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user?.walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    const walletAddress = req.user.walletAddress;
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({ error: 'Configuration ID is required' });
+    }
+    
+    const configs = await getWalletConfigurations(walletAddress);
+    const config = configs.find((c: any) => c.id === id);
+    
+    if (!config) {
+      return res.status(404).json({ error: 'Configuration not found' });
+    }
+    
+    res.json({
+      configuration: config
     });
+  } catch (error) {
+    logger.error('Error getting configuration', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get configuration' });
   }
 });
 
 /**
  * PUT /api/configurations/:id
- * Update an existing configuration
+ * Update configuration by ID
  */
 router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.user?.walletAddress;
+    if (!req.user?.walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    const walletAddress = req.user.walletAddress;
     const { id } = req.params;
     
-    if (!walletAddress) {
-      return res.status(401).json({
-        error: 'Authentication required'
-      });
+    if (!id) {
+      return res.status(400).json({ error: 'Configuration ID is required' });
     }
     
     const { name, description, configData, personalityMd } = req.body;
@@ -269,11 +288,9 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
       success: true,
       configuration: config
     });
-    
   } catch (error) {
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'Failed to update configuration'
-    });
+    logger.error('Error updating configuration', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to update configuration' });
   }
 });
 
@@ -283,13 +300,14 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
  */
 router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.user?.walletAddress;
+    if (!req.user?.walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    const walletAddress = req.user.walletAddress;
     const { id } = req.params;
     
-    if (!walletAddress) {
-      return res.status(401).json({
-        error: 'Authentication required'
-      });
+    if (!id) {
+      return res.status(400).json({ error: 'Configuration ID is required' });
     }
     
     // Delete configuration
@@ -305,64 +323,29 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
     
     res.json({
       success: true,
-      remaining: status.remaining,
-      limit: status.limit
+      message: 'Configuration deleted',
+      updatedStatus: status
     });
-    
   } catch (error) {
     logger.error('Error deleting configuration', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'Failed to delete configuration'
-    });
-  }
-});
-
-/**
- * GET /api/configurations/nft/verify
- * Verify NFT ownership for authenticated wallet
- */
-router.get('/nft/verify', async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const walletAddress = req.user?.walletAddress;
-    
-    if (!walletAddress) {
-      return res.status(401).json({
-        error: 'Authentication required'
-      });
-    }
-    
-    const ownership = await verifyNFTOwnership(walletAddress);
-    const status = await canCreateConfiguration(walletAddress);
-    
-    res.json({
-      isHolder: ownership.isHolder,
-      tokenCount: ownership.tokenCount,
-      tokenIds: ownership.tokenIds,
-      configLimit: status.limit,
-      configsUsed: status.currentCount,
-      configsRemaining: status.remaining,
-      error: ownership.error
-    });
-    
-  } catch (error) {
-    logger.error('Error verifying NFT ownership', error);
-    res.status(500).json({
-      error: 'Failed to verify NFT ownership'
-    });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to delete configuration' });
   }
 });
 
 /**
  * GET /api/configurations/:id/versions
- * Get all versions for a configuration
+ * Get version history for a configuration
  */
 router.get('/:id/versions', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.user?.walletAddress;
+    if (!req.user?.walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    const walletAddress = req.user.walletAddress;
     const configId = req.params.id;
     
-    if (!walletAddress) {
-      return res.status(401).json({ error: 'Authentication required' });
+    if (!configId) {
+      return res.status(400).json({ error: 'Configuration ID is required' });
     }
     
     const configs: any = await getWalletConfigurations(walletAddress);
@@ -391,73 +374,83 @@ router.get('/:id/versions', async (req: AuthenticatedRequest, res: Response) => 
 });
 
 /**
- * GET /api/configurations/:id/versions/:version
+ * GET /api/configurations/:id/versions/:ver
  * Get specific version details
  */
 router.get('/:id/versions/:ver', async (req: AuthenticatedRequest, res: Response) => {
-   try {
-     const walletAddress = req.user?.walletAddress;
-     const configId = req.params.id;
-     const version = parseInt(req.params.ver ?? '0', 10);
-    
-    if (!walletAddress) {
+  try {
+    if (!req.user?.walletAddress) {
       return res.status(401).json({ error: 'Authentication required' });
     }
+    const walletAddress = req.user.walletAddress;
+    const { id, ver } = req.params;
     
-    const configs: any = await getWalletConfigurations(walletAddress);
-    const config = configs.find((c: any) => c.id === configId);
-    
-    if (!config) {
-      return res.status(404).json({ error: 'Configuration not found' });
+    if (!id || !ver) {
+      return res.status(400).json({ error: 'Configuration ID and version are required' });
     }
     
-    const versionData = await getVersionDetails(configId, walletAddress, version);
-
-    res.json(versionData);
+    const versionNumber = parseInt(ver, 10);
+    if (isNaN(versionNumber)) {
+      return res.status(400).json({ error: 'Invalid version number' });
+    }
+    
+    const versionDetails = await getVersionDetails(id, walletAddress, versionNumber);
+    
+    if (!versionDetails) {
+      return res.status(404).json({ error: 'Version not found' });
+    }
+    
+    res.json({
+      versionDetails
+    });
     
   } catch (error) {
-    logger.error('Error getting version', error);
+    logger.error('Error getting version details', error);
     res.status(500).json({
-      error: error instanceof Error ? error.message : 'Failed to get version'
+      error: error instanceof Error ? error.message : 'Failed to get version details'
     });
   }
 });
 
 /**
- * POST /api/configurations/:id/rollback/:version
+ * POST /api/configurations/:id/rollback/:ver
  * Rollback to a specific version
  */
 router.post('/:id/rollback/:ver', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.user?.walletAddress;
-    const configId = req.params.id;
-    const version = parseInt(req.params.ver ?? '0', 10);
-    
-    if (!walletAddress) {
+    if (!req.user?.walletAddress) {
       return res.status(401).json({ error: 'Authentication required' });
     }
+    const walletAddress = req.user.walletAddress;
+    const { id, ver } = req.params;
     
-    const configs: any = await getWalletConfigurations(walletAddress);
-    const config = configs.find((c: any) => c.id === configId);
-    
-    if (!config) {
-      return res.status(404).json({ error: 'Configuration not found' });
+    if (!id || !ver) {
+      return res.status(400).json({ error: 'Configuration ID and version are required' });
     }
     
-    const updated = await rollbackToVersion(configId, walletAddress, version);
+    const versionNumber = parseInt(ver, 10);
+    if (isNaN(versionNumber)) {
+      return res.status(400).json({ error: 'Invalid version number' });
+    }
+    
+    const result = await rollbackToVersion(id, walletAddress, versionNumber);
+    
+    if (!result.success) {
+      return res.status(400).json({ error: result.error || 'Failed to rollback' });
+    }
     
     res.json({
       success: true,
-      config: updated,
-      message: `Rolled back to version ${version}`
+      message: 'Configuration rolled back successfully',
+      configuration: result.configuration
     });
     
   } catch (error) {
-    logger.error('Error rolling back version', error);
+    logger.error('Error rolling back configuration', error);
     res.status(500).json({
-      error: error instanceof Error ? error.message : 'Failed to rollback'
+      error: error instanceof Error ? error.message : 'Failed to rollback configuration'
     });
   }
 });
 
-export default router;
+export { router as configurationRoutes };

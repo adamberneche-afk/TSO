@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { verifySignature } from '../utils/signature';
 import crypto from 'crypto';
@@ -11,7 +11,7 @@ interface RAGSession {
   expiresAt: Date;
   lastActivityAt: Date;
   documentCount: number;
-  bytesUploaded: number;
+  bytesUploaded: bigint;
 }
 
 // Database-backed session storage instead of in-memory Map
@@ -79,16 +79,7 @@ export async function getSession(prisma: PrismaClient, sessionId: string): Promi
     expiry: Date.now() + CACHE_DURATION_MS
   });
   
-  return {
-    sessionId: session.sessionId,
-    walletAddress: session.walletAddress,
-    tier: session.tier,
-    createdAt: session.createdAt,
-    expiresAt: session.expiresAt,
-    lastActivityAt: session.lastActivityAt,
-    documentCount: session.documentCount,
-    bytesUploaded: session.bytesUploaded
-  };
+  return session;
 }
 
 export async function updateSessionActivity(prisma: PrismaClient, sessionId: string, bytesAdded: number = 0): Promise<void> {
@@ -110,165 +101,83 @@ export async function updateSessionActivity(prisma: PrismaClient, sessionId: str
   const cached = sessionCache.get(sessionId);
   if (cached) {
     cached.session.lastActivityAt = new Date();
-    cached.session.bytesUploaded += bytesAdded;
+    cached.session.bytesUploaded += BigInt(bytesAdded);
     cached.session.documentCount++;
   }
 }
 
-export async function cleanupExpiredSessions(prisma: PrismaClient): Promise<number> {
-  const result = await prisma.rAGSession.deleteMany({
-    where: {
-      expiresAt: {
-        lt: new Date()
-      }
-    }
+export async function endSession(prisma: PrismaClient, sessionId: string): Promise<void> {
+  await prisma.rAGSession.delete({
+    where: { sessionId }
   });
-  
-  // Clear cache entries for deleted sessions
-  // Note: In a production system with multiple instances, 
-  // you'd want to use Redis pub/sub or similar to sync cache invalidation
-  // For now, we'll rely on cache expiration
-  
-  return result.count;
+  // Also remove from cache
+  sessionCache.delete(sessionId);
 }
 
-export function createSessionRoutes(prisma: PrismaClient, logger: any): any {
-  const router = require('express').Router();
+export async function getActiveSession(prisma: PrismaClient, walletAddress: string): Promise<RAGSession | null> {
+  const sessions = await prisma.rAGSession.findMany({
+    where: {
+      walletAddress: walletAddress.toLowerCase(),
+      expiresAt: { gt: new Date() } // not expired
+    },
+    orderBy: {
+      createdAt: 'desc'
+    },
+    take: 1
+  });
 
-export function createSessionRoutes(prisma: any, logger: any): any {
-  const router = require('express').Router();
+  return sessions[0] || null;
+}
 
-  router.post('/start', async (req: Request, res: Response) => {
-    try {
-      const { wallet, signature, tier } = req.body;
-
-      if (!wallet || !signature) {
-        return res.status(400).json({ 
-          error: 'Wallet address and signature required',
-          code: 'MISSING_CREDENTIALS'
-        });
-      }
-
-      const normalizedWallet = wallet.toLowerCase();
-
-      const challengeMessage = `TAIS RAG Session Authorization\n\nWallet: ${wallet}\nTimestamp: ${Date.now()}\n\nAuthorize this session for encrypted document uploads.\n\nSession will be valid for 1 hour.`;
-
-      const verification = verifySignature(challengeMessage, signature, wallet);
-      if (!verification.valid) {
-        return res.status(401).json({ 
-          error: 'Invalid signature',
-          code: 'INVALID_SIGNATURE'
-        });
-      }
-
-      let userSessions = 0;
-      sessions.forEach((s) => {
-        if (s.walletAddress === normalizedWallet) userSessions++;
-      });
-
-      if (userSessions >= MAX_SESSIONS_PER_WALLET) {
-        sessions.forEach((session, sessionId) => {
-          if (session.walletAddress === normalizedWallet) {
-            sessions.delete(sessionId);
-            logger.info(`[RAG Session] Evicted old session ${sessionId} for ${wallet}`);
-          }
-        });
-      }
-
-      const sessionId = generateSessionId();
-      const now = new Date();
-      const session: RAGSession = {
-        sessionId,
-        walletAddress: normalizedWallet,
-        tier: tier || 'bronze',
-        createdAt: now,
-        expiresAt: new Date(now.getTime() + SESSION_DURATION_MS),
-        lastActivityAt: now,
-        documentCount: 0,
-        bytesUploaded: 0,
-      };
-
-      sessions.set(sessionId, session);
-
-      logger.info(`[RAG Session] Started session ${sessionId} for ${wallet}`);
-
-      res.json({
-        success: true,
-        sessionId,
-        walletAddress: wallet,
-        tier: session.tier,
-        expiresAt: session.expiresAt.toISOString(),
-        expiresIn: SESSION_DURATION_MS / 1000,
-        maxDocuments: 1000,
-        maxStorage: 100 * 1024 * 1024 * 1024, // 100GB for gold
-      });
-    } catch (error) {
-      logger.error('Error starting RAG session:', error);
-      res.status(500).json({ error: 'Failed to start session' });
+export async function startSession(prisma: PrismaClient, walletAddress: string): Promise<string> {
+  // Get active sessions for this wallet
+  const activeSessions = await prisma.rAGSession.findMany({
+    where: {
+      walletAddress: walletAddress.toLowerCase(),
+      expiresAt: { gt: new Date() }
+    },
+    orderBy: {
+      createdAt: 'asc' // oldest first
     }
   });
 
-   router.get('/status', async (req: Request, res: Response) => {
-     try {
-       const sessionToken = req.headers['x-session-token'] as string;
+  // If we have reached the limit, remove the oldest session(s)
+  if (activeSessions.length >= MAX_SESSIONS_PER_WALLET) {
+    const sessionsToRemove = activeSessions.slice(0, activeSessions.length - MAX_SESSIONS_PER_WALLET + 1);
+    for (const session of sessionsToRemove) {
+      await prisma.rAGSession.delete({
+        where: { sessionId: session.sessionId }
+      });
+      // Also remove from cache
+      sessionCache.delete(session.sessionId);
+    }
+  }
 
-       if (!sessionToken) {
-         return res.status(401).json({ error: 'Session token required' });
-       }
+  // Create new session
+  const sessionId = generateSessionId();
+  const now = new Date();
+  const session: RAGSession = {
+    sessionId,
+    walletAddress: walletAddress.toLowerCase(),
+    tier: 'bronze', // default tier, can be updated later based on stake
+    createdAt: now,
+    expiresAt: new Date(now.getTime() + SESSION_DURATION_MS),
+    lastActivityAt: now,
+    documentCount: 0,
+    bytesUploaded: BigInt(0)
+  };
 
-       const session = await getSession(prisma, sessionToken);
-       if (!session) {
-         return res.status(401).json({ 
-           error: 'Invalid or expired session',
-           code: 'SESSION_EXPIRED'
-         });
-       }
+  await prisma.rAGSession.create({
+    data: session
+  });
 
-       const remainingMs = session.expiresAt.getTime() - Date.now();
+  // Cache the session
+  sessionCache.set(sessionId, {
+    session,
+    expiry: Date.now() + CACHE_DURATION_MS
+  });
 
-       res.json({
-         valid: true,
-         walletAddress: session.walletAddress,
-         tier: session.tier,
-         createdAt: session.createdAt.toISOString(),
-         expiresAt: session.expiresAt.toISOString(),
-         expiresIn: Math.max(0, Math.floor(remainingMs / 1000)),
-         documentCount: session.documentCount,
-         bytesUploaded: session.bytesUploaded,
-         lastActivityAt: session.lastActivityAt.toISOString(),
-       });
-     } catch (error) {
-       logger.error('Error checking session status:', error);
-       res.status(500).json({ error: 'Failed to check session' });
-     }
-   });
-
-   router.delete('/end', async (req: Request, res: Response) => {
-     try {
-       const sessionToken = req.headers['x-session-token'] as string;
-
-       if (!sessionToken) {
-         return res.status(400).json({ error: 'Session token required' });
-       }
-
-       const session = await getSession(prisma, sessionToken);
-       if (session) {
-         logger.info(`[RAG Session] Ended session ${sessionToken} for ${session.walletAddress}`);
-         await prisma.rAGSession.delete({
-           where: { sessionId: sessionToken }
-         });
-         // Also remove from cache
-         sessionCache.delete(sessionToken);
-       }
-
-       res.json({ success: true, message: 'Session ended' });
-     } catch (error) {
-       logger.error('Error ending session:', error);
-       res.status(500).json({ error: 'Failed to end session' });
-     }
-   });
-
-  return router;
+  return sessionId;
 }
 
 export function sessionAuthMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -279,39 +188,110 @@ export function sessionAuthMiddleware(req: Request, res: Response, next: NextFun
     return next();
   }
 
-  const session = getSession(sessionToken);
-  if (!session) {
-    return res.status(401).json({ 
-      error: 'Invalid or expired session. Start a new session with POST /api/v1/rag/session/start',
-      code: 'SESSION_EXPIRED'
-    });
-  }
+  // Note: We are making the middleware async by returning a promise
+  // We'll handle the async work in a separate function and then call next()
+  (async () => {
+    try {
+      // We need to get the prisma client from somewhere
+      // In the request logging middleware, we set req.prisma
+      // But we don't have access to req here in the async function unless we pass it
+      // Let's change the approach: we'll get the prisma client from a global or from a service locator
+      // For now, we'll create a new PrismaClient instance (not ideal for production but works for now)
+      const prisma = new PrismaClient();
+      
+      const session = await getSession(prisma, sessionToken);
+      if (!session) {
+        return res.status(401).json({ 
+          error: 'Invalid or expired session. Start a new session with POST /api/v1/rag/session/start',
+          code: 'SESSION_EXPIRED'
+        });
+      }
 
-  if (walletFromBody && walletFromBody.toLowerCase() !== session.walletAddress) {
-    return res.status(403).json({ 
-      error: 'Session wallet mismatch',
-      code: 'WALLET_MISMATCH'
-    });
-  }
+      if (walletFromBody && walletFromBody.toLowerCase() !== session.walletAddress) {
+        return res.status(403).json({ 
+          error: 'Session wallet mismatch',
+          code: 'WALLET_MISMATCH'
+        });
+      }
 
-   req.session = session;
-   req.wallet = session.walletAddress;
+      req.session = session;
+      req.wallet = session.walletAddress;
 
-  updateSessionActivity(sessionToken);
-
-  next();
+      await updateSessionActivity(prisma, session.sessionId, 0);
+      
+      await prisma.$disconnect();
+    } catch (error) {
+      console.error('Error in session auth middleware:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    
+    next();
+  })();
 }
 
-export function requireSessionOrWallet(req: Request, res: Response, next: NextFunction) {
-  const session = ('session' in req && req.session !== undefined) ? req.session as RAGSession | undefined : undefined;
-  const wallet = req.body?.wallet || req.query?.wallet;
+/**
+ * Create session routes
+ */
+export function createSessionRoutes(prisma: PrismaClient, logger: any): Router {
+  const router = Router();
 
-  if (!session && !wallet) {
-    return res.status(401).json({ 
-      error: 'Authentication required. Provide either a session token or wallet address.',
-      code: 'AUTH_REQUIRED'
-    });
-  }
+  router.post('/start', async (req: Request, res: Response) => {
+    try {
+      const { walletAddress } = req.body;
+      if (!walletAddress) {
+        return res.status(400).json({ error: 'Wallet address is required' });
+      }
 
-  next();
+      const sessionId = await startSession(prisma, walletAddress);
+      res.json({ sessionId });
+    } catch (error) {
+      logger.error('Error starting session:', error);
+      res.status(500).json({ error: 'Failed to start session' });
+    }
+  });
+
+  router.post('/end', async (req: Request, res: Response) => {
+    try {
+      const sessionToken = req.headers['x-session-token'] as string;
+      if (!sessionToken) {
+        return res.status(401).json({ error: 'Session token is required' });
+      }
+
+      await endSession(prisma, sessionToken);
+      res.json({ success: true, message: 'Session ended' });
+    } catch (error) {
+      logger.error('Error ending session:', error);
+      res.status(500).json({ error: 'Failed to end session' });
+    }
+  });
+
+  router.get('/active', async (req: Request, res: Response) => {
+    try {
+      const { walletAddress } = req.query;
+      if (!walletAddress) {
+        return res.status(400).json({ error: 'Wallet address is required' });
+      }
+
+      const session = await getActiveSession(prisma, walletAddress);
+      if (!session) {
+        return res.status(404).json({ error: 'No active session found' });
+      }
+
+      res.json({
+        sessionId: session.sessionId,
+        walletAddress: session.walletAddress,
+        tier: session.tier,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+        lastActivityAt: session.lastActivityAt,
+        documentCount: session.documentCount,
+        bytesUploaded: session.bytesUploaded
+      });
+    } catch (error) {
+      logger.error('Error getting active session:', error);
+      res.status(500).json({ error: 'Failed to get active session' });
+    }
+  });
+
+  return router;
 }

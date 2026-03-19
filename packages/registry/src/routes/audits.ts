@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { auditSchema, validateInput, sanitizeValidationErrors } from '../validation/schemas';
 
@@ -12,7 +12,7 @@ interface AuthenticatedRequest extends Request {
     error: (message: any, ...optional: any[]) => void;
     warn: (message: any, ...optional: any[]) => void;
   };
-}
+};
 
 const router = Router();
 
@@ -23,7 +23,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     const offset = parseInt(req.query.offset as string) || 0;
 
     const [audits, total] = await Promise.all([
-      req.prisma.audit.findMany({
+      req.prisma?.audit.findMany({
         take: limit,
         skip: offset,
         orderBy: { createdAt: 'desc' },
@@ -33,12 +33,12 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
               id: true,
               name: true,
               skillHash: true,
-              creatorWallet: true,
+              author: true,
             }
           }
         }
-      }),
-      req.prisma.audit.count(),
+      }) ?? [],
+      req.prisma?.audit.count() ?? 0
     ]);
 
     res.json({
@@ -48,13 +48,13 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
           id: audit.skill.id,
           name: audit.skill.name,
           skillHash: audit.skill.skillHash,
-          creatorWallet: audit.skill.creatorWallet,
+          author: audit.skill.author,
         },
-        action: audit.action,
+        action: audit.status, // Using status as action since there's no separate action field
         status: audit.status,
-        reporter: audit.reporter,
+        reporter: audit.auditor,
         timestamp: audit.createdAt,
-        details: audit.details,
+        details: audit.findings,
       })),
       pagination: {
         limit,
@@ -73,23 +73,22 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 router.get('/:skillHash', async (req: AuthenticatedRequest, res: Response) => {
   const { skillHash } = req.params;
   try {
-    const skill = await req.prisma.skill.findUnique({
+    const skill = await req.prisma?.skill.findUnique({
       where: { skillHash },
       select: {
         id: true,
         name: true,
         skillHash: true,
-        creatorWallet: true,
+        author: true,
         audits: {
           orderBy: { createdAt: 'desc' },
           take: 100,
           select: {
             id: true,
-            action: true,
             status: true,
-            reporter: true,
+            auditor: true,
             createdAt: true,
-            details: true,
+            findings: true,
           }
         }
       }
@@ -104,15 +103,15 @@ router.get('/:skillHash', async (req: AuthenticatedRequest, res: Response) => {
         id: skill.id,
         name: skill.name,
         skillHash: skill.skillHash,
-        creatorWallet: skill.skillCreatorWallet,
+        author: skill.author,
       },
       audits: skill.audits.map(audit => ({
         id: audit.id,
-        action: audit.action,
+        action: audit.status, // Using status as action since there's no separate action field
         status: audit.status,
-        reporter: audit.reporter,
+        reporter: audit.auditor,
         timestamp: audit.createdAt,
-        details: audit.details,
+        details: audit.findings,
       })),
     });
   } catch (error) {

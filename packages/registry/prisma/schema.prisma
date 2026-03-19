@@ -415,6 +415,24 @@ model RAGAppConnection {
   @@map("rag_app_connections")
 }
 
+// RAG Session - Stores encrypted session data for RAG functionality
+model RAGSession {
+  id          String   @id @default(uuid())
+  sessionId   String   @unique
+  walletAddress String
+  tier        String   @default("bronze")
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+  lastActivityAt DateTime
+  documentCount Int    @default(0)
+  bytesUploaded BigInt @default(0)
+
+  @@index([sessionId])
+  @@index([walletAddress])
+  @@index([expiresAt])
+  @@map("rAGSession")
+}
+
 // RAG Audit Log - Track all RAG operations (for compliance/debugging)
 model RAGAuditLog {
   id              String   @id @default(uuid())

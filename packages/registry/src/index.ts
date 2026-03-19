@@ -6,6 +6,29 @@ import dotenv from 'dotenv';
 import winston from 'winston';
 import { PrismaClient } from '@prisma/client';
 
+interface AuthenticatedRequest extends Request {
+  user?: {
+    walletAddress: string;
+  };
+  prisma?: PrismaClient;
+  log?: {
+    info: (message: any, ...optional: any[]) => void;
+    error: (message: any, ...optional: any[]) => void;
+    warn: (message: any, ...optional: any[]) => void;
+  };
+}
+
+// Extend the Request type with the properties we add in middleware
+interface ExtendedRequest extends Request {
+  id?: string;
+  prisma?: PrismaClient;
+  log?: {
+    info: (message: any, ...optional: any[]) => void;
+    error: (message: any, ...optional: any[]) => void;
+    warn: (message: any, ...optional: any[]) => void;
+  };
+}
+
 // Squad Gamma - Infrastructure & Security
 import { getCorsConfig } from './config/cors';
 import { createSecurityHeaders } from './config/security';
@@ -51,7 +74,7 @@ const logger = winston.createLogger({
 import { loadConfig, getDatabaseClients } from './config/index';
 
 // Load and validate configuration
-const config = loadConfig(logger);
+const config = loadConfig();
 
 // Initialize database clients using centralized configuration
 const { ragPrisma, skillsPrisma, prisma } = getDatabaseClients(config, logger);
@@ -96,19 +119,20 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Squad Gamma: Request logging
-app.use((req: AuthenticatedRequest, res: any, next: any) => {
-  req.prisma = skillsPrisma; // Use skillsPrisma for auth/config routes
-  req.log = logger.child({ requestId: req.id });
-  
-  req.log.info({
-    method: req.method,
-    path: req.path,
-    ip: req.ip,
-    userAgent: req.headers['user-agent']
-  }, 'Incoming request');
-  
-  next();
-});
+app.use((req: ExtendedRequest, res: Response, next: NextFunction) => {
+   req.prisma = skillsPrisma; // Use skillsPrisma for auth/config routes
+   req.id = req.id || crypto.randomUUID(); // Generate ID if not present from requestIdMiddleware
+   req.log = logger.child({ requestId: req.id as string });
+   
+   req.log.info({
+     method: req.method,
+     path: req.path,
+     ip: req.ip,
+     userAgent: req.headers['user-agent']
+   }, 'Incoming request');
+   
+   next();
+ });
 
 // Squad Gamma: Request timing middleware
 app.use((req: any, res: any, next: any) => {
@@ -224,7 +248,7 @@ apiV1Router.use('/admin',
 );
 
 // Genesis Holder: Agent configuration persistence routes
-import configurationRoutes from './routes/configurations';
+import { configurationRoutes } from './routes/configurations';
 apiV1Router.use('/configurations',
   authMiddleware,
   rateLimiters.authenticated,
@@ -253,7 +277,7 @@ apiV1Router.use('/admin/migrate',
 // Three-tier RAG: Private, Platform, App
 // Uses separate RAG database (tais-rag)
 // ============================================
-import { createRAGRoutes } from './routes/rag';
+import { ragRoutes } from './routes/rag';
 import { createSessionRoutes } from './services/ragSession';
 
 // RAG session management (for streamlined uploads)
@@ -263,7 +287,7 @@ apiV1Router.use('/rag/session', createSessionRoutes(prisma, logger));
 // Uses ragPrisma for RAG-specific database operations
 apiV1Router.use('/rag',
   rateLimiters.authenticated, // Apply rate limiting to all RAG routes
-  createRAGRoutes(ragPrisma, logger)
+  ragRoutes
 );
 
 // ============================================

@@ -1,13 +1,26 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
-import AnalyticsService from '../services/analytics';
+import { AnalyticsService } from '../services/analytics';
+
+// Extend Express Request type to include our custom properties
+interface AuthenticatedRequest extends Request {
+  user?: {
+    walletAddress: string;
+  };
+  prisma?: PrismaClient;
+  log?: {
+    info: (message: any, ...optional: any[]) => void;
+    error: (message: any, ...optional: any[]) => void;
+    warn: (message: any, ...optional: any[]) => void;
+  };
+}
 
 export function createAnalyticsRoutes(prisma: PrismaClient, logger: any): Router {
   const router = Router();
   const service = new AnalyticsService(prisma);
 
   // Track an event
-  router.post('/track', async (req: Request, res: Response) => {
+  router.post('/track', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const {
         eventType,
@@ -35,13 +48,13 @@ export function createAnalyticsRoutes(prisma: PrismaClient, logger: any): Router
 
       res.json({ success: true });
     } catch (error) {
-      logger.error('Error tracking event:', error);
-      res.status(500).json({ error: 'Failed to track event' });
+      req.log?.error({ error }, 'Error tracking event');
+      next(error);
     }
   });
 
   // Get weekly insights
-  router.get('/insights', async (req: Request, res: Response) => {
+  router.get('/insights', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { week } = req.query;
       
@@ -61,13 +74,13 @@ export function createAnalyticsRoutes(prisma: PrismaClient, logger: any): Router
 
       res.json(insights);
     } catch (error) {
-      logger.error('Error getting insights:', error);
-      res.status(500).json({ error: 'Failed to get insights' });
+      req.log?.error({ error }, 'Error getting insights');
+      next(error);
     }
   });
 
   // Get analytics summary
-  router.get('/summary', async (req: Request, res: Response) => {
+  router.get('/summary', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { period = 'week' } = req.query;
       
@@ -113,13 +126,13 @@ export function createAnalyticsRoutes(prisma: PrismaClient, logger: any): Router
         activeWallets: activeWallets.length,
       });
     } catch (error) {
-      logger.error('Error getting summary:', error);
-      res.status(500).json({ error: 'Failed to get summary' });
+      req.log?.error({ error }, 'Error getting summary');
+      next(error);
     }
   });
 
   // Get reports
-  router.get('/reports', async (req: Request, res: Response) => {
+  router.get('/reports', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { limit = 10 } = req.query;
 
@@ -130,12 +143,10 @@ export function createAnalyticsRoutes(prisma: PrismaClient, logger: any): Router
 
       res.json({ reports });
     } catch (error) {
-      logger.error('Error getting reports:', error);
-      res.status(500).json({ error: 'Failed to get reports' });
+      req.log?.error({ error }, 'Error getting reports');
+      next(error);
     }
   });
 
   return router;
 }
-
-export default createAnalyticsRoutes;

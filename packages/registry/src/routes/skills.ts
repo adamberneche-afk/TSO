@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { NFTService } from '../services/nftVerification';
 import { skillSchema, validateInput, sanitizeValidationErrors } from '../validation/schemas';
 
 /**
@@ -12,6 +13,7 @@ interface AuthenticatedRequest extends Request {
     walletAddress: string;
   };
   prisma?: PrismaClient;
+  nftService?: NFTService;
   log?: {
     info: (message: any, ...optional: any[]) => void;
     error: (message: any, ...optional: any[]) => void;
@@ -31,8 +33,13 @@ const router = Router();
  * @returns {Array} 200 - An array of skills
  * @returns {Error}  500 - Internal server error
  */
-router.get('/', async (req: AuthenticatedRequest, res: Response) => {
-   
+router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  
+  // Check if prisma is available
+  if (!req.prisma) {
+    return res.status(500).json({ error: 'Database connection not available' });
+  }
+  
   try {
     const { category, search, trending } = req.query;
     
@@ -53,7 +60,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       ];
     }
     
-    const skills = await prisma.skill.findMany({
+    const skills = await req.prisma.skill.findMany({
       where,
       include: {
         categories: { include: { category: true } },
@@ -64,7 +71,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       },
       orderBy: { createdAt: 'desc' }
     });
-
+    
     res.json(skills);
   } catch (error) {
     req.log?.error({ error }, 'Failed to fetch skills');
@@ -81,11 +88,16 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
  * @returns {Error}  404 - Skill not found
  * @returns {Error}  500 - Internal server error
  */
-router.get('/:hash', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/:hash', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  // Check if prisma is available
+  if (!req.prisma) {
+    return res.status(500).json({ error: 'Database connection not available' });
+  }
+  
   const { hash } = req.params;
   
   try {
-    const skill = await prisma.skill.findUnique({
+    const skill = await req.prisma.skill.findUnique({
       where: { skillHash: hash },
       include: {
         categories: { include: { category: true } },
@@ -94,11 +106,11 @@ router.get('/:hash', async (req: AuthenticatedRequest, res: Response) => {
         }
       }
     });
-
+    
     if (!skill) {
       return res.status(404).json({ error: 'Skill not found' });
     }
-
+    
     res.json(skill);
   } catch (error) {
     req.log?.error({ error, hash }, 'Failed to fetch skill');
@@ -117,8 +129,11 @@ router.get('/:hash', async (req: AuthenticatedRequest, res: Response) => {
  * @returns {Error}  403 - Forbidden (no publisher NFT)
  * @returns {Error}  500 - Internal server error
  */
-router.post('/', async (req: AuthenticatedRequest, res: Response) => {
-  const prisma = req.prisma as PrismaClient;
+router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  // Check if prisma is available
+  if (!req.prisma) {
+    return res.status(500).json({ error: 'Database connection not available' });
+  }
   
   try {
     // Squad Delta Fix: CRIT-1 - Validate input using Zod
@@ -141,13 +156,17 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     }
     
     // Squad Delta Fix: Verify publisher NFT ownership
+    if (!req.nftService) {
+      return res.status(500).json({ error: 'NFT service not available' });
+    }
+    
     const hasPublisherNFT = await req.nftService.verifyPublisherOwnership(req.user.walletAddress);
     if (!hasPublisherNFT) {
       return res.status(403).json({ error: 'Publisher NFT required' });
     }
     
     // Create skill
-    const skill = await prisma.skill.create({
+    const skill = await req.prisma.skill.create({
       data: {
         name: skillData.name,
         description: skillData.description,
@@ -186,4 +205,4 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
-module.exports = router;
+export { router as skillRoutes };

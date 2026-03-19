@@ -11,7 +11,7 @@ import {
 } from './types';
 import { citationValidator, relevanceFilter } from './citationValidator';
 import { reflectionSynthesizer } from './reflectionSynthesizer';
-import { api } from '../../../api/client';
+import { api } from '../../api/client';
 
 const MAX_WORKING_MESSAGES = 10;
 const MAX_WORKING_SIZE_KB = 50;

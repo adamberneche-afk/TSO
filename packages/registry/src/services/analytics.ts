@@ -68,7 +68,7 @@ export class AnalyticsService {
           source: event.source,
           walletAddress: event.walletAddress?.toLowerCase(),
           sessionId: event.sessionId,
-          metadata: event.metadata || {},
+          metadata: event.metadata ?? {},
           duration: event.duration,
           errorType: event.errorType,
           errorMessage: event.errorMessage,
@@ -84,192 +84,134 @@ export class AnalyticsService {
   async getWeeklyInsights(weekStart: Date): Promise<WeeklyInsights> {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
-
-    // SDK Session metrics
-    const [sessionsStarted, sessionsCompleted, errors, features, timing] = await Promise.all([
-      this.prisma.sDKAnalyticsEvent.count({
-        where: {
-          eventType: 'session_started',
-          createdAt: { gte: weekStart, lt: weekEnd },
-        },
-      }),
-      this.prisma.sDKAnalyticsEvent.count({
-        where: {
-          eventType: 'session_completed',
-          createdAt: { gte: weekStart, lt: weekEnd },
-        },
-      }),
-      this.prisma.sDKAnalyticsEvent.count({
-        where: {
-          eventType: 'error_encountered',
-          createdAt: { gte: weekStart, lt: weekEnd },
-        },
-      }),
-      this.prisma.sDKAnalyticsEvent.groupBy({
-        by: ['metadata'],
-        where: {
-          eventType: 'feature_used',
-          createdAt: { gte: weekStart, lt: weekEnd },
-        },
-        _count: true,
-      }),
-      this.prisma.sDKAnalyticsEvent.aggregate({
-        where: {
-          eventType: 'api_call_success',
-          duration: { not: null },
-          createdAt: { gte: weekStart, lt: weekEnd },
-        },
-        _avg: { duration: true },
-      }),
-    ]);
-
-    // Error breakdown
-    const errorBreakdown = await this.prisma.sDKAnalyticsEvent.groupBy({
-      by: ['errorType'],
+    
+    // Get events for the week
+    const events = await this.prisma.sDKAnalyticsEvent.findMany({
       where: {
-        eventType: 'error_encountered',
-        createdAt: { gte: weekStart, lt: weekEnd },
+        createdAt: {
+          gte: weekStart,
+          lt: weekEnd
+        }
       },
-      _count: true,
+      orderBy: {
+        createdAt: 'asc'
+      }
     });
 
-    // CTO Agent metrics
-    const [ctoProjects, ctoCompletions, ctoPainPoints] = await Promise.all([
-      this.prisma.cTOAgentProject.count({
-        where: {
-          createdAt: { gte: weekStart, lt: weekEnd },
-        },
-      }),
-      this.prisma.cTOAgentProject.count({
-        where: {
-          completedAt: { gte: weekStart, lt: weekEnd },
-        },
-      }),
-      this.prisma.sDKAnalyticsEvent.findMany({
-        where: {
-          eventType: 'pain_point_reported',
-          createdAt: { gte: weekStart, lt: weekEnd },
-        },
-      }),
-    ]);
+    // SDK insights
+    const sdkEvents = events.filter(e => e.source === 'sdk_assistant');
+    const sessionsStarted = sdkEvents.filter(e => e.eventType === 'session_started').length;
+    const sessionsCompleted = sdkEvents.filter(e => e.eventType === 'session_completed').length;
+    const completionRate = sessionsStarted > 0 ? (sessionsCompleted / sessionsStarted) * 100 : 0;
+    const errorsEncountered = sdkEvents.filter(e => e.eventType === 'error_encountered').length;
+    
+    // Top errors
+    const errorCounts: Record<string, number> = {};
+    sdkEvents
+      .filter(e => e.eventType === 'error_encountered' && e.errorType)
+      .forEach(e => {
+        errorCounts[e.errorType!] = (errorCounts[e.errorType!] || 0) + 1;
+      });
+    const topErrors = Object.entries(errorCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5)
+      .map(([type, count]) => ({ type, count }));
+
+    // Features used
+    const featureCounts: Record<string, number> = {};
+    sdkEvents
+      .filter(e => e.eventType === 'feature_used' && e.metadata?.feature)
+      .forEach(e => {
+        const feature = e.metadata?.feature as string;
+        featureCounts[feature] = (featureCounts[feature] || 0) + 1;
+      });
+    const featuresUsed = Object.entries(featureCounts)
+      .sort(([,a], [,b]) => b - a)
+      .map(([feature, count]) => ({ feature, count }));
+
+    // Average time to first call
+    const firstCallEvents = sdkEvents
+      .filter(e => e.eventType === 'api_call_success' || e.eventType === 'api_call_failed')
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const avgTimeToFirstCall = firstCallEvents.length > 0 
+      ? firstCallEvents[0].duration ?? null 
+      : null;
+
+    // CTO insights
+    const ctoEvents = events.filter(e => e.source === 'cto_agent');
+    const projectsCreated = ctoEvents.filter(e => e.eventType === 'mvp_launched').length;
+    const projectsCompleted = ctoEvents.filter(e => e.eventType === 'mvp_launched' && e.metadata?.status === 'completed').length;
+    
+    // Average time to launch
+    const launchedProjects = ctoEvents.filter(e => e.eventType === 'mvp_launched' && e.duration);
+    const avgTimeToLaunch = launchedProjects.length > 0
+      ? launchedProjects.reduce((sum, p) => sum + (p.duration ?? 0), 0) / launchedProjects.length
+      : null;
+    
+    // Top pain points
+    const painPointCounts: Record<string, number> = {};
+    ctoEvents
+      .filter(e => e.eventType === 'pain_point_reported' && e.metadata?.area)
+      .forEach(e => {
+        const area = e.metadata?.area as string;
+        painPointCounts[area] = (painPointCounts[area] || 0) + 1;
+      });
+    const topPainPoints = Object.entries(painPointCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5)
+      .map(([area, count]) => ({ area, count }));
+
+    // Common blockers
+    const blockerCounts: Record<string, number> = {};
+    ctoEvents
+      .filter(e => e.eventType === 'blocker_reported' && e.metadata?.description)
+      .forEach(e => {
+        const description = e.metadata?.description as string;
+        blockerCounts[description] = (blockerCounts[description] || 0) + 1;
+      });
+    const commonBlockers = Object.entries(blockerCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5)
+      .map(([description, count]) => ({ description, count }));
 
     // Generate recommendations
-    const recommendations = this.generateRecommendations(
-      sessionsStarted,
-      sessionsCompleted,
-      errors,
-      errorBreakdown,
-      ctoProjects,
-      ctoPainPoints
-    );
+    const recommendations: string[] = [];
+    
+    if (sessionsStarted > 0 && completionRate < 50) {
+      recommendations.push('Improve SDK onboarding to increase session completion rate');
+    }
+    
+    if (errorsEncountered > 10) {
+      recommendations.push('Investigate and fix common SDK errors');
+    }
+    
+    if (projectsCreated > 0 && (avgTimeToLaunch ?? 0) > 86400000) { // More than 1 day
+      recommendations.push('Streamline MVP launch process to reduce time-to-market');
+    }
+    
+    if (recommendations.length === 0) {
+      recommendations.push('System is performing well - maintain current practices');
+    }
 
     return {
       period: { start: weekStart, end: weekEnd },
       sdk: {
         sessionsStarted,
         sessionsCompleted,
-        completionRate: sessionsStarted > 0 ? (sessionsCompleted / sessionsStarted) * 100 : 0,
-        errorsEncountered: errors,
-        topErrors: errorBreakdown.map(e => ({
-          type: e.errorType || 'unknown',
-          count: e._count,
-        })),
-         featuresUsed: features.map(f => ({
-           feature: (f.metadata?.feature ?? 'unknown') as string,
-           count: f._count,
-         })),
-        avgTimeToFirstCall: timing._avg.duration || null,
+        completionRate,
+        errorsEncountered,
+        topErrors,
+        featuresUsed,
+        avgTimeToFirstCall
       },
       cto: {
-        projectsCreated: ctoProjects,
-        projectsCompleted: ctoCompletions,
-        avgTimeToLaunch: null, // Would need to calculate from completed projects
-        topPainPoints: this.aggregatePainPoints(ctoPainPoints),
-        commonBlockers: [],
+        projectsCreated,
+        projectsCompleted,
+        avgTimeToLaunch,
+        topPainPoints,
+        commonBlockers
       },
-      recommendations,
+      recommendations
     };
   }
-
-    private aggregatePainPoints(events: any[]): Array<{ area: string; count: number }> {
-    const areaCounts = new Map<string, number>();
-    
-    events.forEach(event => {
-      const metadata = event.metadata;
-      const area = metadata?.area || 'unknown';
-      areaCounts.set(area, (areaCounts.get(area) || 0) + 1);
-    });
-    
-    return Array.from(areaCounts.entries())
-      .map(([area, count]) => ({ area, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }
-
-  private generateRecommendations(
-    sessionsStarted: number,
-    sessionsCompleted: number,
-    errors: number,
-    errorBreakdown: any[],
-    ctoProjects: number,
-    ctoPainPoints: any[]
-  ): string[] {
-    const recommendations: string[] = [];
-
-    // SDK recommendations
-    const completionRate = sessionsStarted > 0 ? (sessionsCompleted / sessionsStarted) * 100 : 0;
-    
-    if (completionRate < 50 && sessionsStarted > 0) {
-      recommendations.push('Consider improving onboarding flow - completion rate is below 50%');
-    }
-
-    if (errors > sessionsStarted * 0.3) {
-      const topError = errorBreakdown[0];
-      if (topError) {
-        recommendations.push(`High error rate detected. Most common: ${topError.errorType || 'unknown'}`);
-      }
-    }
-
-    // CTO recommendations
-    if (ctoPainPoints.length > 0) {
-      const areaCounts = new Map<string, number>();
-      ctoPainPoints.forEach((p: any) => {
-        const area = ((p.metadata as Record<string, unknown>)?.area ?? 'unknown') as string;
-        areaCounts.set(area, (areaCounts.get(area) || 0) + 1);
-      });
-
-      const topArea = Array.from(areaCounts.entries())
-        .sort((a, b) => b[1] - a[1])[0];
-
-      if (topArea) {
-        recommendations.push(`Most reported pain point area: ${topArea[0]}. Consider adding documentation or tools.`);
-      }
-    }
-
-    if (recommendations.length === 0) {
-      recommendations.push('Great week! No major issues detected.');
-    }
-
-    return recommendations;
-  }
-
-  async generateWeeklyReport(weekStart: Date): Promise<void> {
-    const insights = await this.getWeeklyInsights(weekStart);
-
-await this.prisma.weeklyInsightsReport.create({
-       data: {
-         weekStart,
-         weekEnd: insights.period.end,
-         reportData: insights,
-         sessionsStarted: insights.sdk.sessionsStarted,
-         sessionsCompleted: insights.sdk.sessionsCompleted,
-         errorsEncountered: insights.sdk.errorsEncountered,
-         topPainPoints: insights.cto.topPainPoints,
-         topErrors: insights.sdk.topErrors,
-         suggestions: insights.recommendations,
-       },
-     });
-  }
 }
-
-export default AnalyticsService;
