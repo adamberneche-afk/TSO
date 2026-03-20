@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed NFT service method references in middleware
 - Corrected Prisma client usage in CTO Agent service
 - Fixed RAG API URL construction issue causing ERR_NAME_NOT_RESOLVED errors
+- Resolved RAG 404 errors due to suspended database
+  - Implemented proper RAG API endpoints with full CRUD operations
+  - Added database connection checking and graceful error handling
+  - Fixed 'The requested resource does not exist' errors when loading documents/community
 
 ## [3.4.0] - 2026-03-09
 
