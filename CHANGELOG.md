@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved error handling in session auth middleware
 - Fixed NFT service method references in middleware
 - Corrected Prisma client usage in CTO Agent service
+- Fixed RAG API URL construction issue causing ERR_NAME_NOT_RESOLVED errors
 
 ## [3.4.0] - 2026-03-09
 
