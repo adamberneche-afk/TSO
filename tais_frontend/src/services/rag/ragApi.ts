@@ -1,5 +1,5 @@
 // Base URL for public RAG endpoints
-const PUBLIC_RAG_BASE_URL = import.meta.env.VITE_PUBLIC_RAG_API_URL || 'https://tso.onrender.com/api/v1/rag';
+const PUBLIC_RAG_BASE_URL = (import.meta as any).env.VITE_PUBLIC_RAG_API_URL || 'https://tso.onrender.com/api/v1/rag';
 
 // Helper to make authenticated requests
 async function authenticatedRequest<T = any>(
@@ -29,12 +29,15 @@ async function authenticatedRequest<T = any>(
     'Content-Type': 'application/json',
   };
 
-  if (useAuth) {
-    const token = localStorage.getItem('tais_rag_api_key');
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-  }
+   if (useAuth) {
+     // Try multiple token keys for compatibility
+     let token = localStorage.getItem('tais_token') || 
+                 localStorage.getItem('auth_token') ||
+                 localStorage.getItem('token');
+     if (token) {
+       headers['Authorization'] = `Bearer ${token}`;
+     }
+   }
 
   const options: RequestInit = {
     method,

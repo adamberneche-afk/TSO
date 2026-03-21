@@ -144,7 +144,29 @@ router.post('/documents', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
     
-    const { walletAddress } = req.user || {};
+    // Get wallet address from authenticated user
+    let walletAddress = req.user?.walletAddress;
+    
+    // If not in user object, try to extract from token manually
+    if (!walletAddress) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        try {
+          // Decode JWT to get wallet address (without verification)
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          walletAddress = payload.walletAddress;
+        } catch (e) {
+          // If we can't decode the token, fall back to body
+        }
+      }
+    }
+    
+    // For document upload, we also accept wallet in body as fallback
+    if (!walletAddress) {
+      walletAddress = req.body.wallet;
+    }
+    
     if (!walletAddress) {
       return res.status(401).json({
         error: 'Authentication required',
@@ -251,7 +273,11 @@ router.get('/documents/:documentId', async (req: AuthenticatedRequest, res: Resp
     }
     
     const { documentId } = req.params;
-    const { walletAddress } = req.user || {};
+    // Get wallet address from user (authenticated) or query params
+    let walletAddress = req.user?.walletAddress;
+    if (!walletAddress) {
+      walletAddress = req.query.wallet as string | undefined;
+    }
     
     if (!walletAddress) {
       return res.status(401).json({

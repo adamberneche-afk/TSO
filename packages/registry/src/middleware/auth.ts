@@ -42,10 +42,10 @@ export const authenticateToken = (
         });
       }
 
-      const decoded = authService.validateToken(token);
-      req.user = { walletAddress: decoded.walletAddress };
+       const decoded = authService.validateToken(token);
+       req.user = { walletAddress: decoded.walletAddress };
 
-      next();
+       next();
     } catch (error) {
       return res.status(401).json({ 
         error: 'Authentication failed',
