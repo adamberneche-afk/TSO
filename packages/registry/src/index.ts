@@ -283,12 +283,13 @@ import { createSessionRoutes } from './services/ragSession';
 // RAG session management (for streamlined uploads)
 apiV1Router.use('/rag/session', createSessionRoutes(prisma, logger));
 
-// RAG routes with tier-based rate limiting
-// Uses ragPrisma for RAG-specific database operations
-apiV1Router.use('/rag',
-  rateLimiters.authenticated, // Apply rate limiting to all RAG routes
-  ragRoutes
-);
+        // RAG routes with tier-based rate limiting and authentication
+        // Uses ragPrisma for RAG-specific database operations
+        apiV1Router.use('/rag',
+          authMiddleware, // Authenticate JWT token
+          rateLimiters.authenticated, // Apply rate limiting to all RAG routes
+          ragRoutes
+        );
 
 // ============================================
 // SDK Authentication Routes
