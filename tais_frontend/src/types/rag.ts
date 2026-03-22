@@ -115,7 +115,11 @@ export interface RAGSource {
   enabled: boolean;
   documentCount: number;
   lastUpdated: number;
-  config: RAGConfig;
+  config: RAGConfig & {
+    appRagClient?: any; // For app RAG
+    enterpriseApiUrl?: string; // For enterprise RAG
+    apiKey?: string; // For enterprise RAG auth
+  };
 }
 
 export interface RAGStats {

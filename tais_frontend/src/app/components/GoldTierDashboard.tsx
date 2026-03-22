@@ -322,7 +322,9 @@ function KnowledgeBaseSection({ address }: { address: string }) {
   const [newInsight, setNewInsight] = useState({ title: '', content: '', category: 'lessons-learned' as const });
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const isAdmin = address?.toLowerCase() === '0x123...'; // TODO: Set actual admin address
+    // Check if the address is the deployer/admin address from environment or known contract
+    const adminAddress = import.meta.env.VITE_ADMIN_ADDRESS?.toLowerCase() || '0x000000000000000000000000000000000000dead';
+    const isAdmin = address?.toLowerCase() === adminAddress;
 
   useEffect(() => {
     loadInsights();
@@ -543,27 +545,27 @@ function CTOAgentSection({ address }: { address: string }) {
     }
   };
 
-  const loadGitHubRepos = async (token: string) => {
-    try {
-      const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=20&affiliation=owner,collaborator,organization_member', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/vnd.github.v3+json',
-        },
-      });
-      if (response.ok) {
-        const repos = await response.json();
-        setGithubRepos(repos);
-      } else if (response.status === 401) {
-        // Token expired, clear it
-        localStorage.removeItem('github_token');
-        setGithubConnected(false);
-        toast.error('GitHub token expired. Please reconnect.');
+    const loadGitHubRepos = async (token: string) => {
+      try {
+        const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=20&affiliation=owner,collaborator,organization_member', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github.v3+json',
+          },
+        });
+        if (response.ok) {
+          const repos: GitHubRepo[] = await response.json();
+          setGithubRepos(repos);
+        } else if (response.status === 401) {
+          // Token expired, clear it
+          localStorage.removeItem('github_token');
+          setGithubConnected(false);
+          toast.error('GitHub token expired. Please reconnect.');
+        }
+      } catch (error) {
+        console.error('Failed to load GitHub repos:', error);
       }
-    } catch (error) {
-      console.error('Failed to load GitHub repos:', error);
-    }
-  };
+    };
 
   const connectGitHub = async () => {
     setIsConnectingGithub(true);
@@ -965,23 +967,26 @@ ${projectContext}${repoContext}`;
                   )}
                 </div>
                 
-                {/* Repo Selection */}
-                {githubConnected && !selectedRepo && githubRepos.length > 0 && (
-                  <div className="px-4 py-2 bg-[#1a1a1a] border-b border-[#333333] max-h-32 overflow-y-auto">
-                    <p className="text-xs text-[#666666] mb-2">Select a repository for context:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {githubRepos.slice(0, 10).map((repo) => (
-                        <Badge 
-                          key={repo.id}
-                          className={`bg-[#333333] hover:bg-[#444444] cursor-pointer text-white text-xs ${selectedRepo?.id === repo.id ? 'ring-2 ring-[#3B82F6]' : ''}`}
-                          onClick={() => handleRepoSelect(repo)}
-                        >
-                          {repo.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                 {/* Repo Selection */}
+                 {githubConnected && !selectedRepo && githubRepos.length > 0 && (
+                   <div className="px-4 py-2 bg-[#1a1a1a] border-b border-[#333333] max-h-32 overflow-y-auto">
+                     <p className="text-xs text-[#666666] mb-2">Select a repository for context:</p>
+                     <div className="flex flex-wrap gap-2">
+                        {githubRepos.slice(0, 10).map((repo) => {
+                          if (!repo) return null;
+                          return (
+                            <Badge 
+                              key={repo.id}
+                              className={`bg-[#333333] hover:bg-[#444444] cursor-pointer text-white text-xs ${selectedRepo?.id === repo.id ? 'ring-2 ring-[#3B82F6]' : ''}`}
+                              onClick={() => handleRepoSelect(repo)}
+                            >
+                              {repo.name}
+                            </Badge>
+                          );
+                        })}
+                     </div>
+                   </div>
+                 )}
               <CardContent className="p-0">
                 <div className="h-96 overflow-y-auto p-4 space-y-4">
                   {chatMessages.length === 0 ? (

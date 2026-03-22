@@ -8,7 +8,7 @@ const PromptCache = new Map<string, any>();
 
 export class InterviewAgent {
   private provider: ILLMProvider;
-  private state: Partial<UserProfile>;
+  private state: UserProfile; // Changed from Partial<UserProfile> to UserProfile
 
   constructor(config: InterviewConfig, systemApiKey?: string) {
     if (config.providerType === 'local') {
@@ -24,7 +24,7 @@ export class InterviewAgent {
     this.state = this.initialState();
   }
 
-  private initialState(): Partial<UserProfile> {
+  private initialState(): UserProfile {
     return {
       version: "1.0",
       created_at: new Date().toISOString(),
@@ -41,11 +41,11 @@ export class InterviewAgent {
     };
   }
 
-  async askQuestion(questionId: string, context: string): Promise<{ nextQuestion: string, extractedData: any }> {
+  async askQuestion(questionId: string, context: string, userAnswer: string): Promise<{ nextQuestion: string, extractedData: any }> {
     const cacheKey = `${questionId}_${context}`;
     if (PromptCache.has(cacheKey)) return PromptCache.get(cacheKey);
 
-    const prompt = `Context: ${context}\nUser Answer: ${questionId}`;
+    const prompt = `Context: ${context}\nUser Answer: ${userAnswer}`;
     const systemPrompt = "You are a JSON extraction engine. Return ONLY valid JSON, no markdown, no conversational filler.";
 
     try {
@@ -57,6 +57,22 @@ export class InterviewAgent {
         cleanResponse = cleanResponse.replace('```', '').replace('```', '').trim();
       }
       const extractedData = JSON.parse(cleanResponse);
+      
+      // Update state with extracted data (excluding metadata which we handle specially)
+      const { metadata, ...rest } = extractedData;
+      this.state = {
+        ...this.state,
+        ...rest
+      };
+      
+      // Update metadata
+      this.state.metadata = {
+        ...this.state.metadata,
+        ...metadata,
+        questions_answered: (this.state.metadata.questions_answered + 1),
+        last_updated_by: 'agent'
+      };
+      
       const result = { nextQuestion: "What else?", extractedData };
       PromptCache.set(cacheKey, result);
       return result;
@@ -67,20 +83,21 @@ export class InterviewAgent {
   }
 
   finalizeProfile(walletAddress: string): UserProfile {
-    const duration = 180;
+    const now = new Date();
     const deviceId = process.env.DEV_MODE ? 'dev-mode-device-123' : uuidv4();
-    const profile = {
-      ...this.initialState(),
+    
+    const profile: UserProfile = {
       ...this.state,
       wallet_address: walletAddress,
-      updated_at: new Date().toISOString(),
+      updated_at: now.toISOString(),
       metadata: {
-        ...this.initialState().metadata,
+        ...this.state.metadata,
         device_id: deviceId,
-        interview_duration_seconds: duration,
-        genesis_nft_verified: true
+        interview_duration_seconds: Math.floor((now.getTime() - new Date(this.state.created_at).getTime()) / 1000),
+        genesis_nft_verified: true // Set to true when finalizing
       }
     };
-    return profile as UserProfile;
+    
+    return profile;
   }
 }

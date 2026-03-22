@@ -168,24 +168,26 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunc
     // At this point, we know req.user and req.user.walletAddress are defined
     const creatorWallet = req.user!.walletAddress.toLowerCase();
     
-      // Create skill
-      const skill = await req.prisma.skill.create({
-        data: {
-          name: skillData.name,
-          description: skillData.description,
-          version: skillData.version,
-          skillHash: skillData.skillHash,
-          manifestCid: skillData.manifestCid,
-          packageCid: skillData.packageCid,
-          author: req.user.walletAddress.toLowerCase(),
-          permissions: skillData.permissions || {},
-          status: skillData.status || 'PENDING',
-          isBlocked: skillData.isBlocked ?? false,
-        }
-      });
-      
-      // Link categories if provided
-      // TODO: Implement proper category linking when schema supports it
+     // Create skill with category linking
+       const skill = await req.prisma.skill.create({
+         data: {
+           name: skillData.name,
+           description: skillData.description,
+           version: skillData.version,
+           skillHash: skillData.skillHash,
+           manifestCid: skillData.manifestCid,
+           packageCid: skillData.packageCid,
+           author: req.user.walletAddress.toLowerCase(),
+           permissions: skillData.permissions || {},
+           status: skillData.status || 'PENDING',
+           isBlocked: skillData.isBlocked ?? false,
+           categories: {
+             connect: skillData.categoryIds?.map(categoryId => ({
+               id: categoryId
+             }))
+           }
+         }
+       });
     
     req.log?.info({
       wallet: req.user.walletAddress,

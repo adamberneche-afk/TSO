@@ -260,16 +260,17 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
   const progress = ((currentStep + 1) / totalSteps) * 100;
   const category = question ? CATEGORIES[question.category as keyof typeof CATEGORIES] : null;
 
-  const canProceed = () => {
-    if (isReviewStep) return true;
-    if (question.required) {
-      const val = responses[question.id];
-      if (question.type === 'multi') return val && (val as string[]).length > 0;
-      if (question.type === 'text') return val && (val as string).trim().length > 0;
-      return !!val;
-    }
-    return true;
-  };
+   const canProceed = () => {
+     if (isReviewStep) return true;
+     if (!question) return false;
+     if (question.required) {
+       const val = responses[question.id];
+       if (question.type === 'multi') return val && (val as string[]).length > 0;
+       if (question.type === 'text') return val && (val as string).trim().length > 0;
+       return !!val;
+     }
+     return true;
+   };
 
   // Check save eligibility when entering review step
   useEffect(() => {
@@ -292,16 +293,17 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
     }
   };
 
-  const handleNext = () => {
-    if (currentStep < QUESTIONS.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else if (currentStep === QUESTIONS.length - 1) {
-      // Generate config and go to review step
-      const config = generateConfig();
-      setGeneratedConfig(config);
-      setCurrentStep(currentStep + 1);
-    }
-  };
+   const handleNext = () => {
+     if (!question) return;
+     if (currentStep < QUESTIONS.length - 1) {
+       setCurrentStep(currentStep + 1);
+     } else if (currentStep === QUESTIONS.length - 1) {
+       // Generate config and go to review step
+       const config = generateConfig();
+       setGeneratedConfig(config);
+       setCurrentStep(currentStep + 1);
+     }
+   };
 
   const handlePrev = () => {
     if (currentStep > 0) {
@@ -352,8 +354,8 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
   const generateConfig = (): AgentConfig => {
     const r = responses;
     
-    // Generate agent name from primary function if not set
-    const name = agentName || (r.primary_function ? String(r.primary_function).split(' ').slice(0, 4).join(' ') : null) || 'My Agent';
+     // Generate agent name from primary function if not set
+     const name = agentName || (r.primary_function ? String(r.primary_function || '').split(' ').slice(0, 4).join(' ') : null) || 'My Agent';
     
     // Map responses to config
     const personalityMd = generatePersonalityMarkdown(r);
@@ -470,16 +472,16 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
       {/* Progress */}
       <div className="bg-[#0F0F10] border-b border-[#262626] px-4 py-3">
         <div className="max-w-3xl mx-auto">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-[#888888] uppercase tracking-wider">
-              {isReviewStep ? 'Review' : `Question ${currentStep + 1} of ${QUESTIONS.length}`}
-            </span>
-            {!isReviewStep && category && (
-              <Badge className={`${category.color} text-white text-[10px]`}>
-                {category.label}
-              </Badge>
-            )}
-          </div>
+           <div className="flex items-center justify-between mb-2">
+             <span className="text-xs text-[#888888] uppercase tracking-wider">
+               {isReviewStep ? 'Review' : question ? `Question ${currentStep + 1} of ${QUESTIONS.length}` : 'Question'}
+             </span>
+             {!isReviewStep && category && question && (
+               <Badge className={`${category.color} text-white text-[10px]`}>
+                 {category.label}
+               </Badge>
+             )}
+           </div>
           <div className="h-1 bg-[#262626] rounded-full overflow-hidden">
             <motion.div 
               className="h-full bg-[#3B82F6]"
@@ -490,20 +492,21 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
         </div>
       </div>
 
-      {/* Agent Name (first question only) */}
-      {currentStep === 0 && (
-        <div className="max-w-3xl mx-auto px-4 py-6">
-          <Label className="text-xs text-[#888888] uppercase tracking-wider mb-2 block">
-            Name your agent (optional)
-          </Label>
-          <Input
-            value={agentName}
-            onChange={(e) => setAgentName(e.target.value)}
-            placeholder="e.g., Customer Support Bot"
-            className="bg-[#141415] border-[#262626] text-white"
-          />
-        </div>
-      )}
+       {/* Agent Name (first question only) */}
+     {/* Agent Name (first question only) */}
+     {currentStep === 0 && (
+       <div className="max-w-3xl mx-auto px-4 py-6">
+         <Label className="text-xs text-[#888888] uppercase tracking-wider mb-2 block">
+           Name your agent (optional)
+         </Label>
+         <Input
+           value={agentName}
+           onChange={(e) => setAgentName(e.target.value)}
+           placeholder="e.g., Customer Support Bot"
+           className="bg-[#141415] border-[#262626] text-white"
+         />
+       </div>
+     )}
 
       {/* Question or Review Step */}
       <div className="max-w-3xl mx-auto px-4 py-8">
@@ -528,9 +531,9 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
                 saveStatus.isHolder ? (
                   <div className="text-sm">
                     <p className="text-[#4ADE80] mb-1">✓ THINK Agent Bundle holder</p>
-                    <p className="text-[#888888]">
-                      You can save {saveStatus.remaining} more configurations ({saveStatus.currentCount}/{saveStatus.limit} used)
-                    </p>
+               <p className="text-[#888888]">
+                 You can save {saveStatus.limit - saveStatus.currentCount} more configurations ({saveStatus.currentCount}/{saveStatus.limit} used)
+               </p>
                   </div>
                 ) : (
                   <div className="text-sm">
@@ -578,72 +581,72 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
               <p className="text-[#888888]">{question.description}</p>
             </div>
 
-            {/* Text Input */}
-            {question.type === 'text' && (
-              <Textarea
-                value={responses[question.id] || ''}
-                onChange={(e) => handleResponse(e.target.value)}
-                placeholder={question.placeholder}
-                className="bg-[#141415] border-[#262626] text-white min-h-[120px]"
-              />
-            )}
+             {/* Text Input */}
+             {question && question.type === 'text' && (
+               <Textarea
+                 value={responses[question.id] || ''}
+                 onChange={(e) => handleResponse(e.target.value)}
+                 placeholder={question.placeholder}
+                 className="bg-[#141415] border-[#262626] text-white min-h-[120px]"
+               />
+             )}
 
-            {/* Choice Input */}
-            {question.type === 'choice' && (
-              <RadioGroup
-                value={responses[question.id] || ''}
-                onValueChange={handleResponse}
-                className="space-y-3"
-              >
-                {question.options?.map((opt) => (
-                  <div key={opt} className="flex items-center space-x-3">
-                    <RadioGroupItem 
-                      value={opt} 
-                      id={opt}
-                      className="border-[#262626] data-[state=checked]:border-[#3B82F6] data-[state=checked]:bg-[#3B82F6]"
-                    />
-                    <Label htmlFor={opt} className="text-[#EDEDED] cursor-pointer">
-                      {opt}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            )}
+             {/* Choice Input */}
+             {question && question.type === 'choice' && (
+               <RadioGroup
+                 value={responses[question.id] || ''}
+                 onValueChange={handleResponse}
+                 className="space-y-3"
+               >
+                 {question.options?.map((opt) => (
+                   <div key={opt} className="flex items-center space-x-3">
+                     <RadioGroupItem 
+                       value={opt} 
+                       id={opt}
+                       className="border-[#262626] data-[state=checked]:border-[#3B82F6] data-[state=checked]:bg-[#3B82F6]"
+                     />
+                     <Label htmlFor={opt} className="text-[#EDEDED] cursor-pointer">
+                       {opt}
+                     </Label>
+                   </div>
+                 ))}
+               </RadioGroup>
+             )}
 
-            {/* Multi-select */}
-            {question.type === 'multi' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {question.options?.map((opt) => {
-                  const selected = (responses[question.id] as string[] || []).includes(opt);
-                  return (
-                    <div
-                      key={opt}
-                      onClick={() => {
-                        const current = responses[question.id] as string[] || [];
-                        const updated = selected 
-                          ? current.filter((v) => v !== opt)
-                          : [...current, opt];
-                        handleResponse(updated);
-                      }}
-                      className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                        selected 
-                          ? 'border-[#3B82F6] bg-[#3B82F6]/10' 
-                          : 'border-[#262626] hover:border-[#3B82F6]/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${
-                          selected ? 'bg-[#3B82F6] border-[#3B82F6]' : 'border-[#555555]'
-                        }`}>
-                          {selected && <CheckCircle2 className="w-3 h-3 text-white" />}
-                        </div>
-                        <span className="text-sm">{opt}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+             {/* Multi-select */}
+             {question && question.type === 'multi' && (
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                 {question.options?.map((opt) => {
+                   const selected = (responses[question.id] as string[] || []).includes(opt);
+                   return (
+                     <div
+                       key={opt}
+                       onClick={() => {
+                         const current = responses[question.id] as string[] || [];
+                         const updated = selected 
+                           ? current.filter((v) => v !== opt)
+                           : [...current, opt];
+                         handleResponse(updated);
+                       }}
+                       className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                         selected 
+                           ? 'border-[#3B82F6] bg-[#3B82F6]/10' 
+                           : 'border-[#262626] hover:border-[#3B82F6]/50'
+                       }`}
+                     >
+                       <div className="flex items-center gap-3">
+                         <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+                           selected ? 'bg-[#3B82F6] border-[#3B82F6]' : 'border-[#555555]'
+                         }`}>
+                           {selected && <CheckCircle2 className="w-3 h-3 text-white" />}
+                         </div>
+                         <span className="text-sm">{opt}</span>
+                       </div>
+                     </div>
+                   );
+                 })}
+               </div>
+             )}
             </motion.div>
           </AnimatePresence>
         )}

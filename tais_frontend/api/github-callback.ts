@@ -13,6 +13,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'No code provided' });
   }
 
+  // Verify state to prevent CSRF
+  // We expect the state to be the walletAddress (set by the frontend when initiating the OAuth)
+  if (state !== walletAddress) {
+    return res.status(400).json({ error: 'Invalid state' });
+  }
+
   try {
     // Exchange code for token via GitHub
     const clientId = process.env.VITE_GITHUB_CLIENT_ID;
@@ -49,9 +55,27 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No access token received' });
     }
 
-    // In production, encrypt and store the token associated with the wallet
-    // For now, return the token to the client (it will be stored locally)
-    // TODO: Store encrypted token in database linked to wallet address
+    // Store the encrypted token in the database linked to the wallet address
+    const baseUrl = process.env.VITE_REGISTRY_URL || 'https://tso.onrender.com';
+    const storageResponse = await fetch(`${baseUrl}/api/v1/github/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ walletAddress, accessToken, state }),
+    });
+
+    if (!storageResponse.ok) {
+      const errorData = await storageResponse.json();
+      console.error('Failed to store GitHub token:', errorData);
+      // We still return the token to the client so they can use it locally
+      // but we log the error
+      return res.status(200).json({
+        success: true,
+        accessToken,
+        warning: 'Failed to store token remotely, but token is available for local use',
+      });
+    }
 
     return res.status(200).json({
       success: true,

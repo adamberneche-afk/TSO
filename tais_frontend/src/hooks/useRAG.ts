@@ -41,29 +41,41 @@ export const useRAGStore = create<RAGState>()(
           // Get initial stats
           const privateStats = await privateRAG.getStats();
 
-          // Update sources with stats
-          const sources: RAGSource[] = [
-            {
-              id: 'private',
-              tier: 'private',
-              name: 'Private Knowledge Base',
-              description: 'Your personal documents and notes stored locally',
-              enabled: true,
-              documentCount: privateStats.documentCount,
-              lastUpdated: Date.now(),
-              config: { tier: 'private' }
-            },
-            {
-              id: 'public',
-              tier: 'public',
-              name: 'Community Knowledge',
-              description: 'Public knowledge base shared by the TAIS community',
-              enabled: true,
-              documentCount: 0, // TODO: Fetch from API
-              lastUpdated: Date.now(),
-              config: { tier: 'public', encryptDocuments: true, sharePublicly: false } as any
-            }
-          ];
+           // Fetch public RAG stats from API
+           let publicDocumentCount = 0;
+           try {
+             const publicRAGResponse = await fetch(`${import.meta.env.VITE_REGISTRY_URL || 'https://tso.onrender.com'}/api/v1/rag/stats`);
+             if (publicRAGResponse.ok) {
+               const publicStats = await publicRAGResponse.json();
+               publicDocumentCount = publicStats.documentCount || 0;
+             }
+           } catch (error) {
+             console.warn('Failed to fetch public RAG stats:', error);
+           }
+           
+           // Update sources with stats
+           const sources: RAGSource[] = [
+             {
+               id: 'private',
+               tier: 'private',
+               name: 'Private Knowledge Base',
+               description: 'Your personal documents and notes stored locally',
+               enabled: true,
+               documentCount: privateStats.documentCount,
+               lastUpdated: Date.now(),
+               config: { tier: 'private' }
+             },
+             {
+               id: 'public',
+               tier: 'public',
+               name: 'Community Knowledge',
+               description: 'Public knowledge base shared by the TAIS community',
+               enabled: true,
+               documentCount: publicDocumentCount,
+               lastUpdated: Date.now(),
+               config: { tier: 'public', encryptDocuments: true, sharePublicly: false } as any
+             }
+           ];
 
           set({
             router,

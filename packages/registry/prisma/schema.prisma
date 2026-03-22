@@ -609,6 +609,21 @@ model WeeklyInsightsReport {
   @@map("weekly_insights_reports")
 }
 
+// GitHub OAuth Tokens - Encrypted storage for GitHub access tokens
+model GitHubToken {
+  id            String   @id @default(uuid())
+  walletAddress String   @unique @map("wallet_address")
+  encryptedToken String  @map("encrypted_token") // Encrypted GitHub access token
+  expiresAt     DateTime? @map("expires_at") // Optional expiration time
+  
+  // Timestamps
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  
+  @@index([walletAddress])
+  @@map("github_tokens")
+}
+
 // ============================================
 // Memory System Reports (v3.2.0)
 // ============================================
