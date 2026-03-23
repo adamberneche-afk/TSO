@@ -1,6 +1,6 @@
 // TAIS Platform - Main Application
 
-import React, { useState, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { GuidedDiscoveryWizard } from './components/interview/GuidedDiscoveryWizard';
 import { Dashboard } from './components/Dashboard';
@@ -44,18 +44,23 @@ export default function App() {
   });
   const resetInterview = useInterviewStore((state) => state.reset);
 
-  useEffect(() => {
-    // Listen for manual URL changes (if any)
-    const handlePopState = () => {
-      if (window.location.pathname === '/oauth/authorize') {
-        setCurrentView('oauth-authorize');
-      } else if (currentView === 'oauth-authorize') {
-        setCurrentView('landing');
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [currentView]);
+   useEffect(() => {
+     // Listen for manual URL changes (if any)
+     const handlePopState = () => {
+       if (window.location.pathname === '/oauth/authorize') {
+         setCurrentView('oauth-authorize');
+       } else if (window.location.pathname === '/auth/github/callback') {
+         setCurrentView('github-callback');
+       } else {
+         // Only navigate to landing if we're not already there
+         if (currentView !== 'landing') {
+           setCurrentView('landing');
+         }
+       }
+     };
+     window.addEventListener('popstate', handlePopState);
+     return () => window.removeEventListener('popstate', handlePopState);
+   }, []); // Empty deps - only run once on mount
 
   const handlePublishSkill = () => {
     toast.info('Skill Publishing', {

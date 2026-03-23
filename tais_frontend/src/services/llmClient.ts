@@ -394,14 +394,19 @@ Your goal is to naturally discover their skills and experience through chat, not
     messages.push({ role: 'user', content: 'Respond naturally to what they just said with ONE casual follow-up question. Keep it short and conversational.' });
   }
 
-  const response = await client.complete({
-    messages,
-    maxTokens: 150,
-    temperature: 0.9  // Higher temperature for more natural responses
-  });
+   const response = await client.complete({
+     messages,
+     maxTokens: 150,
+     temperature: 0.9  // Higher temperature for more natural responses
+   });
 
-  console.log('[LLM] generateDynamicQuestion response:', response.content.substring(0, 100));
-  return response.content.trim();
+   if (!response || typeof response.content !== 'string') {
+     console.error('[LLM] Invalid response from generateDynamicQuestion:', response);
+     return "What else would you like to share about your experience?";
+   }
+
+   console.log('[LLM] generateDynamicQuestion response:', response.content.substring(0, 100));
+   return response.content.trim();
 }
 
 /**

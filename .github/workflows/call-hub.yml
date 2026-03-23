@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Send Payload to Hub
         run: |
-          curl -X POST https://your-hub-name.vercel.app/api/autonomous_agent           -H "Content-Type: application/json"           -d '{
+          curl -X POST https://ai-cto-hub.vercel.app/api/autonomous_agent           -H "Content-Type: application/json"           -d '{
             "owner": "${{ github.repository_owner }}",
             "repo": "${{ github.event.repository.name }}",
             "mode": "${{ github.event.schedule == '''0 0 * * 0''' && '''refactor''' || '''debug''' }}"

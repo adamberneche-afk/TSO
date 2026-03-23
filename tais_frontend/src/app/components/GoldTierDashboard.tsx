@@ -762,28 +762,37 @@ function CTOAgentSection({ address }: { address: string }) {
     setIsChatting(true);
     
     try {
-      // Use cached API key or get from wallet
-      let apiKey = apiKeyCache.current;
-      
-      if (!apiKey) {
-        if (!window.ethereum) {
-          throw new Error('MetaMask not available');
-        }
-        
-        const { providers } = await import('ethers');
-        const ethProvider = new providers.Web3Provider(window.ethereum);
-        const signer = await ethProvider.getSigner();
-        
-        const { getDecryptedApiKey } = await import('../../services/apiKeyManager');
-        apiKey = await getDecryptedApiKey(selectedProvider, signer);
-        
-        if (!apiKey) {
-          throw new Error('No API key found. Configure in Settings.');
-        }
-        
-        // Cache the API key for subsequent requests
-        apiKeyCache.current = apiKey;
-      }
+       // Use cached API key or get from wallet
+       let apiKey = apiKeyCache.current;
+       
+       if (!apiKey) {
+         // Check ethereum availability immediately before use to prevent race conditions
+         if (typeof window.ethereum === 'undefined') {
+           throw new Error('MetaMask not available');
+         }
+         
+         try {
+           const { providers } = await import('ethers');
+           const ethProvider = new providers.Web3Provider(window.ethereum);
+           const signer = await ethProvider.getSigner();
+           
+           const { getDecryptedApiKey } = await import('../../services/apiKeyManager');
+           apiKey = await getDecryptedApiKey(selectedProvider, signer);
+           
+           if (!apiKey) {
+             throw new Error('No API key found. Configure in Settings.');
+           }
+           
+           // Cache the API key for subsequent requests
+           apiKeyCache.current = apiKey;
+         } catch (error) {
+           // Handle case where user disconnected MetaMask during the process
+           if (error.message.includes('MetaMask not available')) {
+             throw error;
+           }
+           throw new Error('Failed to connect to wallet. Please try again.');
+         }
+       }
       
       const llmClient = new LLMClient(selectedProvider, apiKey, customBaseUrl);
       const project = projects.find(p => p.id === selectedProjectId);
@@ -967,26 +976,30 @@ ${projectContext}${repoContext}`;
                   )}
                 </div>
                 
-                 {/* Repo Selection */}
-                 {githubConnected && !selectedRepo && githubRepos.length > 0 && (
-                   <div className="px-4 py-2 bg-[#1a1a1a] border-b border-[#333333] max-h-32 overflow-y-auto">
-                     <p className="text-xs text-[#666666] mb-2">Select a repository for context:</p>
-                     <div className="flex flex-wrap gap-2">
+                  {/* Repo Selection */}
+                  {githubConnected && !selectedRepo && githubRepos.length > 0 && (
+                    <div className="px-4 py-2 bg-[#1a1a1a] border-b border-[#333333] max-h-32 overflow-y-auto">
+                      <p className="text-xs text-[#666666] mb-2">Select a repository for context:</p>
+                      <div className="flex flex-wrap gap-2">
                         {githubRepos.slice(0, 10).map((repo) => {
                           if (!repo) return null;
+                          
+                          // Type guard to help TypeScript understand repo is not null after this point
+                          const safeRepo = repo as GitHubRepo;
+                          
                           return (
                             <Badge 
-                              key={repo.id}
-                              className={`bg-[#333333] hover:bg-[#444444] cursor-pointer text-white text-xs ${selectedRepo?.id === repo.id ? 'ring-2 ring-[#3B82F6]' : ''}`}
-                              onClick={() => handleRepoSelect(repo)}
+                              key={safeRepo.id.toString()}
+                              className={`bg-[#333333] hover:bg-[#444444] cursor-pointer text-white text-xs ${selectedRepo?.id === safeRepo.id ? 'ring-2 ring-[#3B82F6]' : ''}`}
+                              onClick={() => handleRepoSelect(safeRepo)}
                             >
-                              {repo.name}
+                              {safeRepo.name}
                             </Badge>
                           );
                         })}
-                     </div>
-                   </div>
-                 )}
+                      </div>
+                    </div>
+                  )}
               <CardContent className="p-0">
                 <div className="h-96 overflow-y-auto p-4 space-y-4">
                   {chatMessages.length === 0 ? (

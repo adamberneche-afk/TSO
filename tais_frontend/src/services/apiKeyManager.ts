@@ -19,7 +19,7 @@ export interface ApiKeyStore {
  * Uses the user's wallet to create a unique encryption key
  */
 export async function deriveEncryptionKey(
-  signer: ethers.JsonRpcSigner
+   signer: ethers.providers.JsonRpcSigner
 ): Promise<CryptoKey> {
   // User signs a static message
   const signature = await signer.signMessage(ENCRYPTION_MESSAGE);
@@ -44,8 +44,8 @@ export async function deriveEncryptionKey(
  * Encrypt API key using wallet-derived key
  */
 export async function encryptApiKey(
-  apiKey: string,
-  signer: ethers.JsonRpcSigner
+   apiKey: string,
+   signer: ethers.providers.JsonRpcSigner
 ): Promise<{ encryptedData: string; iv: string }> {
   const key = await deriveEncryptionKey(signer);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -71,9 +71,9 @@ export async function encryptApiKey(
  * Will prompt user to sign message
  */
 export async function decryptApiKey(
-  encryptedData: string,
-  iv: string,
-  signer: ethers.JsonRpcSigner
+   encryptedData: string,
+   iv: string,
+   signer: ethers.providers.JsonRpcSigner
 ): Promise<string> {
   const key = await deriveEncryptionKey(signer);
   
@@ -119,7 +119,16 @@ export function saveApiKey(
 export function getStoredApiKeys(): ApiKeyStore {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : {};
+    if (!data) return {};
+    
+    try {
+      return JSON.parse(data);
+    } catch (parseError) {
+      console.error('Failed to parse API keys from localStorage:', parseError);
+      // Clear corrupted data
+      localStorage.removeItem(STORAGE_KEY);
+      return {};
+    }
   } catch (error) {
     console.error('Failed to load API keys:', error);
     return {};

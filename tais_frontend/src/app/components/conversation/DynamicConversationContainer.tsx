@@ -96,17 +96,22 @@ export const DynamicConversationContainer: React.FC<DynamicConversationContainer
         .filter(m => m.role === 'user')
         .map(m => m.content);
 
-      // Generate dynamic question based on context
-      const question = await generateDynamicQuestion(
-        llmClient,
-        userResponses,
-        currentQuestionIndex
-      );
+       // Generate dynamic question based on context
+       const question = await generateDynamicQuestion(
+         llmClient,
+         userResponses,
+         currentQuestionIndex
+       );
 
-      console.log('[LLM] Generated question:', question.substring(0, 100));
-      // Add as assistant message
-      addMessage(question, 'assistant');
-      advanceQuestion();
+       // Handle empty or invalid question
+       const safeQuestion = question && typeof question === 'string' && question.trim() !== '' 
+         ? question.trim() 
+         : "What would you like to discuss next?";
+
+       console.log('[LLM] Generated question:', safeQuestion.substring(0, 100));
+       // Add as assistant message
+       addMessage(safeQuestion, 'assistant');
+       advanceQuestion();
     } catch (error) {
       console.error('Failed to generate question:', error);
       toast.error('Failed to generate question. Falling back to static questions.');
