@@ -5,6 +5,7 @@ import { providers, Contract } from 'ethers';
 import registryClient from '../lib/registry-client';
 import { authApi } from '../services/authApi';
 import { toast } from 'sonner';
+import { normalizeEthAddress } from '@/utils/addressValidator';
 
 interface UseWalletReturn {
   address: string | null;
@@ -90,8 +91,14 @@ export function useWallet(): UseWalletReturn {
         throw new Error('No accounts selected. Please select an account in MetaMask.');
       }
 
-      const walletAddress = accounts[0];
-      console.log('[Wallet] Using address:', walletAddress);
+       const rawWalletAddress = accounts[0];
+       const walletAddress = normalizeEthAddress(rawWalletAddress);
+       
+       if (!walletAddress) {
+         throw new Error('Invalid wallet address format received from MetaMask');
+       }
+       
+       console.log('[Wallet] Using address:', walletAddress);
       
       // Create provider for signing
       const provider = new providers.Web3Provider(window.ethereum);

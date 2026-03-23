@@ -1,5 +1,6 @@
 import { api } from '@/api/client';
 import { useWallet } from '@/hooks/useWallet';
+import { isValidEthAddress } from '@/utils/addressValidator';
 
 interface AuthResponse {
   token: string;
@@ -66,9 +67,10 @@ export const authApi = {
       const parts = token.split('.');
       if (parts.length !== 3) return null;
       
-      // Decode payload (base64)
-      const payload = JSON.parse(atob(parts[1]));
-      return payload.walletAddress || null;
+       // Decode payload (base64)
+       const payload = JSON.parse(atob(parts[1]));
+       const walletAddress = payload.walletAddress || null;
+       return isValidEthAddress(walletAddress) ? walletAddress : null;
     } catch {
       return null;
     }
