@@ -15,65 +15,14 @@ interface NonceResponse {
 }
 
 export const authApi = {
-  /**
-   * Get nonce for wallet signature
-   */
-  async getNonce(walletAddress: string): Promise<NonceResponse> {
-    return api.post<NonceResponse>('/api/v1/auth/nonce', { 
-      data: { walletAddress } 
-    });
-  },
-
-  /**
-   * Authenticate with wallet signature
-   */
-  async login(walletAddress: string, signature: string, nonce: string): Promise<AuthResponse> {
-    const result = await api.post<AuthResponse>('/api/v1/auth/login', { 
-      data: { walletAddress, signature, nonce } 
-    });
-    
-    // Store token and wallet in localStorage
-    localStorage.setItem('auth_token', result.token);
-    localStorage.setItem('wallet_address', result.walletAddress);
-    
-    return result;
-  },
-
-  /**
-   * Get stored token
-   */
-  getToken(): string | null {
-    return localStorage.getItem('auth_token');
-  },
-
-  /**
-   * Clear token (logout)
-   */
-  logout(): void {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('wallet_address');
-  },
-
-  /**
-   * Verify token and get wallet address
-   * Returns null if token is invalid
-   */
-  getWalletFromToken(): string | null {
-    const token = this.getToken();
-    if (!token) return null;
-    
-    try {
-      // JWT structure: header.payload.signature
-      const parts = token.split('.');
-      if (parts.length !== 3) return null;
-      
-       // Decode payload (base64)
-       const payload = JSON.parse(atob(parts[1]));
-       const walletAddress = payload.walletAddress || null;
-       return isValidEthAddress(walletAddress) ? walletAddress : null;
-    } catch {
-      return null;
-    }
+   /**
+    * Get nonce for wallet signature
+    */
+   async getNonce(walletAddress: string): Promise<NonceResponse> {
+     return api.post<NonceResponse>('/api/v1/auth/nonce', { 
+       data: { walletAddress } 
+     });
+   }
   },
 
   /**
