@@ -181,11 +181,13 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunc
            permissions: skillData.permissions || {},
            status: skillData.status || 'PENDING',
            isBlocked: skillData.isBlocked ?? false,
-           categories: {
-             connect: skillData.categoryIds?.map(categoryId => ({
-               id: categoryId
-             }))
-           }
+            categories: {
+              create: skillData.categoryIds?.map(categoryId => ({
+                category: {
+                  connect: { id: categoryId }
+                }
+              })) || []
+            }
          }
        });
     

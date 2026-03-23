@@ -59,7 +59,7 @@ export class GitHubTokenService {
   async storeToken(data: GitHubTokenData): Promise<void> {
     const { encryptedToken: encryptedWithTag, iv } = this.encryptToken(data.encryptedToken);
     
-    await this.prisma.githubToken.upsert({
+    await this.prisma.gitHubToken.upsert({
       where: { walletAddress: data.walletAddress },
       update: {
         encryptedToken: encryptedWithTag,
@@ -77,7 +77,7 @@ export class GitHubTokenService {
    * Retrieve and decrypt a GitHub token for a wallet address
    */
   async getToken(walletAddress: string): Promise<string | null> {
-    const tokenRecord = await this.prisma.githubToken.findUnique({
+    const tokenRecord = await this.prisma.gitHubToken.findUnique({
       where: { walletAddress }
     });
 
@@ -101,7 +101,7 @@ export class GitHubTokenService {
    * Delete a GitHub token for a wallet address
    */
   async deleteToken(walletAddress: string): Promise<void> {
-    await this.prisma.githubToken.delete({
+    await this.prisma.gitHubToken.delete({
       where: { walletAddress }
     });
   }
@@ -110,7 +110,7 @@ export class GitHubTokenService {
    * Check if a token exists for a wallet address
    */
   async hasToken(walletAddress: string): Promise<boolean> {
-    const count = await this.prisma.githubToken.count({
+    const count = await this.prisma.gitHubToken.count({
       where: { walletAddress }
     });
     return count > 0;
