@@ -297,212 +297,63 @@ Connector line: #333333 (upcoming), #3B82F6 (completed)
 
 ## 🧩 Interview System
 
-### Interview Flow (7-10 Steps)
+### Interview Flow (3-Phase Wizard)
 
-**Step 1: Welcome & Goals (2 minutes)**
-- Screen: Full-page welcome with value proposition
-- Question 1: "What will your agent help you with?"
-  - Type: Multi-select cards
-  - Options: Work/Professional, Learning/Education, Creative Projects, Personal Organization, Entertainment, Other
-  - Maps to: `agent.goals[]`
-- Question 2: "Describe your ideal day with this agent"
-  - Type: Text area (optional)
-  - Placeholder: "Example: My agent checks my calendar each morning, summarizes my emails, and suggests priorities..."
-  - Maps to: `agent.description`
+Our implementation uses a streamlined three-phase approach to reduce onboarding friction while maintaining the north star principles of safety, user ownership, and extensibility.
 
-**Step 2: Skill Selection (2 minutes)** ✅ **IMPLEMENTED**
-- Screen: Full-page skills browser with search and selection summary
+**Phase 1: Guardrails** 
+- Screen: Full-page display of required safety and compliance settings
 - Features:
-  - **Live API Integration**: Fetches real skills from `tso.onrender.com/api/skills`
-  - **Search**: Real-time filter by name/description
-  - **Trust Score Visualization**: 
-    - Color-coded badges: Green (≥80%), Yellow (60-79%), Orange (40-59%), Red (<40%)
-    - Progress bars showing exact percentages
-  - **Skill Cards Display**:
-    - Name, version, description
-    - Download count
-    - Categories/tags
-    - Trust score with visual indicators
-  - **Selection Management**:
-    - Toggle skills on/off with visual feedback (ring highlight)
-    - Selected skills summary panel with count and names
-    - "Clear All" button to remove all selections
-  - **Loading States**: Spinner with "Loading skills from registry..." message
-  - **Error Handling**: Retry button for failed API calls
-- Responsive Grid: 1 column (mobile) → 2 columns (tablet) → 3 columns (desktop)
-- Maps to: `agent.skills[]`
+  - **Non-editable required settings**: Malicious skill detection, rate limiting, genesis NFT verification
+  - **Purpose**: Establish mandatory safety boundaries before proceeding
+  - **User Action**: Informational display only (required settings are pre-enabled)
+  - **Maps to**: Internal safety configuration (not exposed in final agent config)
 - **Status**: ✅ Complete and functional
-- **Commit**: `2b1cf41`
+- **Commit**: Latest implementation
 
-**Step 3: Behavior Configuration (2 minutes)**
-- Screen: Sliders and toggles
-- Questions:
-  - "Communication style"
-    - Slider: Direct ←→ Conversational
-    - Maps to: `agent.personality.tone`
-  
-  - "Detail level"
-    - Slider: Brief ←→ Comprehensive
-    - Maps to: `agent.personality.verbosity`
-  
-  - "Formality"
-    - Slider: Casual ←→ Professional
-    - Maps to: `agent.personality.formality`
-  
-  - "Autonomy level"
-    - Radio buttons:
-      - Ask before every action
-      - Suggest actions, wait for confirmation
-      - Act independently within constraints
-    - Maps to: `agent.autonomy.level`
-
-**Step 4: Privacy & Constraints (1 minute)**
-- Screen: Toggle switches and select dropdowns
-- Questions:
-  - "Privacy preference"
-    - Options: Maximum privacy (local-first), Balanced, Convenience-first
-    - Maps to: `agent.constraints.privacy`
-  
-  - "Budget per action"
-    - Slider: $0.01 ←→ $1.00
-    - Maps to: `agent.constraints.maxCostPerAction`
-  
-  - "Allowed capabilities"
-    - Checkboxes:
-      - Network requests
-      - File system access
-      - External API calls
-      - Code execution
-    - Maps to: `agent.permissions`
-
-**Step 5: Identity & Naming (1 minute)** ✅ **IMPLEMENTED**
-- Screen: Form inputs + wallet connection card
+**Phase 2: Expertise**
+- Screen: Provider selection and skill configuration
 - Features:
-  - **Agent Name Input**
-    - Type: Text input with validation
-    - Placeholder: "e.g., DataAnalyzer, CalendarAssistant"
-    - Validation: Required, alphanumeric + hyphens, no spaces
-    - Maps to: `agent.name`
-  
-  - **Wallet Connection** ✅ Complete MetaMask Integration
-    - **Not Connected State:**
-      - "Connect MetaMask" button with wallet icon
-      - Loading spinner during connection
-      - Error messages for rejections or failures
-      - Info box explaining wallet benefits
-    - **Connected State:**
-      - Green styling with success indicator
-      - Formatted wallet address (0x1234...5678)
-      - Pulse animation for live connection
-      - Genesis holder features list:
-        - ✓ Own agent as NFT on blockchain
-        - ✓ Access exclusive Genesis features
-        - ✓ Publish and audit skills
-      - Disconnect button
-    - **Auto-sync:** Wallet address automatically saved to configuration
-    - **Event Handling:** Listens for account changes and chain switches
-    - Maps to: `agent.walletAddress`
-    - **Library:** ethers.js v6 with BrowserProvider
-- **Status:** ✅ Complete and functional
-- **Commit:** `use-wallet` hook + IdentityStep updates
+  - **Provider Choice**: Local (Ollama/Llama.cpp) or Anthropic (Claude)
+  - **Model Selection**: Dropdown with recommended models for each provider
+  - **API Key Input**: Secure input for Anthropic API key (when applicable)
+  - **Local Provider URL**: Configuration for local LLM endpoint
+  - **Maps to**: `InterviewConfig` (provider type, model, API settings)
+  - **User Action**: Required selections to initialize a functional agent
+  - **Outcome**: Creates a working agent with guardrails applied
+- **Status**: ✅ Complete and functional
+- **Commit**: Latest implementation
 
-**Step 6: Review Configuration (2 minutes)** ✅ **IMPLEMENTED**
-- Screen: Split view with summary and JSON editor
-- Left side: Interview summary card
-  - Agent name
-  - Goals list
-  - Selected skills with trust scores
-  - Personality settings (Tone, Verbosity, Formality)
-  - Privacy level
-  - Autonomy level
-  - Wallet connection status (with green indicator if connected)
-- Right side: Monaco Editor JSON preview ✅ Complete
-  - **Editor Features:**
-    - Monaco Editor with syntax highlighting
-    - Dark theme (vs-dark) matching app design
-    - Fira Code font with ligatures
-    - Line numbers, bracket matching, code folding
-    - Word wrap and indentation guides
-  - **Toolbar Controls:**
-    - Edit/View toggle button
-    - Format JSON button (in edit mode)
-    - Copy to clipboard button
-    - Loading spinner during initialization
-  - **Modes:**
-    - Read-only by default (green status indicator)
-    - Edit mode for advanced users (yellow status indicator)
-    - Changes in editor don't affect store (preview only)
-  - **Status Bar:**
-    - Shows current mode (Read-Only or Editing)
-    - Language indicator (JSON)
-- Actions:
-  - "Edit Configuration" button (placeholder)
-- **Status:** ✅ Complete with Monaco Editor
-- **Commit:** MonacoEditor component + ReviewStep updates
-
-**Step 7: Deployment Options (1 minute)**
-- Screen: Cards for deployment options
-- Options:
-  - **Web Agent**
-    - Description: "Run in your browser"
-    - Features: Chat interface, instant access
-    - Button: "Deploy Web Agent"
-  
-  - **Desktop App**
-    - Description: "Download for Windows/Mac/Linux"
-    - Features: Local execution, offline capable
-    - Button: "Download Desktop App"
-  
-  - **API Endpoint**
-    - Description: "Access via HTTP API"
-    - Features: Integrate into your apps
-    - Button: "Get API Key"
-  
-  - **Export Config**
-    - Description: "Download raw JSON"
-    - Features: Self-host anywhere
-    - Button: "Download JSON"
-
-**Step 8: Success (30 seconds)**
-- Screen: Celebration/confetti animation
-- Display:
-  - "Your agent is ready!"
-  - Agent name and avatar
-  - Quick links: "Open Agent", "View Documentation", "Share"
-  - Social sharing buttons
+**Phase 3: Values**
+- Screen: Personality and preference configuration
+- Features:
+  - **Identity**: Primary activity (learning/building/trading/investing) and experience level (beginner/intermediate/expert)
+  - **Communication**: Tone (technical/casual/professional) and verbosity (concise/balanced/detailed)
+  - **Preferences**: Theme (dark/light/auto) and default currency (USD/EUR/ETH/BTC)
+  - **Maps to**: `UserProfile` (identity, communication, preferences sections)
+  - **User Action**: Optional refinements to shape agent behavior
+  - **Outcome**: Personalized agent that reflects user's values and working style
+- **Status**: ✅ Complete and functional
+- **Commit**: Latest implementation
 
 ### Interview State Management
 
 **State Structure:**
 ```typescript
 interface InterviewState {
-  currentStep: number;
-  totalSteps: number;
-  answers: {
-    goals: string[];
-    description?: string;
-    skills: SelectedSkill[];
-    personality: {
-      tone: number;        // 0-100 slider
-      verbosity: number;   // 0-100 slider
-      formality: number;   // 0-100 slider
-    };
-    autonomy: 'confirm' | 'suggest' | 'independent';
-    privacy: 'local' | 'balanced' | 'cloud';
-    maxCost: number;
-    permissions: string[];
-    name: string;
-    walletAddress?: string;
-  };
-  config: AgentConfig | null;
-  isGenerating: boolean;
-  deploymentOption?: DeploymentType;
+  phase: number; // 0: guardrails, 1: expertise, 2: values, 3: complete
+  sessionId: number | null;
+  config: Partial<InterviewConfig>; // Provider and model settings
+  values: Partial<UserProfile>; // Identity, communication, preferences
+  profile: UserProfile | null; // Loaded/saved user profile
+  error: string | null;
+  success: string | null;
 }
 ```
 
 **Progress Persistence:**
-- Save to localStorage after each step
-- Key: `tais-interview-${timestamp}`
+- Save to localStorage after each phase completion
+- Key: `tais-wizard-state-${timestamp}`
 - Auto-resume on return
 - Expire after 7 days
 
