@@ -28,12 +28,12 @@ export function createGuidedDiscoveryRoutes(prisma: PrismaClient, logger: any): 
 
       logger.info(`[Guided Discovery] Started session ${sessionId} for ${wallet}`);
 
-      res.json({
-        sessionId,
-        question: firstQuestion,
-        progress: 0,
-        totalQuestions: 15,
-      });
+       res.json({
+         sessionId,
+         question: firstQuestion,
+         progress: 0,
+         totalQuestions: 1,
+       });
     } catch (error) {
       logger.error('Error starting session:', error);
       res.status(500).json({ error: 'Failed to start session' });
@@ -53,15 +53,15 @@ export function createGuidedDiscoveryRoutes(prisma: PrismaClient, logger: any): 
         GUIDED_DISCOVERY_QUESTIONS.find(q => q.order === session.currentStep)?.id || ''
       );
 
-      res.json({
-        sessionId: session.id,
-        status: session.status,
-        currentStep: session.currentStep,
-        totalQuestions: 15,
-        progress: Math.round((session.currentStep / 15) * 100),
-        currentQuestion: question,
-        responses: session.responses,
-      });
+       res.json({
+         sessionId: session.id,
+         status: session.status,
+         currentStep: session.currentStep,
+         totalQuestions: 1,
+         progress: Math.round((session.currentStep / 1) * 100),
+         currentQuestion: question,
+         responses: session.responses,
+       });
     } catch (error) {
       logger.error('Error getting session:', error);
       res.status(500).json({ error: 'Failed to get session' });

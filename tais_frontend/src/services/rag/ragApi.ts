@@ -180,16 +180,17 @@ export const ragApi = {
      });
    },
 
-   /**
-    * Get community documents (public/shared)
-    */
-   async getCommunityDocuments(params: { limit?: number; offset?: number }): Promise<any[]> {
-     const result = await authenticatedRequest<any[]>('/community', {
-       method: 'GET',
-       params: params
-     });
-     return result;
-   },
+    /**
+     * Get community documents (public/shared)
+     */
+    async getCommunityDocuments(params: { limit?: number; offset?: number }): Promise<any[]> {
+      const result = await authenticatedRequest<any[]>('/community', {
+        method: 'GET',
+        params: params,
+        useAuth: false   // Community endpoint is public
+      });
+      return result;
+    },
 
    /**
     * Get my documents
