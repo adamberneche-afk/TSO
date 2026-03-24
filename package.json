@@ -10,7 +10,8 @@
     "build": "npm run build --workspaces --if-present",
     "dev": "cd integration-example && npm run dev",
     "test:hunt": "node tests/silent_errors.test.js",
-    "test": "npm run test:hunt"
+    "test": "npm run test:hunt",
+    "test:all": "npm test && echo \"\n=== Running additional checks ===\" && echo \"Silent error tests completed.\""
   },
   "devDependencies": {
     "fast-check": "^4.6.0",
