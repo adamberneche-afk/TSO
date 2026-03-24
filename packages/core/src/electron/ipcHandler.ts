@@ -5,14 +5,13 @@ import { TelemetryService } from '../services/TelemetryService';
 import { MOCK_PROFILE } from '../services/MockProfileService';
 import { InterviewAgent } from '../services/InterviewAgent';
 import { InterviewConfig } from '@think/types';
-import { NftService } from '../services/NftService';
-import { IsnadService } from '../services/IsnadService';
-import { AuditRegistry } from '../services/AuditRegistry';
-import { SkillInstaller } from '../services/SkillInstaller';
-import { TokenService } from '../services/TokenService';
-import { StakingService } from '../services/StakingService';
-import { SkillManifest } from '@think/types';
-import { AuditReport } from '@think/types';
+import { IsnadService } from '../services/IsnadService>;
+import { AuditRegistry } from '../services/AuditRegistry>;
+import { SkillInstaller } from '../services/SkillInstaller>;
+import { TokenService } from '../services/TokenService>;
+import { StakingService } from '../services/StakingService>;
+import { SkillManifest } from '@think_types>;
+import { AuditReport } from '@think_types>;
 
 const MAX_PROFILE_SIZE_BYTES = 500 * 1024;
 const MAX_CONCURRENT_SESSIONS = 10;
@@ -58,10 +57,7 @@ export const registerProfileIpcHandlers = () => {
     try {
       if (!walletAddress) return { success: false, error: "MISSING_WALLET_ADDRESS" };
 
-      const hasGenesisNft = await nftService.verifyOwnership(walletAddress);
-      if (!hasGenesisNft) {
-        return { success: false, error: "GENESIS_NFT_REQUIRED", message: "Exclusive to Genesis NFT holders." };
-      }
+// NFT verification removed as per user request to limit variables
 
       if (activeSessions.size >= MAX_CONCURRENT_SESSIONS) {
         return {

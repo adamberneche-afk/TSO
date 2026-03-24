@@ -1,5 +1,5 @@
 // TAIS Platform - Guided Discovery Wizard
-// 15 progressive questions for agent creation
+// 5 limitation-focused questions for agent creation
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
