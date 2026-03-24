@@ -70,12 +70,19 @@ class SkillAdapter {
     return { success: false, error: 'Not in Electron environment' };
   }
 
-  async checkMalicious(skillHash: string): Promise<boolean> {
-    if (this.isElectronRenderer()) {
-      return await (window as any).taisAPI.checkSkillMalicious(skillHash);
-    }
-    return false;
-  }
+   async checkMalicious(skillHash: string): Promise<boolean> {
+     if (this.isElectronRenderer()) {
+       return await (window as any).taisAPI.checkSkillMalicious(skillHash);
+     }
+     return false;
+   }
+
+   async askQuestion(questionId: string, context: string, userAnswer: string, sessionId: number) {
+     if (this.isElectronRenderer()) {
+       return await (window as any).taisAPI.askQuestion(questionId, context, userAnswer, sessionId);
+     }
+     return { success: false, error: 'Not in Electron environment' };
+   }
 
   // THINK Token methods
   async getTokenBalance(walletAddress: string) {
@@ -148,6 +155,7 @@ export const listSkills = () => skillSDK.list();
 export const getSkillInfo = (name: string) => skillSDK.getInfo(name);
 export const submitSkillAudit = (report: AuditReport) => skillSDK.submitAudit(report);
 export const checkSkillMalicious = (hash: string) => skillSDK.checkMalicious(hash);
+export const askQuestion = (questionId: string, context: string, userAnswer: string, sessionId: number) => skillSDK.askQuestion(questionId, context, userAnswer, sessionId);
 
 // THINK Token SDK exports
 export const getTokenBalance = (wallet: string) => skillSDK.getTokenBalance(wallet);

@@ -253,4 +253,18 @@ export const registerProfileIpcHandlers = () => {
       return false;
     }
   });
+
+  ipcMain.handle('tais:askQuestion', async (_event, questionId: string, context: string, userAnswer: string, sessionId: number) => {
+    try {
+      const session = activeSessions.get(sessionId);
+      if (!session) {
+        return { success: false, error: "SESSION_NOT_FOUND" };
+      }
+
+      const result = await session.agent.askQuestion(questionId, context, userAnswer);
+      return { success: true, ...result };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
 };
