@@ -47,13 +47,14 @@ const auditRegistry = new AuditRegistry(
 const skillInstaller = new SkillInstaller(isnadService, auditRegistry, app.getPath('userData'));
 
 const activeSessions = new Map<number, { agent: InterviewAgent, config: InterviewConfig }>();
+let nextCloneSessionId = 1000000; // Start at a high number to avoid collision with event.sender.id
 
 app.on('window-all-closed', () => {
   activeSessions.clear();
 });
 
 export const registerProfileIpcHandlers = () => {
-  ipcMain.handle('tais:start-interview', async (event, config: InterviewConfig, walletAddress: string) => {
+  ipcMain.handle('tais:start-interview', async (event, configParam: Partial<InterviewConfig>, walletAddress: string) => {
     try {
       if (!walletAddress) return { success: false, error: "MISSING_WALLET_ADDRESS" };
 
@@ -70,6 +71,21 @@ export const registerProfileIpcHandlers = () => {
         };
       }
 
+      // Complete the config with defaults
+      const config: InterviewConfig = {
+        ...configParam,
+        providerType: configParam.providerType || 'local',
+        localProviderUrl: configParam.localProviderUrl || 'http://localhost:11434',
+        localModel: configParam.localModel || 'llama3:instruct',
+        anthropicApiKey: configParam.anthropicApiKey || process.env.ANTHROPIC_API_KEY || '',
+        anthropicModel: configParam.anthropicModel || 'claude-3-haiku-20240307',
+      } as InterviewConfig;
+
+      // Validate that we have the necessary credentials for the chosen provider
+      if (config.providerType !== 'local' && !config.anthropicApiKey) {
+        return { success: false, error: "MISSING_ANTHROPIC_API_KEY", message: "Anthropic API Key is required for anthropic provider." };
+      }
+
       const agent = new InterviewAgent(config);
       const isHealthy = await (agent as any).provider.healthCheck();
 
@@ -77,16 +93,52 @@ export const registerProfileIpcHandlers = () => {
         return { success: false, error: "LLM_UNAVAILABLE", message: "AI Provider unreachable." };
       }
 
-      activeSessions.set(event.sender.id, { agent, config });
-      return { success: true, message: "Interview initialized" };
+      const sessionId = event.sender.id;
+      activeSessions.set(sessionId, { agent, config });
+      return { success: true, message: "Interview initialized", sessionId };
 
     } catch (error: any) {
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.on('tais:cleanup-session', (event) => {
-    activeSessions.delete(event.sender.id);
+  ipcMain.handle('tais:update-expertise', async (_event, sessionId: number, updates: Partial<InterviewConfig>) => {
+    try {
+      const session = activeSessions.get(sessionId);
+      if (!session) {
+        return { success: false, error: "SESSION_NOT_FOUND" };
+      }
+
+      session.agent.updateConfig(updates);
+      // Update stored config as well
+      session.config = { ...session.config, ...updates };
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('tais:update-values', async (_event, sessionId: number, updates: Partial<UserProfile>) => {
+    try {
+      const session = activeSessions.get(sessionId);
+      if (!session) {
+        return { success: false, error: "SESSION_NOT_FOUND" };
+      }
+
+      session.agent.updateState(updates);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('tais:cleanup-session', async (_event, sessionId: number) => {
+    try {
+      activeSessions.delete(sessionId);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('tais:load-profile', async (): Promise<UserProfile | null> => {
@@ -263,6 +315,30 @@ export const registerProfileIpcHandlers = () => {
 
       const result = await session.agent.askQuestion(questionId, context, userAnswer);
       return { success: true, ...result };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('tais:clone-agent', async (_event, sessionId: number) => {
+    try {
+      const session = activeSessions.get(sessionId);
+      if (!session) {
+        return { success: false, error: "SESSION_NOT_FOUND" };
+      }
+
+      // Create a new agent with the same configuration
+      const clonedAgent = new InterviewAgent(session.config);
+      // Deep copy the state from the original agent
+      const originalState = session.agent.getState();
+      const clonedState = JSON.parse(JSON.stringify(originalState)); // Deep copy via JSON
+      clonedAgent.setState(clonedState);
+
+      // Generate a new sessionId for the cloned agent
+      const newSessionId = nextCloneSessionId++;
+      activeSessions.set(newSessionId, { agent: clonedAgent, config: session.config });
+
+      return { success: true, sessionId: newSessionId };
     } catch (error: any) {
       return { success: false, error: error.message };
     }

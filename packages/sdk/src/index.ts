@@ -77,12 +77,33 @@ class SkillAdapter {
      return false;
    }
 
-   async askQuestion(questionId: string, context: string, userAnswer: string, sessionId: number) {
-     if (this.isElectronRenderer()) {
-       return await (window as any).taisAPI.askQuestion(questionId, context, userAnswer, sessionId);
-     }
-     return { success: false, error: 'Not in Electron environment' };
-   }
+    async askQuestion(questionId: string, context: string, userAnswer: string, sessionId: number) {
+      if (this.isElectronRenderer()) {
+        return await (window as any).taisAPI.askQuestion(questionId, context, userAnswer, sessionId);
+      }
+      return { success: false, error: 'Not in Electron environment' };
+    }
+
+    async cloneAgent(sessionId: number) {
+      if (this.isElectronRenderer()) {
+        return await (window as any).taisAPI.cloneAgent(sessionId);
+      }
+      return { success: false, error: 'Not in Electron environment' };
+    }
+
+    async updateExpertise(sessionId: number, updates: Partial<InterviewConfig>) {
+      if (this.isElectronRenderer()) {
+        return await (window as any).taisAPI.updateExpertise(sessionId, updates);
+      }
+      return { success: false, error: 'Not in Electron environment' };
+    }
+
+    async updateValues(sessionId: number, updates: Partial<UserProfile>) {
+      if (this.isElectronRenderer()) {
+        return await (window as any).taisAPI.updateValues(sessionId, updates);
+      }
+      return { success: false, error: 'Not in Electron environment' };
+    }
 
   // THINK Token methods
   async getTokenBalance(walletAddress: string) {
@@ -156,6 +177,9 @@ export const getSkillInfo = (name: string) => skillSDK.getInfo(name);
 export const submitSkillAudit = (report: AuditReport) => skillSDK.submitAudit(report);
 export const checkSkillMalicious = (hash: string) => skillSDK.checkMalicious(hash);
 export const askQuestion = (questionId: string, context: string, userAnswer: string, sessionId: number) => skillSDK.askQuestion(questionId, context, userAnswer, sessionId);
+export const cloneAgent = (sessionId: number) => skillSDK.cloneAgent(sessionId);
+export const updateExpertise = (sessionId: number, updates: Partial<InterviewConfig>) => skillSDK.updateExpertise(sessionId, updates);
+export const updateValues = (sessionId: number, updates: Partial<UserProfile>) => skillSDK.updateValues(sessionId, updates);
 
 // THINK Token SDK exports
 export const getTokenBalance = (wallet: string) => skillSDK.getTokenBalance(wallet);
