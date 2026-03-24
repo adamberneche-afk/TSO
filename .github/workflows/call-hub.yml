@@ -1,18 +1,35 @@
 name: Ping CTO Hub
 on:
   schedule:
-    - cron: '*/30 * * * *'
-    - cron: '0 0 * * 0'
+    - cron: '*/10 * * * *'  # Every 10 minutes for debug/hunt
+    - cron: '0 0 * * 0'     # Weekly refactor every Sunday
   workflow_dispatch:
 
 jobs:
   call-central-brain:
     runs-on: ubuntu-latest
     steps:
+      - name: Determine Mode
+        id: mode
+        run: |
+          if [ "${{ github.event.schedule }}" == "0 0 * * 0" ]; then
+            echo "mode=refactor" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" == "*/10 * * * *" ]; then
+            # Alternate between debug and hunt every 10 minutes
+            # Get current minute and use even/odd to alternate
+            MINUTE=$(date +%M)
+            if [ $((MINUTE % 2)) -eq 0 ]; then
+              echo "mode=debug" >> $GITHUB_OUTPUT
+            else
+              echo "mode=hunt" >> $GITHUB_OUTPUT
+            fi
+          fi
       - name: Send Payload to Hub
         run: |
-          curl -X POST https://ai-cto-hub.vercel.app/api/autonomous_agent           -H "Content-Type: application/json"           -d '{
+          curl -X POST https://ai-cto-hub.vercel.app/api/autonomous_agent \
+          -H "Content-Type: application/json" \
+          -d '{
             "owner": "${{ github.repository_owner }}",
             "repo": "${{ github.event.repository.name }}",
-            "mode": "${{ github.event.schedule == '''0 0 * * 0''' && '''refactor''' || '''debug''' }}"
-          }' 
+            "mode": "${{ steps.mode.outputs.mode }}"
+          }'

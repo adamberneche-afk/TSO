@@ -8,9 +8,12 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "dev": "cd integration-example && npm run dev"
+    "dev": "cd integration-example && npm run dev",
+    "test:hunt": "node tests/silent_errors.test.js",
+    "test": "npm run test:hunt"
   },
   "devDependencies": {
+    "fast-check": "^4.6.0",
     "typescript": "^5.3.0"
   },
   "dependencies": {
