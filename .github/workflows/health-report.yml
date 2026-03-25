@@ -13,8 +13,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: ${{ github.repository }}  # Ensures we check out the correct repo
-          ref: ${{ github.ref }}                # Checks out the same branch/tag/ref
+          repository: adamberneche-afk/TSO   # <-- Fixed repo name
+          ref: ${{ github.ref }}             # Checks out the same branch/tag/ref
       
       - name: Install Node.js
         uses: actions/setup-node@v4
