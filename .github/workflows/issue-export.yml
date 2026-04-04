@@ -12,10 +12,10 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Export issues
-      uses: some/action-to-export-issues@v1
+      uses: some/valid-action@v1
 
     - name: Upload export
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: exported-issues
         path: ./exported-issues/*.json
