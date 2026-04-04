@@ -1,12 +1,17 @@
 name: Export issues
+
 on:
   schedule:
     # run every 8 hours
     - cron:  '0 0,8,16 * * *'
+
+permissions:
+  issues: read
+
 jobs:
   deploy:
     name: Export issues to S3
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - name: Export issues
       uses: niteoweb/export-issues-action@v2
