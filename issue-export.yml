@@ -1,0 +1,25 @@
+# This is an updated GitHub Actions workflow file
+
+name: Issue Export
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Export issues
+        run: |
+          # Your export script here
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: issues
+          path: path/to/exported/issues
