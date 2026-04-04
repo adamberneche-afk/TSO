@@ -1,27 +1,24 @@
-name: Export issues
+name: Issue Export
 
 on:
-  schedule:
-    # run every 8 hours
-    - cron:  '0 0,8,16 * * *'
-
-permissions:
-  issues: read
+  workflow_dispatch:
 
 jobs:
-  deploy:
-    name: Export issues to S3
-    runs-on: ubuntu-22.04
+  export:
+    runs-on: ubuntu-latest
+
     steps:
+    - name: Check out code
+      uses: actions/checkout@v3
+
     - name: Export issues
-      uses: niteoweb/export-issues-action@v2
+      uses: some/action-to-export-issues@v1
+
+    - name: Upload export
+      uses: actions/upload-artifact@v3
       with:
-        repo: ${{ github.repository }}
-        org: ${{ github.repository_owner }}
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-        out: issues
-    - name: Archive production artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: issues
-        path: "issues/*.md"
+        name: exported-issues
+        path: ./exported-issues/*.json
+
+    - name: Notify completion
+      run: echo 'Export complete.'
