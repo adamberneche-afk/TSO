@@ -1,24 +1,133 @@
-name: Issue Export
+name: Export GitHub Issues Weekly
 
 on:
-  workflow_dispatch:
+  schedule:
+    # Runs every Monday at 9:00 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Allows manual trigger
 
 jobs:
-  export:
+  export-issues:
     runs-on: ubuntu-latest
-
+    
     steps:
-    - name: Check out code
-      uses: actions/checkout@v3
-
-    - name: Export issues
-      uses: some/valid-action@v1
-
-    - name: Upload export
-      uses: actions/upload-artifact@v4
-      with:
-        name: exported-issues
-        path: ./exported-issues/*.json
-
-    - name: Notify completion
-      run: echo 'Export complete.'
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Fetch all issues and create exports
+        run: |
+          node - << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          
+          const repoUrl = 'https://api.github.com/repos/adamberneche-afk/TSO/issues';
+          let allIssues = [];
+          let page = 1;
+          let hasMorePages = true;
+          
+          // Fetch all issues with pagination
+          async function fetchAllIssues() {
+            while (hasMorePages) {
+              const url = `${repoUrl}?state=all&per_page=100&page=${page}`;
+              const response = await fetch(url);
+              
+              if (!response.ok) {
+                throw new Error(`Failed to fetch page ${page}: ${response.statusText}`);
+              }
+              
+              const issues = await response.json();
+              if (issues.length === 0) {
+                hasMorePages = false;
+              } else {
+                allIssues = allIssues.concat(issues);
+                page++;
+              }
+            }
+          }
+          
+          // Format date for filename
+          function getDateString() {
+            const now = new Date();
+            return now.toISOString().split('T')[0]; // YYYY-MM-DD
+          }
+          
+          // Format date for display
+          function formatDate(dateString) {
+            return new Date(dateString).toLocaleString('en-US', { 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+          }
+          
+          // Create exports directory if it doesn't exist
+          const exportsDir = 'exports';
+          if (!fs.existsSync(exportsDir)) {
+            fs.mkdirSync(exportsDir);
+          }
+          
+          // Fetch issues
+          fetchAllIssues().then(() => {
+            const dateStr = getDateString();
+            
+            // Create JSON export
+            const jsonContent = JSON.stringify(allIssues.map(issue => ({
+              number: issue.number,
+              title: issue.title,
+              state: issue.state,
+              body: issue.body || '',
+              created_at: issue.created_at,
+              updated_at: issue.updated_at,
+              labels: issue.labels.map(l => l.name),
+              assignees: issue.assignees.map(a => a.login),
+              url: issue.html_url
+            })), null, 2);
+            
+            // Create Markdown export
+            let markdownContent = `# GitHub Issues Report - adamberneche-afk/TSO\n\n`;
+            markdownContent += `*Generated: ${formatDate(new Date().toISOString())}*\n\n`;
+            markdownContent += `**Total Issues:** ${allIssues.length}\n\n`;
+            
+            allIssues.forEach(issue => {
+              markdownContent += `## Issue #${issue.number}: ${issue.title}\n\n`;
+              markdownContent += `**State:** ${issue.state}\n`;
+              markdownContent += `**URL:** [${issue.html_url}](${issue.html_url})\n`;
+              markdownContent += `**Created:** ${formatDate(issue.created_at)}\n`;
+              markdownContent += `**Updated:** ${formatDate(issue.updated_at)}\n`;
+              if (issue.labels.length > 0) {
+                markdownContent += `**Labels:** ${issue.labels.map(l => l.name).join(', ')}\n`;
+              }
+              if (issue.assignees.length > 0) {
+                markdownContent += `**Assigned to:** ${issue.assignees.map(a => a.login).join(', ')}\n`;
+              }
+              if (issue.body) {
+                markdownContent += `\n**Description:**\n${issue.body}\n`;
+              }
+              markdownContent += `\n---\n\n`;
+            });
+            
+            // Write files
+            fs.writeFileSync(path.join(exportsDir, `${dateStr}-issues.json`), jsonContent);
+            fs.writeFileSync(path.join(exportsDir, `${dateStr}-issues.md`), markdownContent);
+            
+            console.log(`✅ Exported ${allIssues.length} issues to exports/${dateStr}-issues.{json,md}`);
+          }).catch(err => {
+            console.error('❌ Error:', err);
+            process.exit(1);
+          });
+          EOF
+      
+      - name: Commit and push exports
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add exports/
+          git commit -m "chore: weekly issue export $(date -u +%Y-%m-%d)" || echo "No changes to commit"
+          git push
