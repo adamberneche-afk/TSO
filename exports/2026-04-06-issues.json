@@ -1,5 +1,60 @@
 [
   {
+    "number": 344,
+    "title": "CTO HUB: DEBUG Action",
+    "state": "open",
+    "body": "### Value Impact\nundefined\n\n### Patch\n```\n[object Object]\n```",
+    "created_at": "2026-04-06T09:52:54Z",
+    "updated_at": "2026-04-06T09:52:54Z",
+    "labels": [],
+    "assignees": [],
+    "url": "https://github.com/adamberneche-afk/TSO/issues/344"
+  },
+  {
+    "number": 343,
+    "title": "CTO HUB: DEBUG Action",
+    "state": "open",
+    "body": "### Value Impact\nundefined\n\n### Patch\n```\n```typescript\n// src/utils/env.ts\nimport { config } from 'dotenv';\nconfig();\n\nconst REQUIRED_ENVS = ['API_KEY', 'DB_URL', 'JWT_SECRET'] as const;\n\nREQUIRED_ENVS.forEach((key) => {\n  if (!process.env[key]) {\n    throw new Error(`Missing required environment variable: ${key}`);\n  }\n});\n\nexport const env = {\n  apiKey: process.env.API_KEY as string,\n  dbUrl: process.env.DB_URL as string,\n  jwtSecret: process.env.JWT_SECRET as string,\n} as const;\n\n// src/services/userService.ts\nimport { env } from '../utils/env';\nimport { db } from '../db/client';\nimport { UserInput } from '../types'; // explicit type contract\n\nexport async function createUser(input: UserInput): Promise<string> {\n  // Defensive: validate input shape early\n  if (!input?.email || !input?.name) {\n    throw new Error('User input missing required fields');\n  }\n\n  // Simple brute‑force insert – no ORM magic\n  const result = await db.query(\n    'INSERT INTO users (email, name, token) VALUES ($1, $2, $3) RETURNING token',\n    [input.email, input.name, env.jwtSecret]\n  );\n\n  // Every function has an else / catch\n  if (!result?.rows?.[0]?.token) {\n    throw new Error('Failed to generate user token');\n  }\n\n  return result.rows[0].token;\n}\n\n// src/workflows/deploy.ts\nimport { vercel } from '../utils/vercelClient';\nimport { env } from '../utils/env';\n\nexport async function deploySpoke(spokeName: string): Promise<void> {\n  try {\n    const resp = await vercel.curl(`/${spokeName}/deploy`, {\n      method: 'POST',\n      headers: { Authorization: `Bearer ${env.apiKey}` },\n    });\n    // Simple success check – no complex parsing\n    if (resp.status !== 200) {\n      throw new Error(`Deploy failed with status ${resp.status}`);\n    }\n  } catch (err) {\n    // Catch all errors and surface a clear message\n    console.error('Deploy workflow error:', err.message);\n    throw err; // re‑throw to let caller handle or log\n  }\n}\n```\n```",
+    "created_at": "2026-04-06T08:46:33Z",
+    "updated_at": "2026-04-06T08:46:33Z",
+    "labels": [],
+    "assignees": [],
+    "url": "https://github.com/adamberneche-afk/TSO/issues/343"
+  },
+  {
+    "number": 342,
+    "title": "CTO HUB: DEBUG Action",
+    "state": "open",
+    "body": "### Value Impact\nundefined\n\n### Patch\n```\n--- a/src/api/user.ts\n+++ b/src/api/user.ts\n@@\n-async function fetchUser(id: string) {\n-  const res = await fetch(`https://api.example.com/users/${id}`);\n-  return res.json();\n+async function fetchUser(id: string): Promise<User> {\n+  const res = await fetch(`https://api.example.com/users/${id}`);\n+  if (!res.ok) {\n+    // Defensive Execution: explicit error path\n+    const err = new Error(`Failed to fetch user ${id}`);\n+    err.status = res.status;\n+    throw err;\n+  }\n+  const data = await res.json();\n+  // Validate shape to avoid logic over data\n+  if (!data?.id) {\n+    throw new Error('User data missing id');\n+  }\n+  return data as User;\n+}\n*** End Patch\n--- a/src/features/permissions.ts\n+++ b/src/features/permissions.ts\n@@\n-function checkAccess(user: any, action: string) {\n-  if (user.role === 'admin') {\n-    if (action === 'delete') {\n-      return true;\n-    }\n-  } else if (user.role === 'editor') {\n-    if (action === 'edit') {\n-      return true;\n-    }\n-  }\n-  return false;\n+function checkAccess(user: User, action: string): boolean {\n+  // Brute Force Over Cleverness: flat switch reduces nesting\n+  switch (user.role) {\n+    case 'admin':\n+      return action === 'delete';\n+    case 'editor':\n+      return action === 'edit';\n+    default:\n+      return false;\n+  }\n+}\n*** End Patch\n--- a/src/types.d.ts\n+++ b/src/types.d.ts\n@@\n interface User {\n-  id: string;\n-  name: string;\n-  role: string;\n-  // ...\n+  id: string;\n+  name: string;\n+  role: 'admin' | 'editor' | 'viewer';\n+  email: string;\n+  // Extensible but explicit\n+  [key: string]: any; // keep minimal, avoid `any` in public contracts\n }\n*** End Patch\n--- a/src/env.ts\n+++ b/src/env.ts\n@@\n-const API_KEY = process.env.API_KEY;\n-const DB_URL = process.env.DB_URL;\n+const requiredEnvVars = ['API_KEY', 'DB_URL', 'NODE_ENV'];\n+requiredEnvVars.forEach((key) => {\n+  if (!process.env[key]) {\n+    throw new Error(`Missing required environment variable: ${key}`);\n+  }\n+});\n+const API_KEY = process.env.API_KEY as string;\n+const DB_URL = process.env.DB_URL as string;\n*** End Patch\n```",
+    "created_at": "2026-04-06T07:10:55Z",
+    "updated_at": "2026-04-06T07:10:55Z",
+    "labels": [],
+    "assignees": [],
+    "url": "https://github.com/adamberneche-afk/TSO/issues/342"
+  },
+  {
+    "number": 341,
+    "title": "CTO HUB: HUNT Action",
+    "state": "open",
+    "body": "### Value Impact\nundefined\n\n### Patch\n```\nexport function divide(a: number, b: number): number | null {\\n  // Defensive guard – Hamilton principle\\n  if (b === 0 || !Number.isFinite(b)) {\\n    return null; // explicit fallback instead of silent NaN\\n  }\\n  // Simple brute‑force algorithm – Pike rule 3\\n  return a / b;\\n}\n```",
+    "created_at": "2026-04-06T05:39:22Z",
+    "updated_at": "2026-04-06T05:39:22Z",
+    "labels": [],
+    "assignees": [],
+    "url": "https://github.com/adamberneche-afk/TSO/issues/341"
+  },
+  {
+    "number": 340,
+    "title": "CTO HUB: DEBUG Action",
+    "state": "open",
+    "body": "### Value Impact\nundefined\n\n### Patch\n```\n[object Object]\n```",
+    "created_at": "2026-04-06T03:35:01Z",
+    "updated_at": "2026-04-06T03:35:01Z",
+    "labels": [],
+    "assignees": [],
+    "url": "https://github.com/adamberneche-afk/TSO/issues/340"
+  },
+  {
     "number": 339,
     "title": "CTO HUB: DEBUG Action",
     "state": "open",
