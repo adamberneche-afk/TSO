@@ -1,9 +1,30 @@
 name: Ping CTO Hub
+# NOTE: The automatic schedule is disabled (see below). This workflow was firing
+# every 10 minutes against https://ai-cto-hub.vercel.app/api/autonomous_agent,
+# passing only {owner, repo, mode} with no actual code context (no diff, no file
+# contents, no commit SHA). With nothing real to inspect, the hub's LLM
+# hallucinated a plausible-looking "bug + patch" every run and filed it as a
+# GitHub issue -- none of which referenced code that exists in this repo. Over
+# ~4 months this produced ~1,974 issues, ~220 of which were the hub failing to
+# even serialize its own fabricated response ("[object Object]" bodies).
+#
+# Before re-enabling on a schedule: the payload needs to carry real context
+# (e.g. the diff of the latest commit, or specific file contents) so the hub
+# has something genuine to analyze, and the interval should be far coarser
+# than every 10 minutes. Until then, trigger manually via workflow_dispatch
+# when you actually want a hub run.
 on:
-  schedule:
-    - cron: '*/10 * * * *'  # Every 10 minutes for debug/hunt
-    - cron: '0 0 * * 0'     # Weekly refactor every Sunday
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Mode to send to the hub'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - hunt
+          - refactor
 
 jobs:
   call-central-brain:
@@ -15,18 +36,7 @@ jobs:
       - name: Determine Mode
         id: mode
         run: |
-          if [ "${{ github.event.schedule }}" == "0 0 * * 0" ]; then
-            echo "mode=refactor" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" == "*/10 * * * *" ]; then
-            # Alternate between debug and hunt every 10 minutes
-            # Get current minute and use even/odd to alternate
-            MINUTE=$(date +%M)
-            if [ $((MINUTE % 2)) -eq 0 ]; then
-              echo "mode=debug" >> $GITHUB_OUTPUT
-            else
-              echo "mode=hunt" >> $GITHUB_OUTPUT
-            fi
-          fi
+          echo "mode=${{ inputs.mode }}" >> $GITHUB_OUTPUT
       - name: Send Payload to Hub
         run: |
           curl -X POST https://ai-cto-hub.vercel.app/api/autonomous_agent \
