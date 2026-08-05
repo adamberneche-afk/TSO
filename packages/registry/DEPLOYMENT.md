@@ -8,7 +8,15 @@ The TAIS Registry Server is a hybrid on-chain/off-chain skill registry that prov
 - Secure audit submission and verification
 - Rate limiting and API key management
 
-## Quick Start with Railway (Recommended)
+## Actual Production Deployment: Render
+
+This service's real, currently-deployed production target is **Render**, not Railway/Vercel/AWS below - see the repo-root `render.yaml` (web service `tais-registry`, root dir `packages/registry`, `build.sh` build command) and `render-cron.yaml`. Every SDK in this repo defaults its `baseUrl` to `https://tso.onrender.com`, which is this Render service. [MONITORING.md](./MONITORING.md) already assumes Render throughout.
+
+To deploy changes, push to the branch `render.yaml` tracks (`autoDeploy: true`) - Render builds and deploys automatically. Environment variables are managed in the Render dashboard for this service; see `render.yaml` for the full list of keys it provisions (`DATABASE_URL`, `JWT_SECRET`, `IPFS_*`, `CRON_SECRET`, etc.).
+
+The Railway/Vercel/AWS instructions below describe alternative deployment paths that were written up but are not what's actually running in production. They may still be useful if you want to deploy a separate instance elsewhere.
+
+## Quick Start with Railway
 
 Railway provides the easiest deployment with automatic HTTPS, PostgreSQL, and environment management.
 
@@ -395,7 +403,7 @@ railway logs --follow | grep memory
 
 ## Cost Estimates
 
-### Railway (Recommended for MVP)
+### Railway (alternative path, not what production actually uses)
 - PostgreSQL: $0 (free tier: 500MB)
 - Compute: $0 (free tier: 500 hours)
 - Total: **$0/month** for hobby projects
