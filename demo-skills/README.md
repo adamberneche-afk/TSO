@@ -280,8 +280,7 @@ Want to add a demo skill?
 
 ## 📚 Additional Resources
 
-- [Creating Skills Guide](../docs/CREATING_SKILLS.md)
-- [Security Best Practices](../docs/SECURITY.md)
+- [Security Best Practices](../docs/SKILL_SECURITY.md)
 - [API Reference](../packages/registry/API.md)
 
 ## 📄 License

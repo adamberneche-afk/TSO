@@ -212,6 +212,6 @@ const response = await agent.chat({
 
 ## See Also
 
-- [SDK Documentation](../agent-sdk/README.md)
+- [SDK Documentation](../packages/agent-sdk/README.md)
 - [API Reference](./API.md)
-- [Security Best Practices](../agent-sdk/README.md#security-best-practices)
+- [Security Best Practices](../packages/agent-sdk/README.md#security-best-practices)

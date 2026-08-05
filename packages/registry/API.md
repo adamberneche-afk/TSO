@@ -382,10 +382,6 @@ skill = client.skills.register(
 )
 ```
 
-### cURL Examples
-
-See our [Postman collection](./TAIS-Registry.postman_collection.json) for complete examples.
-
 ## Webhooks
 
 Subscribe to real-time events:
