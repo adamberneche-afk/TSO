@@ -1,3 +1,5 @@
+> **⚠️ Deprecated backup, not the live frontend.** This directory (`tais-frontend-old-backup/`) is an old, superseded copy of the TAIS frontend, kept for historical reference only. The current, actively-developed frontend is [`tais_frontend/`](../tais_frontend/README.md). The unmodified `create-next-app` boilerplate below describes generic Next.js commands only - it was never updated to say anything about this being a backup, which is why this notice was added.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
