@@ -1,0 +1,42 @@
+name: Documentation Placeholder Check
+
+# Catches unedited template/placeholder text left in shipped docs (e.g. a
+# fictitious "[Your Company Name]"-style field, unmodified boilerplate
+# instructions, or a fake-but-plausible-looking address) - added after a
+# full docs audit found 5 instances of this across the repo, including a
+# fictitious address sitting in the live Privacy Policy/Terms of Service.
+#
+# This intentionally does NOT grep for generic "TODO" markers - ordinary
+# TODOs are normal and not what this check is for, and a couple of docs
+# (PRIVACY_POLICY.md, TERMS_OF_SERVICE.md) deliberately carry an explicit
+# "[TODO: fill in a real ...]" marker for a value nobody should invent.
+# Only add patterns here for actual unedited template scaffolding.
+
+on:
+  pull_request:
+    paths:
+      - '**/*.md'
+      - '.github/workflows/doc-placeholder-check.yml'
+  workflow_dispatch:
+
+jobs:
+  placeholder-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Grep for unedited template/placeholder markers
+        run: |
+          set -e
+          PATTERN='\[Your [A-Z][a-z]|[Ll]orem ipsum|[Aa]dd your own .{0,40} here|\(or your preferred [a-z]+\)|Web3 City|123 Blockchain Blvd'
+          MATCHES=$(grep -rniE "$PATTERN" --include='*.md' \
+            --exclude-dir=node_modules --exclude-dir=archive --exclude-dir=exports . || true)
+          if [ -n "$MATCHES" ]; then
+            echo "Found unedited template/placeholder text in docs:"
+            echo "$MATCHES"
+            echo ""
+            echo "If this is a real, intentional value, edit it to say what's actually true."
+            echo "If it's a template field nobody filled in, either fill it in or remove it."
+            exit 1
+          fi
+          echo "No placeholder markers found."
