@@ -12,14 +12,18 @@ The TAIS Registry uses **Jest** for testing with the following test types:
 ```
 src/
 ├── __tests__/
-│   ├── setup.ts           # Test configuration and database cleanup
-│   ├── factories.ts       # Test data generators
+│   ├── setup.ts               # Test configuration and database cleanup
 │   └── routes/
-│       ├── health.test.ts # Health endpoint tests
-│       ├── skills.test.ts # Skills API tests
-│       ├── audits.test.ts # Audits API tests
-│       └── search.test.ts # Search API tests
+│       ├── health.test.ts     # Health endpoint tests
+│       ├── skills.test.ts     # Skills API tests
+│       ├── audits.test.ts     # Audits API tests
+│       ├── agent.e2e.test.ts  # Agent routes end-to-end tests
+│       ├── billing.e2e.test.ts # Billing routes end-to-end tests
+│       ├── oauth.e2e.test.ts  # OAuth routes end-to-end tests
+│       └── rcrt.e2e.test.ts   # RCRT routes end-to-end tests
 ```
+
+There is no `factories.ts` test-data-generator file in `src/__tests__/`; test data is constructed inline in each test file.
 
 ## Running Tests
 
@@ -67,50 +71,42 @@ docker run -d \
 
 ## Writing Tests
 
-### Test Factories
-
-Use factories to create test data:
-
-```typescript
-import { createSkill, createAudit, createSkillWithRelations } from '../factories';
-
-// Create basic skill
-const skill = await createSkill({ name: 'Custom Name' });
-
-// Create skill with audits, categories, tags
-const { skill, audit, category, tag } = await createSkillWithRelations();
-
-// Create audit for specific skill
-const audit = await createAudit(skill.id, { status: 'MALICIOUS' });
-```
+There are no shared test-data factories in this codebase — each test builds the request payloads it needs inline.
 
 ### API Route Tests
 
 ```typescript
 import request from 'supertest';
-import { app } from '../../index';
-import { createSkill } from '../factories';
+import app from '../../index';
 
 describe('Skills API', () => {
-  it('should create new skill', async () => {
-    const response = await request(app)
-      .post('/api/skills')
-      .send({
-        skillHash: '0xabc...',
-        name: 'Test Skill',
-        version: '1.0.0',
-        author: '0x123...',
-      })
-      .expect(201);
+  describe('GET /api/v1/skills', () => {
+    it('should return skills list with pagination', async () => {
+      const response = await request(app)
+        .get('/api/v1/skills')
+        .expect(200);
 
-    expect(response.body.name).toBe('Test Skill');
-    expect(response.body.status).toBe('PENDING');
+      expect(response.body).toHaveProperty('skills');
+    });
   });
 
-  it('should return 404 for non-existent skill', async () => {
-    await request(app)
-      .get('/api/skills/nonexistent')
-      .expect(404);
+  describe('POST /api/v1/skills', () => {
+    it('should require authentication', async () => {
+      const response = await request(app)
+        .post('/api/v1/skills')
+        .send({ name: 'Test Skill' })
+        .expect(401);
+
+      expect(response.body).toHaveProperty('error');
+    });
+  });
+
+  describe('GET /api/v1/skills/:hash', () => {
+    it('should return 404 for non-existent skill', async () => {
+      await request(app)
+        .get('/api/v1/skills/nonexistenthash123')
+        .expect(404);
+    });
   });
 });
 ```
@@ -146,13 +142,9 @@ Coverage reports are generated in the `coverage/` directory:
 ```bash
 # View HTML report
 open coverage/lcov-report/index.html
-
-# Coverage thresholds (set in jest.config.js)
-- Branches: 80%
-- Functions: 80%
-- Lines: 80%
-- Statements: 80%
 ```
+
+`jest.config.js` does not currently define a `coverageThreshold`, so there is no enforced minimum coverage percentage — coverage is reported but not gated.
 
 ## Best Practices
 
@@ -165,7 +157,7 @@ open coverage/lcov-report/index.html
    ```typescript
    // Good: Each test is independent
    it('should create skill', async () => {
-     const skill = await createSkill();
+     const response = await request(app).post('/api/v1/skills').send({ /* ... */ });
      // test logic
    });
 
@@ -191,14 +183,11 @@ open coverage/lcov-report/index.html
    it('should handle database errors gracefully', async () => {});
    ```
 
-5. **Use Factories for Data**
+5. **Keep Test Data Minimal**
    ```typescript
-   // Good
-   const skill = await createSkill({ status: 'BLOCKED' });
-
-   // Bad - manual creation
+   // Only set the fields the test actually needs
    const skill = await prisma.skill.create({
-     data: { /* lots of required fields */ }
+     data: { skillHash: 'test', name: 'Test', version: '1.0.0', author: '0x123...', manifestCid: 'Qm...' }
    });
    ```
 

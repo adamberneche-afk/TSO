@@ -262,7 +262,7 @@ import {
   encryptDocument,
   decryptContent,
   generateEmbeddingHash
-} from '@taisplatform/rag-sdk/crypto';
+} from 'tais-rag-sdk';
 ```
 
 ## Examples

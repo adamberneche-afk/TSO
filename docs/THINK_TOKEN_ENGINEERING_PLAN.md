@@ -4,6 +4,8 @@
 **Created:** March 5, 2026  
 **Timeline:** 2 weeks (10 working days)
 
+> **Canonical plan (Aug 2026):** This is the designated canonical version of the $THINK token integration plan. `docs/THINK_TOKEN_INTEGRATION_PLAN.md` is a near-duplicate covering the same (still unimplemented) feature — see the note at the top of that file. Neither plan has been implemented yet (no `tierService.ts`, `subscriptionService.ts`, `StakingTiers.sol`, `routes/tier.ts`, or `routes/subscriptions.ts` in the repo as of this check).
+
 ---
 
 ## Sprint 1: Smart Contract & Infrastructure (Days 1-3)

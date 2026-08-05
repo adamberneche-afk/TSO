@@ -8,34 +8,42 @@ Welcome to the TAIS (Trustworthy AI Skills) Registry API! This API provides a se
 
 ### 1. Get API Access
 
+There is no email/password signup. Access is wallet-based: request a nonce, sign it, log in to get a JWT, then use that JWT to mint an API key.
+
 ```bash
-# Sign up for an API key
-curl -X POST https://api.tais.ai/api/auth/register \
+# 1. Request a nonce for your wallet
+curl -X POST https://tso.onrender.com/api/v1/auth/nonce \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "developer@example.com",
-    "walletAddress": "0x..."
-  }'
+  -d '{"walletAddress": "0x..."}'
+
+# 2. Login with the signed nonce to get a JWT
+curl -X POST https://tso.onrender.com/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"walletAddress": "0x...", "signature": "0x...", "nonce": "..."}'
+
+# 3. Generate an API key using the JWT
+curl -X POST https://tso.onrender.com/api/v1/auth/api-key \
+  -H "Authorization: Bearer <jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my-key"}'
 ```
 
 ### 2. Make Your First Request
 
 ```bash
 # List all skills
-curl https://api.tais.ai/api/skills \
+curl https://tso.onrender.com/api/v1/skills \
   -H "X-API-Key: your_api_key"
 ```
-
-### 3. Interactive Documentation
-
-Visit `/api/docs` on any running registry server for interactive Swagger UI documentation.
 
 ## Base URL
 
 ```
-Production:  https://api.tais.ai
+Production:  https://tso.onrender.com
 Development: http://localhost:3000
 ```
+
+All API routes below are mounted under `/api/v1` (e.g. `https://tso.onrender.com/api/v1/skills`), except `/health` and `/monitoring/*`, which are unversioned.
 
 ## Authentication
 
@@ -44,7 +52,7 @@ The API supports two authentication methods:
 ### API Key (Recommended for server-to-server)
 
 ```bash
-curl https://api.tais.ai/api/skills \
+curl https://tso.onrender.com/api/v1/skills \
   -H "X-API-Key: tais_live_abc123..."
 ```
 
@@ -52,16 +60,16 @@ curl https://api.tais.ai/api/skills \
 
 ```bash
 # 1. Login with wallet
-curl -X POST https://api.tais.ai/api/auth/login \
+curl -X POST https://tso.onrender.com/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "walletAddress": "0x...",
     "signature": "0x...",
-    "message": "Login to TAIS"
+    "nonce": "..."
   }'
 
 # 2. Use JWT token
-curl https://api.tais.ai/api/skills \
+curl https://tso.onrender.com/api/v1/skills \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 ```
 
@@ -103,14 +111,7 @@ Trust scores range from 0.0 to 1.0 based on:
 
 ### Security Scanning
 
-All skills are automatically scanned using YARA rules for:
-
-- Credential theft
-- Data exfiltration
-- Malicious domains
-- Process injection
-- Suspicious imports
-- Obfuscated code
+`yaraScanner.ts` implements real detection logic for credential theft, data exfiltration, malicious domains, process injection, suspicious imports, and obfuscated code - but it isn't currently wired into the live scan endpoint (see [Security Scanning](#security-scanning-1) below and [YARA.md](./YARA.md)), so skills are not actually auto-scanned on the running server today.
 
 ## API Endpoints
 
@@ -118,7 +119,7 @@ All skills are automatically scanned using YARA rules for:
 
 #### List Skills
 ```http
-GET /api/skills
+GET /api/v1/skills
 ```
 
 **Query Parameters:**
@@ -131,7 +132,7 @@ GET /api/skills
 
 **Example:**
 ```bash
-curl "https://api.tais.ai/api/skills?limit=10&minTrustScore=0.8"
+curl "https://tso.onrender.com/api/v1/skills?limit=10&minTrustScore=0.8"
 ```
 
 **Response:**
@@ -162,17 +163,17 @@ curl "https://api.tais.ai/api/skills?limit=10&minTrustScore=0.8"
 
 #### Get Skill
 ```http
-GET /api/skills/{skillHash}
+GET /api/v1/skills/{skillHash}
 ```
 
 **Example:**
 ```bash
-curl https://api.tais.ai/api/skills/0x1234...
+curl https://tso.onrender.com/api/v1/skills/0x1234...
 ```
 
 #### Register Skill
 ```http
-POST /api/skills
+POST /api/v1/skills
 ```
 
 **Request Body:**
@@ -199,90 +200,34 @@ POST /api/skills
 }
 ```
 
-#### Download Skill
-```http
-GET /api/skills/{skillHash}/download
-```
-
-Returns download URL and metadata.
-
 ### Audits
-
-#### Submit Audit
-```http
-POST /api/audits
-```
-
-**Request Body:**
-```json
-{
-  "skillHash": "0x1234...",
-  "auditor": "0x9876...",
-  "status": "SAFE",
-  "findings": [
-    {
-      "rule": "credential_theft",
-      "severity": "critical",
-      "evidence": "Access to .env file detected"
-    }
-  ],
-  "signature": "0x..."
-}
-```
 
 #### Get Skill Audits
 ```http
-GET /api/audits/skill/{skillHash}
+GET /api/v1/audits/{skillHash}
 ```
+
+Note: there is no audit-submission endpoint currently implemented - `routes/audits.ts` only defines the two GET routes above.
 
 ### Security Scanning
 
-#### Scan Skill Package
-```http
-POST /api/scan
-Content-Type: multipart/form-data
-```
-
-**Parameters:**
-- `package` (file): Skill package file (.zip)
-- `skillHash` (string): Skill hash
-
-**Example:**
-```bash
-curl -X POST https://api.tais.ai/api/scan \
-  -F "package=@skill.zip" \
-  -F "skillHash=0x1234..." \
-  -H "X-API-Key: your_api_key"
-```
-
-#### Get Scan Results
-```http
-GET /api/scan/{skillHash}
-```
-
-#### Get Security Report
-```http
-GET /api/scan/{skillHash}/report
-```
+There is a `scan.ts` route module implementing a `POST /` handler, but it is a placeholder — it always returns a fake `"clean"` result and does not run any actual scanning logic — and it is not mounted anywhere in `src/index.ts`, so it is not reachable on the running server. See [YARA.md](./YARA.md) for the current state of security scanning.
 
 ### Search
 
 #### Search Skills
 ```http
-GET /api/search?q={query}
+GET /api/v1/search?query={query}
 ```
 
 **Example:**
 ```bash
-curl "https://api.tais.ai/api/search?q=weather&limit=5"
-```
-
-#### Get Trending
-```http
-GET /api/search/trending
+curl "https://tso.onrender.com/api/v1/search?query=weather&limit=5"
 ```
 
 ### Monitoring
+
+Monitoring routes are unversioned and mounted at `/monitoring` (not under `/api/v1`).
 
 #### Get Metrics
 ```http
@@ -293,14 +238,14 @@ Returns Prometheus-compatible metrics.
 
 #### Get Dashboard
 ```http
-GET /api/monitoring/dashboard
+GET /monitoring/dashboard
 ```
 
 Returns real-time health and statistics.
 
 #### Get Performance
 ```http
-GET /api/monitoring/performance
+GET /monitoring/performance
 ```
 
 ## Error Handling
@@ -309,11 +254,11 @@ Errors follow RFC 7807 (Problem Details):
 
 ```json
 {
-  "type": "https://api.tais.ai/errors/not-found",
+  "type": "https://tso.onrender.com/errors/not-found",
   "title": "Not Found",
   "status": 404,
   "detail": "Skill with hash 0xabc123 not found",
-  "instance": "/api/skills/0xabc123"
+  "instance": "/api/v1/skills/0xabc123"
 }
 ```
 
@@ -382,33 +327,6 @@ skill = client.skills.register(
 )
 ```
 
-### cURL Examples
-
-See our [Postman collection](./TAIS-Registry.postman_collection.json) for complete examples.
-
-## Webhooks
-
-Subscribe to real-time events:
-
-```bash
-curl -X POST https://api.tais.ai/api/webhooks \
-  -H "X-API-Key: your_api_key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://your-app.com/webhook",
-    "events": ["skill.registered", "audit.submitted"],
-    "secret": "webhook_secret"
-  }'
-```
-
-### Webhook Events
-
-- `skill.registered` - New skill registered
-- `skill.approved` - Skill approved
-- `skill.blocked` - Skill blocked by community
-- `audit.submitted` - New audit submitted
-- `scan.completed` - Security scan completed
-
 ## Best Practices
 
 ### 1. Handle Pagination
@@ -420,7 +338,7 @@ let offset = 0;
 let hasMore = true;
 
 while (hasMore) {
-  const response = await fetch(`/api/skills?offset=${offset}`);
+  const response = await fetch(`/api/v1/skills?offset=${offset}`);
   const data = await response.json();
   
   // Process skills
@@ -462,7 +380,7 @@ async function getSkill(skillHash) {
     return cache.get(skillHash);
   }
   
-  const response = await fetch(`/api/skills/${skillHash}`);
+  const response = await fetch(`/api/v1/skills/${skillHash}`);
   const skill = await response.json();
   
   // Cache for 5 minutes

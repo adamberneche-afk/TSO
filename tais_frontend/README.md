@@ -2,6 +2,8 @@
 
 **Think Agent Interview System** - An interview-driven AI agent builder that generates executable configuration files through a simple Q&A process.
 
+This is the current, actively-developed frontend. An old, superseded copy is kept at [`tais-frontend-old-backup/`](../tais-frontend-old-backup/README.md) for historical reference only.
+
 ## 🎯 Overview
 
 TAIS allows anyone to create custom AI agents without coding. Just answer 7 simple questions and get a production-ready agent configuration that can be deployed anywhere.

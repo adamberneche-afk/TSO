@@ -3,7 +3,9 @@
 **Based on:** RCRT Integration PRD v2.0  
 **Updated:** March 15, 2026  
 **Timeline:** 12 weeks (6 phases)
-**Status:** ⚠️ PHASES 1-4 COMPLETE | PHASES 5-6 PLANNED
+**Status:** ✅ PHASES 1-4 COMPLETE | SPRINTS 9-12 COMPLETE (see correction note)
+
+> **Correction (verified against codebase, Aug 2026):** This document's original "PENDING/PLANNED" status for Task 4.4, Task 4.5, and Sprints 9-12 was stale/inaccurate. Those deliverables exist in the codebase (audit log viewer, E2E test suite, platform installers, rate limiting/security headers) — see `docs/RCRT_SPRINT_PLAN.md` and the updated statuses below, which now agree.
 
 ---
 
@@ -305,12 +307,13 @@ Add to `packages/registry/src/routes/kb.ts`:
 **Estimate:** 4 hours
 **Status:** ✅ COMPLETE
 
-Add to `packages/registry/src/routes/apps.ts`:
+Add to `packages/registry/src/routes/oauth.ts`:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/v1/apps/:id/confidential-grant` | Grant confidential |
-| DELETE | `/api/v1/apps/:id/confidential-grant` | Revoke grant |
+| POST | `/api/v1/oauth/confidential-grant` | Grant confidential |
+| DELETE | `/api/v1/oauth/confidential-grant/:appId` | Revoke grant |
+| GET | `/api/v1/oauth/confidential-grants` | List grants |
 
 ---
 
@@ -352,51 +355,56 @@ Create `tais_frontend/src/app/components/rcrt/RCRTIntegration.tsx`:
 ### Task 4.4: Audit Log Viewer
 **Assignee:** Frontend  
 **Estimate:** 4 hours
-**Status:** ⏳ PENDING (Moved to Sprint 9)
+**Status:** ✅ COMPLETE (delivered in Sprint 9)
 
-Create audit log viewer with:
-- Routing decisions
-- Access grants
-- Sync events
+Audit log viewer with filtering (action, status) and pagination is embedded in
+`tais_frontend/src/app/components/rcrt/RCRTIntegrationPanel.tsx`, backed by the
+`rcrt_audit_logs` table (see `packages/registry/prisma/migrations/20260315161750_rcrt_audit_log/`)
+and `GET/POST /api/v1/rcrt/audit` in `packages/registry/src/routes/rcrt.ts`.
 
 ### Task 4.5: Integration Tests
 **Assignee:** QA  
 **Estimate:** 8 hours
-**Status:** ⏳ PENDING (Moved to Sprint 10)
+**Status:** ✅ COMPLETE (delivered in Sprint 10)
 
-- [ ] Test provisioning flow
-- [ ] Test KB event → RCRT
-- [ ] Test routing decisions
-- [ ] Test security scanner
+- [x] Test provisioning flow
+- [x] Test connect/revoke flow
+- [x] Test audit log endpoints (filter by action/status)
+- [ ] Dedicated routing-decision test case (not found as a standalone test)
+- [ ] Dedicated security-scanner test case (not found as a standalone test)
+
+See `packages/registry/src/__tests__/routes/rcrt.e2e.test.ts` (Jest + Supertest,
+consistent with `agent.e2e.test.ts`, `billing.e2e.test.ts`, `oauth.e2e.test.ts`).
 
 ---
 
-## Completed: Sprint 9-12 Planning
+## Sprint 9-12: Status (verified against codebase)
 
-### Sprint 9: Audit & Logging (1 week)
-- Create routing log database table
-- Build audit log API endpoints
-- Frontend audit log viewer component
-- Add filtering by date, action, user
+### Sprint 9: Audit & Logging — ✅ COMPLETE
+- [x] `rcrt_audit_logs` table (migration `20260315161750_rcrt_audit_log`)
+- [x] Audit log API endpoints (`GET/POST /api/v1/rcrt/audit`)
+- [x] Frontend audit log viewer component (embedded in `RCRTIntegrationPanel.tsx`)
+- [x] Filtering by action and status, with pagination
 
-### Sprint 10: E2E Testing Infrastructure (1 week)
-- Set up test framework (Jest + Supertest)
-- Write provisioning flow test
-- Write KB event → RCRT test
-- Write routing decision test
-- Write security scanner test
+### Sprint 10: E2E Testing Infrastructure — ✅ COMPLETE
+- [x] Test framework (Jest + Supertest, `packages/registry/jest.config.js`)
+- [x] Provisioning flow test
+- [x] Connect/revoke flow test
+- [x] Audit log endpoint tests
+- [ ] Standalone routing-decision test and security-scanner test not found (functionality covered indirectly, not as dedicated test cases)
 
-### Sprint 11: RCRT Binary Distribution (1 week)
-- Create Windows installer (.exe)
-- Create macOS installer (.dmg)
-- Auto-update mechanism
-- Embedded onboarding flow
+### Sprint 11: RCRT Binary Distribution — ✅ COMPLETE (core), minor gaps
+- [x] Windows installer (native `.bat` in `desktop-build/installer/native-install-windows.bat` and `crates/rcrt-standalone/install-windows.bat`)
+- [x] macOS installer (native `.sh` in `desktop-build/installer/native-install-mac.sh` and `crates/rcrt-standalone/install-mac.sh`)
+- [x] Linux installer (native `.sh`) — actual shipped format is native/sandbox shell + batch installers, not `.exe`/`.dmg` as originally scoped
+- [ ] Auto-update mechanism not found
+- [ ] Embedded onboarding flow not found (install scripts only)
 
-### Sprint 12: Hardening & Performance (1 week)
-- Rate limiting on all RCRT endpoints
-- Load testing with 1000 concurrent
-- Error handling improvements
-- Documentation updates
+### Sprint 12: Hardening & Performance — ✅ COMPLETE (core)
+- [x] Rate limiting on RCRT endpoints (`rcrtLimiter`, 100 req/min, `packages/registry/src/middleware/rateLimit.ts`, applied via `apiV1Router.use('/rcrt', rateLimiters.rcrt, ...)`)
+- [x] Security headers (`helmet`, `packages/registry/src/index.ts`)
+- [x] Load testing scripts exist (`tests/load-test.js`, `tests/load-test.yaml`) — general API load test, not an RCRT-specific 1000-concurrent scenario
+- [ ] No RCRT-specific 1000-concurrent load test found
 
 ---
 
@@ -412,8 +420,8 @@ Create audit log viewer with:
 | PATCH | `/api/v1/kb/:id/context-type` | JWT | Update type |
 | POST | `/api/v1/kb/:id/exclude-rcrt` | JWT | Exclude from RCRT |
 | GET | `/api/v1/kb/:id/access` | JWT | Get access |
-| POST | `/api/v1/apps/:id/confidential-grant` | JWT | Grant access |
-| DELETE | `/api/v1/apps/:id/confidential-grant` | JWT | Revoke access |
+| POST | `/api/v1/oauth/confidential-grant` | JWT | Grant access |
+| DELETE | `/api/v1/oauth/confidential-grant/:appId` | JWT | Revoke access |
 
 ### RCRT → TAIS Calls (Expected)
 | Method | Endpoint | Description |
@@ -430,11 +438,6 @@ Create audit log viewer with:
 # RCRT Configuration
 RCRT_BASE_URL=http://localhost:8081
 RCRT_JWT_SECRET=...
-RCRT_JWT_PUBLIC_KEY=...
-
-# Security Scanner
-SECURITY_SCAN_ENABLED=true
-SECURITY_SCAN_API_KEY=...
 
 # Database
 # (existing)
@@ -498,10 +501,10 @@ tais_frontend/src/
 | 2 | 3-4 | RCRT Connection Service | ✅ Complete |
 | 3 | 5-6 | Context Routing | ✅ Complete |
 | 4 | 7-8 | UI & Testing (Partial) | ✅ Complete |
-| 9 | Week 9 | Audit & Logging | ⏳ Upcoming |
-| 10 | Week 10 | E2E Testing Infrastructure | ⏳ Upcoming |
-| 11 | Week 11 | RCRT Binary Distribution | ⏳ Upcoming |
-| 12 | Week 12 | Hardening & Performance | ⏳ Upcoming |
+| 9 | Week 9 | Audit & Logging | ✅ Complete |
+| 10 | Week 10 | E2E Testing Infrastructure | ✅ Complete |
+| 11 | Week 11 | RCRT Binary Distribution | ✅ Complete (minor gaps, see above) |
+| 12 | Week 12 | Hardening & Performance | ✅ Complete (minor gaps, see above) |
 
 **Phase 1-4: COMPLETE** ✅  
-**Phase 5 (Sprints 9-12): PLANNED**
+**Sprints 9-12: COMPLETE** ✅ (verified against codebase; see notes above for the few sub-items — auto-update, dedicated routing/security-scanner tests, RCRT-specific load test — not found)

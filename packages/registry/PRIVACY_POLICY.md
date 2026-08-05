@@ -310,7 +310,7 @@ Material changes will be notified at least 30 days in advance.
 If you have questions about this Privacy Policy or our privacy practices, contact us:
 
 **Email:** privacy@tais.ai  
-**Address:** TAIS Labs, 123 Blockchain Blvd, Web3 City, DE 12345  
+**Address:** [TODO: fill in a real registered business address before this policy is treated as legally binding - the previous value was placeholder template text, not a real address]  
 **Data Protection Officer:** dpo@tais.ai
 
 ## 16. Blockchain Privacy Considerations

@@ -245,7 +245,7 @@ We are not liable for failures due to causes beyond our reasonable control.
 For questions about these Terms, contact us at:
 
 **Email:** legal@tais.ai  
-**Address:** TAIS Labs, 123 Blockchain Blvd, Web3 City, DE 12345
+**Address:** [TODO: fill in a real registered business address before these terms are treated as legally binding - the previous value was placeholder template text, not a real address]
 
 ## 16. Skill-Specific Terms
 

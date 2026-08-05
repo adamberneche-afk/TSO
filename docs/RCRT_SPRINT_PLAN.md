@@ -4,6 +4,8 @@
 **Date:** March 15, 2026  
 **Status:** Complete
 
+> **Verified (Aug 2026):** The "ALL RCRT SPRINTS COMPLETE" claim below checks out against the codebase for the core deliverables of Sprints 9-12 (audit log viewer, E2E test suite, platform installers, RCRT rate limiting). A few narrower sub-items (auto-update mechanism, embedded onboarding flow, dedicated routing-decision/security-scanner test cases, an RCRT-specific 1000-concurrent load test) were not found — see `docs/RCRT_INTEGRATION_ENGINEERING_PLAN.md` for the itemized breakdown. `RCRT_INTEGRATION_ENGINEERING_PLAN.md` previously said Sprints 9-12 were still PENDING/PLANNED; that was stale and has been corrected to match this doc.
+
 ---
 
 ## Design Process Overview

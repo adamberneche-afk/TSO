@@ -281,9 +281,10 @@ model AgentConfiguration {
 ```
 tais_frontend/src/app/components/interview/
 ├── PersonalityStep.tsx       # New step in wizard
-├── PersonalityEditor.tsx     # Markdown editor with preview
-└── PersonalityGallery.tsx    # Community templates
+└── PersonalityEditor.tsx     # Markdown editor with preview
 ```
+
+~~`PersonalityGallery.tsx` (community templates)~~ — **DEFERRED per Decision 4** (doesn't align with North Star). Not part of this phase's task list; see the schema note above (`PersonalityTemplate` model deferred).
 
 ### Phase 3: Runtime Integration (Week 2)
 **Team:** Gamma (Runtime)  

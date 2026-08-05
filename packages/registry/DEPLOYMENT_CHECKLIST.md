@@ -72,7 +72,7 @@ This validates:
 
 ## 🚀 Deployment Steps
 
-### Option 1: Railway (Recommended for MVP)
+### Option 1: Railway (alternative path - actual production deploys to Render via the repo-root render.yaml, see DEPLOYMENT.md)
 
 1. **Install Railway CLI**
    ```bash

@@ -101,8 +101,8 @@ All demo skills have been:
 # Install weather skill
 tais install weather-api
 
-# Install with trust verification
-tais install weather-api --verify
+# Install without confirmation prompts
+tais install weather-api --yes
 ```
 
 ### 2. Use the Skill
@@ -280,8 +280,7 @@ Want to add a demo skill?
 
 ## 📚 Additional Resources
 
-- [Creating Skills Guide](../docs/CREATING_SKILLS.md)
-- [Security Best Practices](../docs/SECURITY.md)
+- [Security Best Practices](../docs/SKILL_SECURITY.md)
 - [API Reference](../packages/registry/API.md)
 
 ## 📄 License

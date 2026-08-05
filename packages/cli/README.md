@@ -214,20 +214,19 @@ Integration with the TAIS security ecosystem:
 - Interactive permission review
 - Help system and command structure
 - TypeScript compilation
+- Install command wired to real services (`SkillInstaller`, `IsnadService`, `AuditRegistry` from `@think/core`) via `TaisServiceManager`, rather than mocked logic
 
 ### 🚧 **In Progress**
 
-- Audit command implementation
+- Audit command implementation (currently simulates a successful submission rather than calling `AuditRegistry`)
 - List/remove commands
 - Configuration management
-- Integration with core services
 
 ### ❌ **Not Yet Implemented**
 
-- Real integration with SkillAdapter (currently mocked)
-- Live blockchain verification
+- Live blockchain verification (trust scores and provenance checks are placeholder values, not on-chain lookups)
 - YARA scan integration
-- Registry server connection
+- Registry server connection (remote/URL-based skill installation is not implemented; only local paths are supported)
 
 ## Usage Examples
 

@@ -1,0 +1,33 @@
+name: Documentation Link Check
+
+# Catches dead relative links in Markdown docs (files renamed/deleted/never
+# created but still linked from another doc) - added after a full docs audit
+# found ~25 instances of this across the repo. Runs in offline mode: it only
+# resolves links against files actually present in the checkout, so it won't
+# flake on external URLs / rate limits, and won't require network access.
+
+on:
+  pull_request:
+    paths:
+      - '**/*.md'
+      - '.github/workflows/doc-link-check.yml'
+      - '.lycheeignore'
+  workflow_dispatch:
+
+jobs:
+  link-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for broken relative links in Markdown
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --offline
+            --no-progress
+            --exclude-path node_modules
+            --exclude-path archive
+            --exclude-path exports
+            '**/*.md'
+          fail: true
