@@ -4,6 +4,8 @@
 **Status:** Ready for Engineering  
 **Estimated Timeline:** 2 weeks
 
+> **Note (Aug 2026):** This is a near-duplicate of `docs/THINK_TOKEN_ENGINEERING_PLAN.md`, covering the same unimplemented feature (verified: no `tierService.ts`, `subscriptionService.ts`, `StakingTiers.sol`, `routes/tier.ts`, or `routes/subscriptions.ts` exist in the repo). `THINK_TOKEN_ENGINEERING_PLAN.md` is the more complete/canonical plan (finer-grained tasks, file checklist, rollback plan); treat this doc as superseded reference material — its contract-address and tier tables are still useful, but prefer the engineering plan for execution details.
+
 ---
 
 ## Contract Addresses (Confirmed)
