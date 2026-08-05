@@ -306,20 +306,22 @@ try {
 
 ## Error Handling
 
-```typescript
-import { TAISError, TAISAuthError, TAISScopeError } from 'tais-agent-sdk';
+The SDK does not export custom error classes. Errors are either plain `Error` objects thrown by the client itself (e.g. `new Error('Not authenticated. Please authenticate first.')`) or Axios errors raised by the underlying HTTP requests. Inspect `error.message` for client-side errors, and `error.response` (status, data) for API failures:
 
+```typescript
 try {
   await tais.chat({ context, messages });
 } catch (error) {
-  if (error instanceof TAISAuthError) {
-    // Redirect to auth
-    window.location.href = authUrl;
-  } else if (error instanceof TAISScopeError) {
-    // Request additional scope
-    console.log('Missing scope:', error.requiredScope);
+  if (error.response) {
+    // Request reached the API but got an error response
+    if (error.response.status === 401) {
+      // Redirect to auth
+      window.location.href = authUrl;
+    } else {
+      console.error('API Error:', error.response.status, error.response.data);
+    }
   } else {
-    // Handle other errors
+    // Local error (e.g. not authenticated, network failure)
     console.error('SDK Error:', error.message);
   }
 }

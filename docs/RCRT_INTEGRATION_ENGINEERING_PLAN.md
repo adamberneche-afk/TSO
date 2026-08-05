@@ -305,12 +305,13 @@ Add to `packages/registry/src/routes/kb.ts`:
 **Estimate:** 4 hours
 **Status:** ✅ COMPLETE
 
-Add to `packages/registry/src/routes/apps.ts`:
+Add to `packages/registry/src/routes/oauth.ts`:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/v1/apps/:id/confidential-grant` | Grant confidential |
-| DELETE | `/api/v1/apps/:id/confidential-grant` | Revoke grant |
+| POST | `/api/v1/oauth/confidential-grant` | Grant confidential |
+| DELETE | `/api/v1/oauth/confidential-grant/:appId` | Revoke grant |
+| GET | `/api/v1/oauth/confidential-grants` | List grants |
 
 ---
 
@@ -412,8 +413,8 @@ Create audit log viewer with:
 | PATCH | `/api/v1/kb/:id/context-type` | JWT | Update type |
 | POST | `/api/v1/kb/:id/exclude-rcrt` | JWT | Exclude from RCRT |
 | GET | `/api/v1/kb/:id/access` | JWT | Get access |
-| POST | `/api/v1/apps/:id/confidential-grant` | JWT | Grant access |
-| DELETE | `/api/v1/apps/:id/confidential-grant` | JWT | Revoke access |
+| POST | `/api/v1/oauth/confidential-grant` | JWT | Grant access |
+| DELETE | `/api/v1/oauth/confidential-grant/:appId` | JWT | Revoke access |
 
 ### RCRT → TAIS Calls (Expected)
 | Method | Endpoint | Description |
@@ -430,11 +431,6 @@ Create audit log viewer with:
 # RCRT Configuration
 RCRT_BASE_URL=http://localhost:8081
 RCRT_JWT_SECRET=...
-RCRT_JWT_PUBLIC_KEY=...
-
-# Security Scanner
-SECURITY_SCAN_ENABLED=true
-SECURITY_SCAN_API_KEY=...
 
 # Database
 # (existing)

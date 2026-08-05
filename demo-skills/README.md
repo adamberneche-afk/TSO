@@ -101,8 +101,8 @@ All demo skills have been:
 # Install weather skill
 tais install weather-api
 
-# Install with trust verification
-tais install weather-api --verify
+# Install without confirmation prompts
+tais install weather-api --yes
 ```
 
 ### 2. Use the Skill
