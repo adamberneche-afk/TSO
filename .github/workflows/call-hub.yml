@@ -38,11 +38,17 @@ jobs:
         run: |
           echo "mode=${{ inputs.mode }}" >> $GITHUB_OUTPUT
       - name: Send Payload to Hub
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+          # Only needed if the hub's Vercel deployment has Deployment
+          # Protection enabled - see README.md on the hub repo (Mothership).
+          VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
         run: |
-          curl -X POST https://ai-cto-hub.vercel.app/api/autonomous_agent \
-          -H "Content-Type: application/json" \
-          -d '{
-            "owner": "${{ github.repository_owner }}",
-            "repo": "${{ github.event.repository.name }}",
-            "mode": "${{ steps.mode.outputs.mode }}"
-          }'
+          curl -X POST "${VERCEL_URL}/api/autonomous_agent" \
+            -H "Content-Type: application/json" \
+            -H "x-vercel-protection-bypass: ${VERCEL_BYPASS_TOKEN}" \
+            -d '{
+              "owner": "${{ github.repository_owner }}",
+              "repo": "${{ github.event.repository.name }}",
+              "mode": "${{ steps.mode.outputs.mode }}"
+            }'
