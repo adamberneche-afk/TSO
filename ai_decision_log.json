@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "timestamp": "2026-08-13T12:52:00.000Z",
+    "mode": "debug",
+    "commitSha": "d020c799cae4162f5eeb03edb7d23caba30aed45",
+    "outcome": "dry_run_would_create",
+    "issueUrl": null,
+    "summary": "Add a fail-fast guard so the workflow errors clearly when VERCEL_URL is unset, instead of curl failing on an unparseable relative URL."
+  }
+]
