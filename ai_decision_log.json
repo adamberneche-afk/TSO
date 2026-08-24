@@ -6,5 +6,13 @@
     "outcome": "dry_run_would_create",
     "issueUrl": null,
     "summary": "Add a fail-fast guard so the workflow errors clearly when VERCEL_URL is unset, instead of curl failing on an unparseable relative URL."
+  },
+  {
+    "timestamp": "2026-08-24T00:00:00.000Z",
+    "mode": "debug",
+    "commitSha": "ac65a403aaf3f0f0232d011e25ce0f31ad761830",
+    "outcome": "no_findings",
+    "issueUrl": null,
+    "summary": "Latest commit is a bot-authored weekly issue-export data dump (exports/*.json, exports/*.md) - no source code to review. Two related hub-side gaps this exposed (bot commits aren't skipped; NORTH_STAR.md living off-root at archive/outdated/ silently discards this repo's otherwise-real lessons.md too) were filed on Mothership instead, since the fix belongs in the hub's own code."
   }
 ]
