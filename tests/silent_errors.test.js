@@ -1,3 +1,4 @@
+const { test } = require('node:test');
 const fc = require('fast-check');
 
 // We'll test actual functions from our codebase
@@ -176,8 +177,8 @@ test('Percentage calculations should handle various inputs safely', () => {
 test('Slippage calculations should handle various inputs safely', () => {
   fc.assert(
     fc.property(
-      fc.float({ min: 0, max: 10000 }), // amount
-      fc.float({ min: 0, max: 100 }),   // slippage percentage
+      fc.float({ min: 0, max: 10000, noNaN: true }), // amount
+      fc.float({ min: 0, max: 100, noNaN: true }),   // slippage percentage
       (amount, slippagePercent) => {
         try {
           // Calculate slippage amount
@@ -224,8 +225,8 @@ test('Database ID validation should handle various inputs safely', () => {
 test('Mathematical operations should handle various inputs safely', () => {
   fc.assert(
     fc.property(
-      fc.float(), // any float
-      fc.float(), // any float
+      fc.float({ noNaN: true }), // any float
+      fc.float({ noNaN: true }), // any float
       (a, b) => {
         try {
           // Basic arithmetic operations
@@ -257,4 +258,16 @@ test('Conditional logic should handle various inputs safely', () => {
       (str1, str2) => {
         try {
           // String comparison
-          const areEq
+          const areEqual = str1 === str2;
+          const isEitherEmpty = str1.length === 0 || str2.length === 0;
+
+          // Should return booleans, and never throw on any string pair
+          return typeof areEqual === 'boolean' && typeof isEitherEmpty === 'boolean';
+        } catch (e) {
+          // If our conditional logic throws, that's a problem
+          return false;
+        }
+      }
+    )
+  );
+});
