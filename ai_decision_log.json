@@ -14,5 +14,21 @@
     "outcome": "no_findings",
     "issueUrl": null,
     "summary": "Latest commit is a bot-authored weekly issue-export data dump (exports/*.json, exports/*.md) - no source code to review. Two related hub-side gaps this exposed (bot commits aren't skipped; NORTH_STAR.md living off-root at archive/outdated/ silently discards this repo's otherwise-real lessons.md too) were filed on Mothership instead, since the fix belongs in the hub's own code."
+  },
+  {
+    "timestamp": "2026-08-24T00:30:00.000Z",
+    "mode": "hunt",
+    "commitSha": "ac65a403aaf3f0f0232d011e25ce0f31ad761830",
+    "outcome": "bot_or_generated_commit_skip",
+    "issueUrl": null,
+    "summary": "Re-run using the fixed (post-#35) handler - this bot-authored, exports/-only commit is now mechanically skipped before any AI call, in every mode. Confirms the fix works as intended."
+  },
+  {
+    "timestamp": "2026-08-24T00:30:00.000Z",
+    "mode": "refactor",
+    "commitSha": "ac65a403aaf3f0f0232d011e25ce0f31ad761830",
+    "outcome": "bot_or_generated_commit_skip",
+    "issueUrl": null,
+    "summary": "Same fixed-handler skip as the hunt pass above - mechanical, no AI call made."
   }
 ]
