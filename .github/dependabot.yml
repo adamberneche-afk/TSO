@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # Root package.json and its npm workspaces (packages/*, integration-example)
+  # - Dependabot's npm ecosystem follows the `workspaces` field automatically,
+  # so this one entry covers every workspace package too.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # tais_frontend has its own package.json/lockfile and is NOT one of the
+  # root's declared workspaces, so it needs its own entry.
+  - package-ecosystem: "npm"
+    directory: "/tais_frontend"
+    schedule:
+      interval: "weekly"
+
+  # tais-frontend-old-backup is exactly what its name says - a superseded
+  # copy, not an actively deployed surface - so it's deliberately left
+  # unwatched rather than generating update noise for dead code.
+
+  # The Rust workspace (Cargo.toml + crates/rcrt-standalone).
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # GitHub Actions itself (actions/checkout, actions/setup-node, etc.) -
+  # covers .github/workflows/*.yml.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
