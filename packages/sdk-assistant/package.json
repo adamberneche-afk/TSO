@@ -21,7 +21,7 @@
   "author": "TAIS Platform",
   "license": "MIT",
   "dependencies": {
-    "chalk": "^4.1.2",
+    "chalk": "^6.0.0",
     "commander": "^11.1.0",
     "inquirer": "^8.2.5",
     "ora": "^5.4.1",
