@@ -5,7 +5,7 @@ const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 async function analyzeIssues() {
   // Fetch ALL issues (open/closed) - GitHub API handles pagination
   const { data: issues } = await octokit.issues.listForRepo({
-    owner: "amberneche-afk",
+    owner: "adamberneche-afk",
     repo: "TSO",
     state: "all",
     per_page: 100

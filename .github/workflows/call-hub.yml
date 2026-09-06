@@ -36,7 +36,7 @@ jobs:
       - name: Determine Mode
         id: mode
         run: |
-          echo "mode=${{ inputs.mode }}" >> $GITHUB_OUTPUT
+          echo "mode=${{ inputs.mode }}" >> "$GITHUB_OUTPUT"
       - name: Send Payload to Hub
         env:
           VERCEL_URL: ${{ secrets.VERCEL_URL }}
