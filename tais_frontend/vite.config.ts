@@ -19,9 +19,19 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+        // Vite 8's rolldown-based bundler requires manualChunks as a
+        // function; the rollup-style object form is no longer accepted.
+        manualChunks(id) {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'vendor-react'
+          }
+          if (
+            id.includes('@radix-ui/react-dialog') ||
+            id.includes('@radix-ui/react-dropdown-menu') ||
+            id.includes('@radix-ui/react-select')
+          ) {
+            return 'vendor-ui'
+          }
         },
       },
     },
