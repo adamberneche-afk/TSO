@@ -21,9 +21,12 @@ jobs:
           node-version: '22'
 
       - name: Install Dependencies
-        run: |
-          npm ci
-          npx prisma generate  # Ensures Prisma types are fresh
+        run: npm ci
+        # health-analyzer.js only calls the GitHub REST API via @octokit/rest -
+        # it never touches Prisma, so there's no schema to generate here (and
+        # none exists at repo root; the real schema lives under
+        # packages/registry/prisma). A prior version of this step ran
+        # `npx prisma generate` unconditionally, which failed every run.
 
       - name: Run Health Analysis
         env:
