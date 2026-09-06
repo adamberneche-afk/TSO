@@ -2,6 +2,7 @@
   "name": "@think/cli",
   "version": "1.0.0",
   "description": "TAIS Skill Security CLI - Install and manage secure agent skills",
+  "type": "module",
   "main": "dist/index.js",
   "bin": {
     "tais": "dist/index.js"
@@ -24,7 +25,7 @@
   "license": "MIT",
   "dependencies": {
     "commander": "^11.1.0",
-    "chalk": "^4.1.2",
+    "chalk": "^6.0.0",
     "ora": "^5.4.1",
     "inquirer": "^8.2.6",
     "fs-extra": "^11.1.1",

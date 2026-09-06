@@ -2,12 +2,12 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { startCommand } from './commands/start';
-import { configCommand } from './commands/config';
-import { testCommand } from './commands/test';
-import { initCommand } from './commands/init';
-import { statusCommand } from './commands/status';
-import { analyticsCommand } from './commands/analytics';
+import { startCommand } from './commands/start.js';
+import { configCommand } from './commands/config.js';
+import { testCommand } from './commands/test.js';
+import { initCommand } from './commands/init.js';
+import { statusCommand } from './commands/status.js';
+import { analyticsCommand } from './commands/analytics.js';
 
 const program = new Command();
 

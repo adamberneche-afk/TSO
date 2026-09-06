@@ -1,7 +1,7 @@
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import ora from 'ora';
-import { loadConfig, saveConfig } from './init';
+import { loadConfig, saveConfig } from './init.js';
 import { TAISClient } from 'tais-rag-sdk';
 
 interface OnboardingStep {

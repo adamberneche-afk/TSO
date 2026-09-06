@@ -2,12 +2,12 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { installCommand } from './commands/install';
-import { auditCommand } from './commands/audit';
-import { listCommand } from './commands/list';
-import { removeCommand } from './commands/remove';
-import { verifyCommand } from './commands/verify';
-import { configCommand } from './commands/config';
+import { installCommand } from './commands/install.js';
+import { auditCommand } from './commands/audit.js';
+import { listCommand } from './commands/list.js';
+import { removeCommand } from './commands/remove.js';
+import { verifyCommand } from './commands/verify.js';
+import { configCommand } from './commands/config.js';
 
 const program = new Command();
 

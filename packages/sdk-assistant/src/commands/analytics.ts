@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import ora from 'ora';
-import { loadConfig } from './init';
+import { loadConfig } from './init.js';
 
 interface AnalyticsData {
   period: string;

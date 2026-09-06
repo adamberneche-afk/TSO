@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import ora from 'ora';
-import { loadConfig } from './init';
+import { loadConfig } from './init.js';
 import { TAISClient } from 'tais-rag-sdk';
 
 export async function testCommand(options: { method: string; path: string }): Promise<void> {

@@ -4,7 +4,7 @@ import inquirer from 'inquirer';
 import fs from 'fs';
 import path from 'path';
 import { SkillManifest } from '@think/types';
-import { TaisServiceManager } from '../services/TaisServiceManager';
+import { TaisServiceManager } from '../services/TaisServiceManager.js';
 
 export async function installCommand(skill: string, options: any) {
   const spinner = ora();
