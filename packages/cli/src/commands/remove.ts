@@ -3,7 +3,7 @@ import ora from 'ora';
 import inquirer from 'inquirer';
 import fs from 'fs';
 import path from 'path';
-import { TaisServiceManager } from '../services/TaisServiceManager';
+import { TaisServiceManager } from '../services/TaisServiceManager.js';
 
 interface InstalledSkill {
   name: string;

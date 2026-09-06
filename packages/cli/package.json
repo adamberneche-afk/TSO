@@ -2,6 +2,7 @@
   "name": "@think/cli",
   "version": "1.0.0",
   "description": "TAIS Skill Security CLI - Install and manage secure agent skills",
+  "type": "module",
   "main": "dist/index.js",
   "bin": {
     "tais": "dist/index.js"
