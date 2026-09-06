@@ -1,4 +1,4 @@
-import { init, configureScope, captureException, captureMessage, withScope } from '@sentry/node';
+import { init, getCurrentScope, captureException, captureMessage, withScope } from '@sentry/node';
 import type { Express } from 'express';
 
 export function initializeSentry(app: Express): void {
@@ -36,14 +36,13 @@ export function initializeSentry(app: Express): void {
   });
 
   // Configure scope with additional context
-  configureScope((scope) => {
-    scope.setTag('service', 'tais-registry');
-    scope.setTag('version', process.env.npm_package_version || '1.0.0');
-    
-    if (process.env.RAILWAY_SERVICE_NAME) {
-      scope.setTag('deployment', process.env.RAILWAY_SERVICE_NAME);
-    }
-  });
+  const scope = getCurrentScope();
+  scope.setTag('service', 'tais-registry');
+  scope.setTag('version', process.env.npm_package_version || '1.0.0');
+
+  if (process.env.RAILWAY_SERVICE_NAME) {
+    scope.setTag('deployment', process.env.RAILWAY_SERVICE_NAME);
+  }
 
   console.log('✅ Sentry initialized for error tracking');
 }
@@ -54,14 +53,12 @@ export function setupRequestHandler(app: Express): void {
   // The request handler must be the first middleware
   app.use((req, res, next) => {
     // Add request context
-    configureScope((scope) => {
-      scope.setContext('request', {
-        url: req.url,
-        method: req.method,
-        headers: {
-          'user-agent': req.headers['user-agent'],
-        },
-      });
+    getCurrentScope().setContext('request', {
+      url: req.url,
+      method: req.method,
+      headers: {
+        'user-agent': req.headers['user-agent'],
+      },
     });
     next();
   });
