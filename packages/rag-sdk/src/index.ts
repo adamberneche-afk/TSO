@@ -459,5 +459,5 @@ export class TAISAPIError extends Error {
   }
 }
 
-export * from './crypto';
+export * from './crypto.js';
 export default TAISClient;

@@ -2,6 +2,7 @@
   "name": "tais-rag-sdk",
   "version": "1.2.0",
   "description": "TAIS RAG SDK for third-party developers - requires Genesis NFT (Gold tier)",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
