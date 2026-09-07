@@ -102,20 +102,70 @@ fn get_data_dir() -> PathBuf {
 
 fn load_db(data_dir: &std::path::Path) -> Database {
     let db_path = data_dir.join("db.json");
-    if db_path.exists() {
-        if let Ok(data) = fs::read_to_string(&db_path) {
-            if let Ok(db) = serde_json::from_str(&data) {
-                return db;
+    if !db_path.exists() {
+        // No file yet -- genuinely a fresh install, not corruption.
+        return Database::default();
+    }
+
+    let data = match fs::read_to_string(&db_path) {
+        Ok(data) => data,
+        Err(e) => {
+            eprintln!("⚠️  Failed to read {:?}: {} -- starting with an empty database in memory. The existing file is left untouched on disk.", db_path, e);
+            return Database::default();
+        }
+    };
+
+    match serde_json::from_str(&data) {
+        Ok(db) => db,
+        Err(e) => {
+            // The file exists but isn't valid JSON -- e.g. truncated by a
+            // crash or kill mid-write. Silently falling back to an empty
+            // Database used to be fine on its own, but save_db() would then
+            // overwrite this same path with that empty state on the very
+            // next mutation (or within 30s, via the periodic save loop),
+            // permanently destroying whatever was recoverable in the
+            // corrupt file. Preserve it before returning empty, so a
+            // corrupted-but-partially-intact file is never silently lost.
+            let backup_path = data_dir.join(format!("db.json.corrupt.{}", now()));
+            match fs::rename(&db_path, &backup_path) {
+                Ok(()) => eprintln!(
+                    "⚠️  {:?} is not valid JSON ({}) -- preserved the corrupt file as {:?} and starting with an empty database.",
+                    db_path, e, backup_path
+                ),
+                Err(rename_err) => eprintln!(
+                    "⚠️  {:?} is not valid JSON ({}), and failed to back it up ({}) -- starting with an empty database, but the corrupt file is still at {:?}. Do not delete it; a future save will overwrite it.",
+                    db_path, e, rename_err, db_path
+                ),
             }
+            Database::default()
         }
     }
-    Database::default()
 }
 
 fn save_db(data_dir: &std::path::Path, db: &Database) {
     let db_path = data_dir.join("db.json");
-    if let Ok(data) = serde_json::to_string_pretty(db) {
-        fs::write(db_path, data).ok();
+    let data = match serde_json::to_string_pretty(db) {
+        Ok(data) => data,
+        Err(e) => {
+            eprintln!("⚠️  Failed to serialize database, not saving: {}", e);
+            return;
+        }
+    };
+
+    // Write to a temp file and rename over the real path, rather than
+    // fs::write()-ing db.json directly: a direct write truncates the file
+    // before the new content is fully flushed, so a crash/kill mid-write
+    // leaves db.json corrupt (exactly the case load_db() above has to
+    // recover from). rename() within the same directory is atomic on both
+    // Unix and Windows, so db.json is either the old complete content or
+    // the new complete content -- never a half-written mix.
+    let tmp_path = data_dir.join("db.json.tmp");
+    if let Err(e) = fs::write(&tmp_path, &data) {
+        eprintln!("⚠️  Failed to write {:?}: {}", tmp_path, e);
+        return;
+    }
+    if let Err(e) = fs::rename(&tmp_path, &db_path) {
+        eprintln!("⚠️  Failed to replace {:?} with {:?}: {}", db_path, tmp_path, e);
     }
 }
 
