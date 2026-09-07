@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
 import { YaraScanner, SecurityScanResult } from '../services/yaraScanner';
+import { securityScannerService } from '../services/securityScannerService';
 
 // Extend Express Request type to include our custom properties
 interface AuthenticatedRequest extends Request {
@@ -46,6 +47,21 @@ function summarizeResult(result: SecurityScanResult) {
 // yaraScanner (or securityScannerService) at all, and the router wasn't even
 // mounted in index.ts, so none of it was reachable. It's now backed by the
 // real YaraScanner, and is mounted (authenticated) at /api/v1/scan.
+//
+// securityScannerService.ts (a second, simpler regex-based scanner) used to
+// sit entirely unwired alongside this -- unreachable from any route, same
+// as this whole endpoint used to be (see YARA.md, "Worth a decision"). Its
+// exploit/malware detectors duplicate yaraScanner's process-injection/
+// credential-theft/data-exfiltration rules with cruder regexes (e.g.
+// treating any 16 consecutive digits as a "credit card", or any `$(` as
+// command injection) -- not worth wiring in on top of a scanner that
+// already covers that ground with a real severity model. Its PII
+// detector (SSN/credit-card/email/phone patterns), though, catches
+// something yaraScanner's rule set doesn't attempt at all, so it's wired
+// in here as an additional, advisory-only signal: it never affects the
+// blocking severity/success verdict below, since these patterns are
+// approximate (a 10-digit number is not always a phone number) and
+// blocking real publishes on them would be its own new bug.
 router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { content, encoding, filename } = req.body || {};
@@ -64,14 +80,22 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunc
     const result = await scanner.scanBuffer(buffer, skillHash, filename || 'upload');
     const body = summarizeResult(result);
 
+    const piiThreats = await securityScannerService.detectPII(buffer.toString('utf8'));
+
     req.log?.info(
-      { wallet: req.user?.walletAddress, severity: result.severity, matched: result.summary.matchedRules },
+      {
+        wallet: req.user?.walletAddress,
+        severity: result.severity,
+        matched: result.summary.matchedRules,
+        piiMatches: piiThreats.length,
+      },
       'Content security scan completed'
     );
 
     res.status(result.severity === 'malicious' ? 403 : 200).json({
       success: result.severity !== 'malicious',
       ...body,
+      piiFindings: piiThreats.map(t => ({ type: t.type, severity: t.severity, description: t.description })),
     });
   } catch (error) {
     req.log?.error({ error }, 'Error in scan endpoint');

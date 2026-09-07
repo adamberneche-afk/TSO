@@ -5,6 +5,11 @@
 // called yaraScanner (or securityScannerService), and scanRoutes was never
 // imported/mounted in index.ts at all, so none of it -- not even the
 // placeholder -- was reachable on a running server.
+//
+// securityScannerService.ts used to sit unwired even after the above was
+// fixed -- it's now wired in as an advisory-only PII signal (see the
+// comment in scan.ts for why only its PII detector, not its cruder
+// exploit/malware detectors, was worth wiring in on top of yaraScanner).
 
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
@@ -65,5 +70,28 @@ describe('POST /api/v1/scan', () => {
       .send({});
 
     expect(response.status).toBe(400);
+  });
+
+  it('surfaces PII findings as an advisory signal, without blocking the scan', async () => {
+    const response = await request(app)
+      .post('/api/v1/scan')
+      .set('Authorization', `Bearer ${authToken(WALLET)}`)
+      .send({ content: 'Contact support at not-a-real-address@example.com for help.' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.result).toBe('safe');
+    expect(response.body.piiFindings).toBeDefined();
+    expect(response.body.piiFindings.some((f: any) => f.type === 'pii')).toBe(true);
+  });
+
+  it('does not flag content with no PII patterns', async () => {
+    const response = await request(app)
+      .post('/api/v1/scan')
+      .set('Authorization', `Bearer ${authToken(WALLET)}`)
+      .send({ content: 'This is a simple test skill that says hello world.' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.piiFindings).toEqual([]);
   });
 });

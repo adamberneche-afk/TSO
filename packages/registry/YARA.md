@@ -138,14 +138,24 @@ uploaded package through the same scanner; see `POST /api/v1/skills` in
 | `yaraScanner.ts` scanning logic | Implemented, functional |
 | `POST /api/v1/scan` | Real — mounted, authenticated, backed by the real scanner |
 | Skill publish path (`POST /api/v1/skills`) | Scans package content via IPFS + the real scanner before persisting; `malicious` blocks the publish |
-| `securityScannerService.ts` (a separate, simpler regex-based scanner) | Implemented, but still not referenced from any route — a second, unrelated scanning implementation left as dead code |
+| `securityScannerService.ts` (a separate, simpler regex-based scanner) | Its PII detector is now wired into `POST /api/v1/scan` as an advisory-only `piiFindings` field; its exploit/malware detectors are still unused (see below) |
 | `yara-rules/*.yar` files in repo | **Do not exist** (gitignored, generated only) — rules live in code |
 
 `securityScannerService.ts` is a distinct, simpler pattern-matching class
 (exploit/malware/PII detection) that predates or duplicates parts of
-`yaraScanner.ts`'s pattern-mode backend; it is unrelated to the scan
-endpoint above and still isn't wired into anything. Worth a decision
-(merge, delete, or find it a separate purpose) in a future cleanup pass.
+`yaraScanner.ts`'s pattern-mode backend. The decision made on it: its PII
+detector (SSN/credit-card/email/phone patterns) catches something
+`yaraScanner.ts`'s rule set doesn't attempt at all, so `POST /api/v1/scan`
+(`routes/scan.ts`) now also calls `detectPII()` and returns its results as
+an advisory-only `piiFindings` field — it never affects the blocking
+`success`/`result` verdict, since the patterns are approximate (e.g. any
+10-digit number reads as a "phone number") and blocking real scans/publishes
+on them would be its own new bug. Its `detectExploits`/`detectMalware`
+methods were deliberately left unused: they duplicate `yaraScanner.ts`'s
+process-injection/credential-theft/data-exfiltration rules with cruder
+regexes (e.g. any 16 consecutive digits as a "credit card", any `$(` as
+command injection) and add nothing on top of a scanner that already covers
+that ground with a real, already-integrated severity model.
 
 ## References
 
