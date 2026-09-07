@@ -37,7 +37,7 @@ import { requestIdMiddleware } from './middleware/requestId';
 // Squad Alpha - Authentication
 import { AuthService } from './services/auth';
 import { ApiKeyService } from './services/apiKey';
-import { authenticateToken } from './middleware/auth';
+import { authenticateToken, optionalAuth } from './middleware/auth';
 import { createAdminMiddleware } from './middleware/admin';
 
 // Squad Beta - Access Control & Validation
@@ -94,6 +94,7 @@ const nftService = new NFTVerificationService({
 
 // Create middleware instances
 const authMiddleware = authenticateToken(authService);
+const optionalAuthMiddleware = optionalAuth(authService);
 const adminMiddleware = createAdminMiddleware();
 const publisherNftMiddleware = requirePublisherNFT(nftService);
 const auditorNftMiddleware = requireAuditorNFT(nftService);
@@ -320,6 +321,32 @@ apiV1Router.use('/enterprise', rateLimiters.authenticated, authMiddleware, creat
 apiV1Router.use('/memory', createMemoryBackupRoutes(skillsPrisma, logger));
 apiV1Router.use('/rcrt', rateLimiters.rcrt, createRCRTRoutes(ragPrisma, logger));
 apiV1Router.use('/kb', createKBRoutes(prisma, logger));
+
+// ============================================
+// Analytics Routes
+// SDK/CTO-agent usage telemetry and weekly insights
+// ============================================
+//
+// createAnalyticsRoutes was implemented but never imported/mounted here at
+// all, so none of it (including its aggregate insights/summary/reports
+// endpoints) was reachable on a running server. POST /track doesn't
+// require authentication -- it records anonymous SDK session telemetry
+// that can legitimately arrive before a wallet is ever connected -- but it
+// does run optionalAuth so an authenticated caller's verified wallet (not
+// an unverifiable client-submitted one) is what gets recorded when
+// present (see routes/analytics.ts). The GET endpoints expose aggregate
+// platform-wide usage stats (session/error counts, active wallets) and
+// are gated the same way '/monitoring' is.
+import { createAnalyticsRoutes } from './routes/analytics';
+apiV1Router.use('/analytics',
+  (req: any, res: any, next: any) => {
+    if (req.method === 'GET') {
+      return applyMiddlewareChain([authMiddleware, adminMiddleware])(req, res, next);
+    }
+    return optionalAuthMiddleware(req, res, next);
+  },
+  createAnalyticsRoutes(prisma, logger)
+);
 
 // ============================================
 // Security Scanning Routes
