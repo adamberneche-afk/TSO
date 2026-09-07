@@ -332,7 +332,14 @@ import { metricsMiddleware } from './monitoring/metrics';
 apiV1Router.use(metricsMiddleware);
 
 // Monitoring routes (unversioned, accessible at /monitoring)
-app.use('/monitoring', monitoringRoutes);
+//
+// Previously mounted with no auth at all: the dashboard (internal
+// system/DB/redis/cache stats), the Prometheus metrics dump, and
+// /alerts/test (which sends a real outbound email via SendGrid on every
+// call) were all reachable by anyone on the internet. Gated the whole
+// router behind the same authMiddleware+adminMiddleware pair used for
+// '/admin', since none of this is meant for public consumption.
+app.use('/monitoring', authMiddleware, adminMiddleware, monitoringRoutes);
 
 // Admin migration fix endpoint (run once to fix failed migrations)
 //
