@@ -46,6 +46,7 @@ export const oauthApi = {
     redirectUris: string[],
     wallet: string,
     signature: string,
+    timestamp: number,
     options?: {
       description?: string;
       websiteUrl?: string;
@@ -60,6 +61,7 @@ export const oauthApi = {
         redirectUris,
         wallet,
         signature,
+        timestamp,
         ...options,
       }
     });

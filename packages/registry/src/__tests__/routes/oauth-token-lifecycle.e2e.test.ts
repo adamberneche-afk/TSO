@@ -1,6 +1,7 @@
 import request from 'supertest';
 import crypto from 'crypto';
 import app from '../../index';
+import { createTestWallet, signRegisterAppChallenge, signApproveChallenge } from '../testSigning';
 
 // Regression test for the OAuth/Agent token-hashing bug: routes/oauth.ts and
 // routes/agent.ts stored access/refresh tokens with
@@ -16,7 +17,8 @@ import app from '../../index';
 // (not mocks), so it only passes if every lookup actually finds the row it
 // wrote.
 
-const TEST_WALLET = '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E';
+const testWallet = createTestWallet();
+const TEST_WALLET = testWallet.address;
 
 describe('OAuth token lifecycle E2E (hashToken regression)', () => {
   let appId: string;
@@ -24,15 +26,19 @@ describe('OAuth token lifecycle E2E (hashToken regression)', () => {
 
   beforeAll(async () => {
     appId = 'token-lifecycle-' + crypto.randomBytes(4).toString('hex');
+    const appName = 'Token Lifecycle Test App';
+
+    const { signature, timestamp } = await signRegisterAppChallenge(testWallet, { appId, name: appName });
 
     const registerResponse = await request(app)
       .post('/api/v1/oauth/register-app')
       .send({
         appId,
-        name: 'Token Lifecycle Test App',
+        name: appName,
         redirectUris: ['http://localhost:3000/callback'],
         wallet: TEST_WALLET,
-        signature: '0xsignature',
+        signature,
+        timestamp,
       })
       .expect(200);
 
@@ -41,11 +47,12 @@ describe('OAuth token lifecycle E2E (hashToken regression)', () => {
 
   it('completes the full authorize -> approve -> token -> agent context -> revoke round trip', async () => {
     // 1. Kick off an authorization request.
+    const scopes = ['agent:identity:read', 'agent:memory:read'];
     const authorizeResponse = await request(app)
       .get('/api/v1/oauth/authorize')
       .query({
         app_id: appId,
-        scopes: 'agent:identity:read,agent:memory:read',
+        scopes: scopes.join(','),
         redirect_uri: 'http://localhost:3000/callback',
         wallet: TEST_WALLET,
       })
@@ -56,12 +63,13 @@ describe('OAuth token lifecycle E2E (hashToken regression)', () => {
 
     // 2. Approve it. This is the first write of a hashed access/refresh
     // token pair.
+    const approveSignature = await signApproveChallenge(testWallet, { appId, scopes, authorizationId });
     const approveResponse = await request(app)
       .post('/api/v1/oauth/approve')
       .send({
         authorizationId,
         wallet: TEST_WALLET,
-        signature: '0xsignature',
+        signature: approveSignature,
       })
       .expect(200);
 

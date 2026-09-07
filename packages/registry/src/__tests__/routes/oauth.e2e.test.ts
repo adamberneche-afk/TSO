@@ -1,8 +1,10 @@
 import request from 'supertest';
 import crypto from 'crypto';
 import app from '../../index';
+import { createTestWallet, signRegisterAppChallenge } from '../testSigning';
 
-const TEST_WALLET = '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E';
+const testWallet = createTestWallet();
+const TEST_WALLET = testWallet.address;
 const TEST_WALLET_2 = '0x8Ba1f109551bD432803012645Ac136ddd64DBA72';
 
 describe('OAuth E2E', () => {
@@ -14,9 +16,8 @@ describe('OAuth E2E', () => {
   describe('App Registration', () => {
     it('should register a new app', async () => {
       appId = 'test-app-' + crypto.randomBytes(4).toString('hex');
-      
-      const signChallenge = `TAIS App Registration\n\nApp ID: ${appId}\nApp Name: Test App\nWallet: ${TEST_WALLET}\nTimestamp: ${Date.now()}`;
-      const signature = '0xsignature'; // Mock signature
+
+      const { signature, timestamp } = await signRegisterAppChallenge(testWallet, { appId, name: 'Test App' });
 
       const response = await request(app)
         .post('/api/v1/oauth/register-app')
@@ -30,6 +31,7 @@ describe('OAuth E2E', () => {
           developerName: 'Test Dev',
           wallet: TEST_WALLET,
           signature,
+          timestamp,
         })
         .expect(200);
 
@@ -40,6 +42,9 @@ describe('OAuth E2E', () => {
     });
 
     it('should reject duplicate app ID', async () => {
+      // Duplicate-appId is checked before signature verification, so a
+      // placeholder signature is fine here -- only a real timestamp is
+      // needed to pass the field-presence check.
       const response = await request(app)
         .post('/api/v1/oauth/register-app')
         .send({
@@ -48,6 +53,7 @@ describe('OAuth E2E', () => {
           redirectUris: ['http://localhost:3000/callback'],
           wallet: TEST_WALLET,
           signature: '0xsignature',
+          timestamp: Date.now(),
         })
         .expect(409);
 

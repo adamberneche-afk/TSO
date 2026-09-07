@@ -256,9 +256,13 @@ export function DeveloperPortal({ onBack }: DeveloperPortalProps) {
     try {
       setRegistering(true);
       
-      // Sign registration challenge
-      const challenge = `TAIS App Registration\n\nApp ID: ${registerForm.appId}\nApp Name: ${registerForm.name}\nWallet: ${wallet.address}\nTimestamp: ${Date.now()}`;
-      
+      // Sign registration challenge. The timestamp has to travel with the
+      // request -- the server can't re-derive it, and reconstructing the
+      // challenge with its own Date.now() would never match what was
+      // actually signed.
+      const timestamp = Date.now();
+      const challenge = `TAIS App Registration\n\nApp ID: ${registerForm.appId}\nApp Name: ${registerForm.name}\nWallet: ${wallet.address}\nTimestamp: ${timestamp}`;
+
       const signature = await window.ethereum.request({
         method: 'personal_sign',
         params: [challenge, wallet.address],
@@ -270,6 +274,7 @@ export function DeveloperPortal({ onBack }: DeveloperPortalProps) {
         redirectUrisArray,
         wallet.address,
         signature,
+        timestamp,
         {
           description: registerForm.description || undefined,
           websiteUrl: registerForm.websiteUrl || undefined,

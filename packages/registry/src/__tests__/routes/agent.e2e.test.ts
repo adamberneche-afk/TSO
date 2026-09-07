@@ -1,8 +1,10 @@
 import request from 'supertest';
 import crypto from 'crypto';
 import app from '../../index';
+import { createTestWallet, signRegisterAppChallenge } from '../testSigning';
 
-const TEST_WALLET = '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E';
+const testWallet = createTestWallet();
+const TEST_WALLET = testWallet.address;
 
 describe('Agent Session E2E', () => {
   let accessToken: string;
@@ -12,15 +14,18 @@ describe('Agent Session E2E', () => {
   beforeAll(async () => {
     // Register test app and get token (simplified)
     const appId = 'session-test-' + crypto.randomBytes(4).toString('hex');
-    
+    const appName = 'Session Test App';
+    const { signature, timestamp } = await signRegisterAppChallenge(testWallet, { appId, name: appName });
+
     await request(app)
       .post('/api/v1/oauth/register-app')
       .send({
         appId,
-        name: 'Session Test App',
+        name: appName,
         redirectUris: ['http://localhost:3000/callback'],
         wallet: TEST_WALLET,
-        signature: '0xsignature',
+        signature,
+        timestamp,
       });
 
     // Get token via direct permission creation for testing

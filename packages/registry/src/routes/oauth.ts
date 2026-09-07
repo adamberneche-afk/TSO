@@ -166,8 +166,8 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
 
       const challenge = `TAIS OAuth Authorization\n\nApp: ${pending.appId}\nScopes: ${pending.scopes.join(', ')}\nWallet: ${pending.walletAddress}\nNonce: ${authorizationId}`;
       
-      const isValid = await verifySignature(wallet, challenge, signature);
-      if (!isValid) {
+      const verification = verifySignature(challenge, signature, wallet);
+      if (!verification.valid) {
         return res.status(401).json({ error: 'Invalid signature' });
       }
 
@@ -397,10 +397,19 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
 
   router.post('/register-app', async (req: Request, res: Response) => {
     try {
-      const { appId, name, description, redirectUris, websiteUrl, developerEmail, developerName, wallet, signature } = req.body;
+      const { appId, name, description, redirectUris, websiteUrl, developerEmail, developerName, wallet, signature, timestamp } = req.body;
 
-      if (!appId || !name || !redirectUris || !wallet || !signature) {
-        return res.status(400).json({ error: 'appId, name, redirectUris, wallet, and signature required' });
+      if (!appId || !name || !redirectUris || !wallet || !signature || !timestamp) {
+        return res.status(400).json({ error: 'appId, name, redirectUris, wallet, signature, and timestamp required' });
+      }
+
+      // The signed challenge embeds a timestamp, so the server has to
+      // reconstruct it with the exact timestamp the client signed --
+      // never a fresh Date.now(), which would never match what was
+      // actually signed. Bound how old that timestamp can be so a
+      // captured signature can't be replayed indefinitely.
+      if (typeof timestamp !== 'number' || Math.abs(Date.now() - timestamp) > CHALLENGE_EXPIRY_MS) {
+        return res.status(401).json({ error: 'Signature challenge has expired' });
       }
 
       if (!Array.isArray(redirectUris) || redirectUris.length === 0) {
@@ -416,11 +425,11 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
       }
 
       const appSecret = crypto.randomBytes(32).toString('hex');
-      
-      const challenge = `TAIS App Registration\n\nApp ID: ${appId}\nApp Name: ${name}\nWallet: ${wallet}\nTimestamp: ${Date.now()}`;
-      
-      const isValid = await verifySignature(wallet, challenge, signature);
-      if (!isValid) {
+
+      const challenge = `TAIS App Registration\n\nApp ID: ${appId}\nApp Name: ${name}\nWallet: ${wallet}\nTimestamp: ${timestamp}`;
+
+      const verification = verifySignature(challenge, signature, wallet);
+      if (!verification.valid) {
         return res.status(401).json({ error: 'Invalid signature' });
       }
 
