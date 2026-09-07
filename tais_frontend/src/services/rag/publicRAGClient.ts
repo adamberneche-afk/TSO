@@ -197,8 +197,13 @@ export class PublicRAGClient {
        ? await this.encryptionService.decryptCommunity(result.encryptedContent, result.iv, result.salt)
        : await this.encryptionService.decrypt(result.encryptedContent, result.iv, result.salt);
 
-     // Parse metadata (it's also encrypted but returned as part of search result)
-     const metadata = JSON.parse(content); // Content contains both text and metadata
+     // result.metadata is already a plain object on the search result --
+     // title/type/tags are never encrypted or bundled into
+     // encryptedContent. (encryptedContent decrypts to just the chunk's
+     // raw prose text, the same way uploadDocument encrypted each chunk
+     // in isolation; JSON.parse(content) here threw a SyntaxError on
+     // every real result, since prose text is never valid JSON.)
+     const metadata = result.metadata;
 
      return { content, metadata };
    }
