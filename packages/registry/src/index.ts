@@ -266,8 +266,15 @@ apiV1Router.use('/guided-discovery',
 );
 
 // Admin-only migration endpoint for v2.7.0 hybrid config
+//
+// adminMiddleware only checks req.user -- it never populates it. Without
+// authMiddleware running first, req.user is always undefined here, so
+// this 401'd unconditionally for every caller, including real admins
+// with valid credentials. Mirrors the working '/admin' mount above,
+// which correctly runs authMiddleware before adminMiddleware.
 import { createMigrateRoutes } from './routes/migrate';
 apiV1Router.use('/admin/migrate',
+  authMiddleware,
   adminMiddleware,
   createMigrateRoutes(skillsPrisma)
 );
@@ -328,8 +335,13 @@ apiV1Router.use(metricsMiddleware);
 app.use('/monitoring', monitoringRoutes);
 
 // Admin migration fix endpoint (run once to fix failed migrations)
+//
+// Same issue as '/admin/migrate' above: adminMiddleware only checks
+// req.user, it never populates it. Mounted without authMiddleware
+// first, this 401'd unconditionally for every caller -- including real
+// admins with valid credentials -- since req.user was always undefined.
 import { migrationFixRoutes } from './routes/migrationFix';
-app.use('/admin/migration', adminMiddleware, migrationFixRoutes);
+app.use('/admin/migration', authMiddleware, adminMiddleware, migrationFixRoutes);
 
 // Cron endpoints (protected by secret)
 import cronRoutes from './routes/cron';
