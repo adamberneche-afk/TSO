@@ -31,22 +31,31 @@ const router = Router();
  * @summary List all skills (public)
  * @param {string} category.query optional - Filter by category name
  * @param {string} search.query optional - Search in name or description
- * @param {boolean} trending.query optional - If true, return trending skills
- * @returns {Array} 200 - An array of skills
+ * @param {boolean} trending.query optional - If true, order by download count instead of recency
+ * @param {number} limit.query optional - Max results per page (default 20, capped at 100)
+ * @param {number} offset.query optional - Results to skip (default 0)
+ * @returns {object} 200 - { skills, total, page, limit }
  * @returns {Error}  500 - Internal server error
  */
 router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  
+
   // Check if prisma is available
   if (!req.prisma) {
     return res.status(500).json({ error: 'Database connection not available' });
   }
-  
+
   try {
     const { category, search, trending } = req.query;
-    
+
+    // Public, unauthenticated endpoint -- cap take like every other list
+    // route in this codebase (agent.ts, audits.ts, rag.ts, rcrt.ts, search.ts
+    // all use the same Math.min(..., 100) pattern), or an attacker-supplied
+    // limit forces an unbounded findMany + join in one request.
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const offset = parseInt(req.query.offset as string) || 0;
+
     const where: any = { status: 'APPROVED', isBlocked: false };
-    
+
     if (category) {
       where.categories = {
         some: {
@@ -54,27 +63,45 @@ router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunct
         }
       };
     }
-    
+
     if (search) {
       where.OR = [
         { name: { contains: search as string, mode: 'insensitive' } },
         { description: { contains: search as string, mode: 'insensitive' } }
       ];
     }
-    
-    const skills = await req.prisma.skill.findMany({
-      where,
-      include: {
-        categories: { include: { category: true } },
-        audits: {
-          orderBy: { createdAt: 'desc' },
-          take: 3
-        }
-      },
-      orderBy: { createdAt: 'desc' }
+
+    // `trending` used to be destructured and never read -- dead code, the
+    // param had no effect on the response regardless of what was passed.
+    // The frontend (registry-client.ts) has sent it since it was written,
+    // expecting the same route to double as a "trending skills" feed.
+    const [skills, total] = await Promise.all([
+      req.prisma.skill.findMany({
+        where,
+        include: {
+          categories: { include: { category: true } },
+          audits: {
+            orderBy: { createdAt: 'desc' },
+            take: 3
+          }
+        },
+        orderBy: trending ? { downloadCount: 'desc' } : { createdAt: 'desc' },
+        take: limit,
+        skip: offset
+      }),
+      req.prisma.skill.count({ where })
+    ]);
+
+    // Every call used to return the full result set as a plain array with
+    // no way to page through it. Shape matches tais_frontend's
+    // `SearchResults` type (skills/total/page/limit) exactly, since that's
+    // the one real consumer already parsing this response.
+    res.json({
+      skills,
+      total,
+      page: Math.floor(offset / limit) + 1,
+      limit
     });
-    
-    res.json(skills);
   } catch (error) {
     req.log?.error({ error }, 'Failed to fetch skills');
     res.status(500).json({ error: 'Failed to fetch skills' });
