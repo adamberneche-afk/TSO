@@ -289,7 +289,7 @@ export class StakingService {
       
       const unstakeAmount = ethers.parseUnits(amount, 18);
       
-      const tx = await contract.ununstake(unstakeAmount);
+      const tx = await contract.unstake(unstakeAmount);
       await tx.wait(); // Wait for confirmation
       
       return { success: true };
