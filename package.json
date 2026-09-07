@@ -9,12 +9,11 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "dev": "cd integration-example && npm run dev",
-    "test:hunt": "node tests/silent_errors.test.js",
-    "test": "node --test tests/*.test.js",
-    "test:all": "npm test && echo \"\n=== Running additional checks ===\" && echo \"Silent error tests completed.\""
+    "test": "node --test tests/*.test.js && tsx tests/e2e-hybrid-config.ts",
+    "test:all": "npm test"
   },
   "devDependencies": {
-    "fast-check": "^4.6.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.3.0"
   },
   "dependencies": {

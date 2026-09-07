@@ -69,6 +69,7 @@ jobs:
         file: ./packages/registry/coverage/lcov.info
         flags: unittests
         name: codecov-umbrella
+        fail_ci_if_error: true
 
   build:
     runs-on: ubuntu-latest
@@ -185,10 +186,17 @@ jobs:
         npm run lint
 
   root-tests:
-    # The root-level tests/ suite (currently tests/silent_errors.test.js,
+    # The root-level tests/ suite (currently tests/watchdog.test.js,
     # exercised via the root package.json's own `npm test`) had no CI job
     # running it at all before this one - it could pass or fail locally and
     # neither push nor PR would ever notice.
+    #
+    # `npm test` also runs tests/e2e-hybrid-config.ts via tsx (P1.6 fix:
+    # this real, 30+-assertion suite existed but was never run anywhere --
+    # wrong extension for the old `tests/*.test.js` node:test glob). It
+    # imports directly from tais_frontend/src, which is a separate project
+    # with its own package.json/node_modules (not an npm workspace member),
+    # so its dependencies need their own install step here.
     runs-on: ubuntu-latest
 
     steps:
@@ -203,6 +211,13 @@ jobs:
         cache: 'npm'
 
     - name: Install dependencies
+      run: npm ci
+
+    - name: Install tais_frontend dependencies
+      # tests/e2e-hybrid-config.ts imports from tais_frontend/src, which
+      # resolves its own npm packages (marked, isomorphic-dompurify) from
+      # tais_frontend/node_modules -- root `npm ci` above never touches it.
+      working-directory: tais_frontend
       run: npm ci
 
     - name: Run root-level tests
