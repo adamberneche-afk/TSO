@@ -47,6 +47,14 @@ export function MonitoringDashboard() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
+      // isLoading started true and was never flipped back to false on
+      // either path (success or failure) -- the component was stuck
+      // showing the spinner forever, since the render logic below checks
+      // isLoading before the error/data branches. Both the initial load
+      // and every 30s refresh need this, so it belongs in `finally`
+      // alongside the existing setLastRefresh, not just after the first
+      // successful fetch.
+      setIsLoading(false);
       setLastRefresh(new Date());
     }
   };
