@@ -7,6 +7,9 @@ dist
 .cache
 .thinkos-data
 
+# CLI local runtime state (config, cached secrets, installed skills)
+.tais/
+
 .pnp
 .pnp.js
 
