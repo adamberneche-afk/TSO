@@ -124,6 +124,11 @@ export class PublicRAGClient {
            index,
            encryptedContent: encrypted.encrypted,
            iv: encrypted.iv,
+           // Each chunk is encrypted with its own freshly-generated salt
+           // (encrypt()/encryptForCommunity() derive a new key per call),
+           // not the document's salt -- it has to travel with the chunk or
+           // the chunk can never be decrypted again.
+           salt: encrypted.salt,
            embeddingHash,
          };
        })
@@ -281,8 +286,24 @@ export class PublicRAGClient {
 
      const metadata = JSON.parse(metadataStr);
 
-     const chunks = await ragApi.getDocumentChunks(this.walletAddress, documentId);
-     
+     const rawChunks = await ragApi.getDocumentChunks(this.walletAddress, documentId);
+
+     // Each chunk was encrypted with its own salt (see uploadDocument), not
+     // the document's salt -- it has to be decrypted with that same
+     // per-chunk salt/iv, never the document-level ones.
+     const chunks = await Promise.all(
+       rawChunks.map(async (chunk: any) => {
+         if (isPublicDoc) {
+           try {
+             return await this.encryptionService.decryptCommunity(chunk.encryptedContent, chunk.iv, chunk.salt);
+           } catch {
+             return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, chunk.salt);
+           }
+         }
+         return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, chunk.salt);
+       })
+     );
+
      return { content, metadata, chunks };
    }
 

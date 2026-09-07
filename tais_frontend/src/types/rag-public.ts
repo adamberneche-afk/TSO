@@ -30,6 +30,7 @@ export interface EncryptedChunk {
   documentId: string;
   encryptedContent: string;
   iv: string;
+  salt: string; // Each chunk is encrypted with its own salt, distinct from the parent document's salt
   index: number;
   embeddingHash: string; // Hash of embedding for search (not the actual embedding)
 }

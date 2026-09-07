@@ -330,7 +330,12 @@ model RAGChunk {
   // Encrypted content
   encryptedContent String  @map("encrypted_content") // Base64
   iv              String   // Base64 IV
-  
+  salt            String   // Base64 salt for this chunk's key derivation --
+                            // each chunk is encrypted with its own randomly
+                            // generated salt (see e2eeEncryption.ts encrypt()),
+                            // not the parent document's salt, so it has to be
+                            // stored per chunk to ever be decryptable again.
+
   // Indexing
   index           Int      // Position in document
   embeddingHash   String   @map("embedding_hash") // SHA-256 hash for search (privacy-preserving)

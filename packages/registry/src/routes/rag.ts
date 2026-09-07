@@ -16,14 +16,33 @@ interface AuthenticatedRequest extends Request {
 }
 
 // Validation schemas
+
+// A single E2EE-encrypted chunk. Each chunk is encrypted client-side with
+// its own independently-generated salt (see e2eeEncryption.ts's encrypt()),
+// not the parent document's salt -- it must be persisted per chunk or the
+// chunk can never be decrypted again.
+const uploadChunkSchema = z.object({
+  index: z.number().int().nonnegative(),
+  encryptedContent: z.string(),
+  iv: z.string(),
+  salt: z.string(),
+  embeddingHash: z.string()
+});
+
+// The client (PublicRAGClient.uploadDocument) encrypts the document and its
+// metadata (title/type/tags/author) end-to-end before this ever reaches the
+// server -- the server never sees plaintext content, title, or per-document
+// metadata, only ciphertext plus the salts/IVs needed to derive the keys
+// that produced it.
 const uploadDocumentSchema = z.object({
-  title: z.string(),
-  content: z.string(),
+  encryptedData: z.string(),
+  encryptedMetadata: z.string(),
+  iv: z.string(),
+  salt: z.string(),
+  ownerPublicKey: z.string(),
   tags: z.array(z.string()).default([]),
   isPublic: z.boolean().default(false),
-  metadata: z.object({
-    type: z.string().default('text/plain')
-  }).default({})
+  chunks: z.array(uploadChunkSchema).default([])
 });
 
 const searchSchema = z.object({
@@ -174,25 +193,42 @@ router.post('/documents', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
     
-    const { title, content, tags, isPublic, metadata } = validation.data;
-    
-    // Create document record (simplified - no encryption for now)
+    const { encryptedData, encryptedMetadata, iv, salt, ownerPublicKey, tags, isPublic, chunks = [] } = validation.data;
+
+    // The server never sees plaintext title -- it's inside encryptedMetadata,
+    // which only the owner (or, for public docs, anyone holding the shared
+    // community key) can decrypt. title stays null; the size recorded here
+    // is the size of the stored ciphertext, since that's all the server has.
     const document = await req.prisma.rAGDocument.create({
       data: {
         walletAddress: walletAddress.toLowerCase(),
-        ownerPublicKey: '',
-        encryptedData: Buffer.from(content).toString('base64'), // Simple base64 encoding for now
-        encryptedMetadata: Buffer.from(JSON.stringify({ title, ...metadata })).toString('base64'),
-        iv: '',
-        salt: '',
-        title: title,
-        isPublic: isPublic,
-        tags: tags,
-        size: Buffer.byteLength(content, 'utf8'),
-        chunkCount: 1 // Simplified
+        ownerPublicKey,
+        encryptedData,
+        encryptedMetadata,
+        iv,
+        salt,
+        title: null,
+        isPublic,
+        tags,
+        size: Buffer.byteLength(encryptedData, 'utf8'),
+        chunkCount: chunks.length
       }
     });
-    
+
+    if (chunks.length > 0) {
+      await req.prisma.rAGChunk.createMany({
+        data: chunks.map((chunk) => ({
+          documentId: document.id,
+          encryptedContent: chunk.encryptedContent,
+          iv: chunk.iv,
+          salt: chunk.salt,
+          index: chunk.index,
+          embeddingHash: chunk.embeddingHash,
+          size: Buffer.byteLength(chunk.encryptedContent, 'utf8')
+        }))
+      });
+    }
+
     res.status(201).json({
       id: document.id,
       walletAddress: document.walletAddress,
@@ -200,6 +236,7 @@ router.post('/documents', async (req: AuthenticatedRequest, res: Response) => {
       isPublic: document.isPublic,
       tags: document.tags,
       size: document.size,
+      chunkCount: document.chunkCount,
       createdAt: document.createdAt
     });
   } catch (error) {

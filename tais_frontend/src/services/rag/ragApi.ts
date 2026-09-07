@@ -107,6 +107,7 @@ export const ragApi = {
        index: number;
        encryptedContent: string;
        iv: string;
+       salt: string;
        embeddingHash: string;
      }>;
    }): Promise<any> {
