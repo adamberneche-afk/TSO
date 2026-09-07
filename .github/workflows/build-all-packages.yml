@@ -1,0 +1,91 @@
+name: Build All Packages
+
+# This repo has 11 npm workspace packages plus a root-level
+# integration-example. Historically only packages/registry and
+# tais_frontend were ever built or tested in CI, so dependency bumps
+# and code changes to every other package went unnoticed for weeks
+# (see docs/BUG_AUDIT_2026-09.md). This workflow builds every one of
+# them, in their actual dependency order, on every push and PR.
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build-workspace:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      # --- Tier 1: no local workspace dependencies ---
+      - name: Build packages/types
+        run: npm run build --workspace=packages/types
+
+      - name: Build packages/core
+        run: npm run build --workspace=packages/core
+
+      - name: Build packages/rag-sdk
+        run: npm run build --workspace=packages/rag-sdk
+
+      - name: Build packages/agent-sdk
+        run: npm run build --workspace=packages/agent-sdk
+
+      - name: Generate Prisma client for registry
+        working-directory: packages/registry
+        run: npx prisma generate
+
+      - name: Build packages/registry
+        run: npm run build --workspace=packages/registry
+
+      # --- Tier 2: depend on Tier 1 packages above ---
+      - name: Build packages/cli
+        run: npm run build --workspace=packages/cli
+
+      - name: Build packages/sdk
+        run: npm run build --workspace=packages/sdk
+
+      - name: Build packages/sdk-assistant
+        run: npm run build --workspace=packages/sdk-assistant
+
+      - name: Build packages/notion-integration
+        run: npm run build --workspace=packages/notion-integration
+
+      - name: Build packages/slack-integration
+        run: npm run build --workspace=packages/slack-integration
+
+      - name: Build packages/linear-integration
+        run: npm run build --workspace=packages/linear-integration
+
+      - name: Typecheck integration-example
+        run: npm run build --workspace=integration-example
+
+      # A build that emits JS isn't the same as JS that runs -- this is
+      # exactly the class of bug (ESM/CJS packaging mismatches) that
+      # slipped through when only "does dist/ exist" was checked.
+      - name: Smoke test CLI entry points actually run
+        run: |
+          node packages/cli/dist/index.js --help
+          node packages/sdk-assistant/dist/index.js --help
+
+      - name: Smoke test SDK packages actually load (require + import)
+        run: |
+          node -e "require('./packages/rag-sdk/dist/cjs/index.js'); console.log('rag-sdk CJS OK')"
+          node --input-type=module -e "import('./packages/rag-sdk/dist/index.js').then(() => console.log('rag-sdk ESM OK'))"
+          node -e "require('./packages/agent-sdk/dist/cjs/index.js'); console.log('agent-sdk CJS OK')"
+          node --input-type=module -e "import('./packages/agent-sdk/dist/index.js').then(() => console.log('agent-sdk ESM OK'))"
+          node -e "require('./packages/notion-integration/dist/index.js'); console.log('notion-integration OK')"
+          node -e "require('./packages/slack-integration/dist/index.js'); console.log('slack-integration OK')"
+          node -e "require('./packages/linear-integration/dist/index.js'); console.log('linear-integration OK')"
+          node -e "require('./packages/core/dist/index.js'); console.log('core OK (importable outside Electron)')"
