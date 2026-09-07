@@ -34,6 +34,7 @@ interface RAGSession {
 
 const SESSION_DURATION_MS = 60 * 60 * 1000; // 1 hour
 const MAX_SESSIONS_PER_WALLET = 3;
+const SESSION_CHALLENGE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
 function generateSessionId(): string {
   return 'rag_sess_' + crypto.randomBytes(32).toString('hex');
@@ -252,13 +253,37 @@ export function createSessionRoutes(prisma: PrismaClient, logger: any): Router {
 
   router.post('/start', async (req: Request, res: Response) => {
     try {
-      const { walletAddress } = req.body;
-      if (!walletAddress) {
-        return res.status(400).json({ error: 'Wallet address is required' });
+      // The real client (rag-sdk's startRAGSession) sends { wallet,
+      // signature }, not { walletAddress } -- and it signs a real
+      // challenge before calling this, expecting the signature to
+      // actually be checked. `verifySignature` has been imported at the
+      // top of this file since this route was written, but was never
+      // called: anyone could mint a session token for any wallet with no
+      // proof of ownership at all, just by naming that wallet.
+      const { wallet, signature, timestamp } = req.body;
+      if (!wallet || !signature || !timestamp) {
+        return res.status(400).json({ error: 'wallet, signature, and timestamp are required' });
       }
 
-      const sessionId = await startSession(prisma, walletAddress);
-      res.json({ sessionId });
+      // The challenge embeds the timestamp used to sign it, so it must be
+      // reconstructed with that exact value -- never a fresh Date.now() --
+      // and bounded so a captured signature can't be replayed forever.
+      if (typeof timestamp !== 'number' || Math.abs(Date.now() - timestamp) > SESSION_CHALLENGE_EXPIRY_MS) {
+        return res.status(401).json({ error: 'Signature challenge has expired' });
+      }
+
+      const challenge = `TAIS RAG Session Authorization\n\nWallet: ${wallet}\nTimestamp: ${timestamp}\n\nAuthorize this session for encrypted document uploads.\n\nSession will be valid for 1 hour.`;
+      const verification = verifySignature(challenge, signature, wallet);
+      if (!verification.valid) {
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+
+      const sessionId = await startSession(prisma, wallet);
+      // rag-sdk checks `result.success && result.sessionId` before storing
+      // the token client-side -- without `success`, a legitimate response
+      // was silently treated as a failed request and the token was
+      // dropped on the floor every time.
+      res.json({ success: true, sessionId });
     } catch (error) {
       logger.error('Error starting session:', error);
       res.status(500).json({ error: 'Failed to start session' });
@@ -297,15 +322,24 @@ export function createSessionRoutes(prisma: PrismaClient, logger: any): Router {
         return res.status(404).json({ error: 'No active session found' });
       }
 
+      // This endpoint takes nothing but a bare wallet address -- no proof
+      // of ownership -- so it must never hand back session.sessionId: that
+      // value *is* the bearer credential accepted as X-Session-Token
+      // everywhere else in this file. Returning it here let anyone who
+      // just knew (or guessed/observed on-chain) a wallet address fetch
+      // its live session token and replay it to act as that wallet.
       res.json({
-        sessionId: session.sessionId,
         walletAddress: session.walletAddress,
         tier: session.tier,
         createdAt: session.createdAt,
         expiresAt: session.expiresAt,
         lastActivityAt: session.lastActivityAt,
         documentCount: session.documentCount,
-        bytesUploaded: session.bytesUploaded
+        // bytesUploaded is a Postgres BigInt -> native JS bigint; res.json's
+        // JSON.stringify throws "Do not know how to serialize a BigInt" on
+        // a raw bigint. A per-wallet upload byte count is nowhere near
+        // Number.MAX_SAFE_INTEGER, so converting is safe.
+        bytesUploaded: Number(session.bytesUploaded)
       });
     } catch (error) {
       logger.error('Error getting active session:', error);

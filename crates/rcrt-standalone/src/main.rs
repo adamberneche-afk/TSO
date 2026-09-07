@@ -13,18 +13,20 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use chrono::Utc;
 use rand::Rng;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 const CURRENT_VERSION: &str = "1.0.0";
-const UPDATE_CHECK_URL: &str = "https://api.github.com/repos/adamberneche-afk/TSO/releases/latest";
 
 #[derive(Clone)]
 struct AppState {
     db: Arc<Mutex<Database>>,
     data_dir: PathBuf,
     service_id: String,
+    // Generated per-service but not yet wired into save_db/load_db --
+    // storage is plain JSON today (see status()'s "encryption": "disabled").
+    // Kept as a placeholder for that real feature rather than removed.
+    #[allow(dead_code)]
     encryption_key: String,
 }
 
@@ -98,22 +100,72 @@ fn get_data_dir() -> PathBuf {
     dir
 }
 
-fn load_db(data_dir: &PathBuf) -> Database {
+fn load_db(data_dir: &std::path::Path) -> Database {
     let db_path = data_dir.join("db.json");
-    if db_path.exists() {
-        if let Ok(data) = fs::read_to_string(&db_path) {
-            if let Ok(db) = serde_json::from_str(&data) {
-                return db;
+    if !db_path.exists() {
+        // No file yet -- genuinely a fresh install, not corruption.
+        return Database::default();
+    }
+
+    let data = match fs::read_to_string(&db_path) {
+        Ok(data) => data,
+        Err(e) => {
+            eprintln!("⚠️  Failed to read {:?}: {} -- starting with an empty database in memory. The existing file is left untouched on disk.", db_path, e);
+            return Database::default();
+        }
+    };
+
+    match serde_json::from_str(&data) {
+        Ok(db) => db,
+        Err(e) => {
+            // The file exists but isn't valid JSON -- e.g. truncated by a
+            // crash or kill mid-write. Silently falling back to an empty
+            // Database used to be fine on its own, but save_db() would then
+            // overwrite this same path with that empty state on the very
+            // next mutation (or within 30s, via the periodic save loop),
+            // permanently destroying whatever was recoverable in the
+            // corrupt file. Preserve it before returning empty, so a
+            // corrupted-but-partially-intact file is never silently lost.
+            let backup_path = data_dir.join(format!("db.json.corrupt.{}", now()));
+            match fs::rename(&db_path, &backup_path) {
+                Ok(()) => eprintln!(
+                    "⚠️  {:?} is not valid JSON ({}) -- preserved the corrupt file as {:?} and starting with an empty database.",
+                    db_path, e, backup_path
+                ),
+                Err(rename_err) => eprintln!(
+                    "⚠️  {:?} is not valid JSON ({}), and failed to back it up ({}) -- starting with an empty database, but the corrupt file is still at {:?}. Do not delete it; a future save will overwrite it.",
+                    db_path, e, rename_err, db_path
+                ),
             }
+            Database::default()
         }
     }
-    Database::default()
 }
 
-fn save_db(data_dir: &PathBuf, db: &Database) {
+fn save_db(data_dir: &std::path::Path, db: &Database) {
     let db_path = data_dir.join("db.json");
-    if let Ok(data) = serde_json::to_string_pretty(db) {
-        fs::write(db_path, data).ok();
+    let data = match serde_json::to_string_pretty(db) {
+        Ok(data) => data,
+        Err(e) => {
+            eprintln!("⚠️  Failed to serialize database, not saving: {}", e);
+            return;
+        }
+    };
+
+    // Write to a temp file and rename over the real path, rather than
+    // fs::write()-ing db.json directly: a direct write truncates the file
+    // before the new content is fully flushed, so a crash/kill mid-write
+    // leaves db.json corrupt (exactly the case load_db() above has to
+    // recover from). rename() within the same directory is atomic on both
+    // Unix and Windows, so db.json is either the old complete content or
+    // the new complete content -- never a half-written mix.
+    let tmp_path = data_dir.join("db.json.tmp");
+    if let Err(e) = fs::write(&tmp_path, &data) {
+        eprintln!("⚠️  Failed to write {:?}: {}", tmp_path, e);
+        return;
+    }
+    if let Err(e) = fs::rename(&tmp_path, &db_path) {
+        eprintln!("⚠️  Failed to replace {:?} with {:?}: {}", db_path, tmp_path, e);
     }
 }
 
@@ -171,8 +223,8 @@ async fn provision(
         "refreshToken": refresh_token,
         "expiresIn": 900,
         "endpoints": {
-            "breadcrumbs": "http://localhost:8090/api/breadcrumbs",
-            "sync": "http://localhost:8090/api/sync",
+            "breadcrumbs": "http://localhost:8090/api/v1/breadcrumbs",
+            "sync": "http://localhost:8090/api/v1/sync",
             "health": "http://localhost:8090/health"
         }
     }))
@@ -222,8 +274,8 @@ async fn get_breadcrumbs(
 ) -> Json<serde_json::Value> {
     let db = state.db.lock().await;
     
-    let mut breadcrumbs: Vec<_> = db.breadcrumbs.iter()
-        .filter(|b| query.owner_id.as_ref().map_or(true, |o| &b.owner_id == o))
+    let breadcrumbs: Vec<_> = db.breadcrumbs.iter()
+        .filter(|b| query.owner_id.as_ref().is_none_or(|o| &b.owner_id == o))
         .take(query.limit.unwrap_or(100))
         .map(|b| serde_json::json!({
             "id": b.id,
@@ -304,7 +356,7 @@ async fn sync(
     let event = KBEvent {
         id: Uuid::new_v4().to_string(),
         kb_id: req.kb_id.unwrap_or_else(|| "default".to_string()),
-        event_type: "sync".to_string(),
+        event_type: req.context_type.unwrap_or_else(|| "sync".to_string()),
         content: req.content,
         timestamp: now(),
     };
@@ -325,7 +377,9 @@ async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
         "serviceId": state.service_id,
         "version": CURRENT_VERSION,
         "status": "running",
-        "encryption": "enabled",
+        // Storage is plain JSON on disk today; encryption_key is generated
+        // per-service but nothing in this binary actually encrypts with it.
+        "encryption": "disabled",
         "dataDir": state.data_dir.to_string_lossy(),
         "stats": {
             "breadcrumbs": db.breadcrumbs.len(),
@@ -335,7 +389,7 @@ async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
     }))
 }
 
-async fn version(State(state): State<AppState>) -> Json<serde_json::Value> {
+async fn version(State(_state): State<AppState>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "currentVersion": CURRENT_VERSION,
         "updateAvailable": false,
@@ -384,7 +438,7 @@ async fn main() {
         .route("/api/v1/provision", post(provision))
         .route("/api/v1/refresh", post(refresh))
         .route("/api/v1/breadcrumbs", get(get_breadcrumbs).post(create_breadcrumb))
-        .route("/api/v1/breadcrumbs/:id", delete(delete_breadcrumb))
+        .route("/api/v1/breadcrumbs/{id}", delete(delete_breadcrumb))
         .route("/api/v1/sync", post(sync))
         .route("/api/v1/status", get(status))
         .route("/api/v1/version", get(version))

@@ -1,5 +1,5 @@
 import { SkillInstaller, IsnadService, AuditRegistry, TokenService, SandboxService } from '@think/core';
-import { SkillManifest } from '@think/types';
+import { SkillManifest, AuditReport } from '@think/types';
 import fs from 'fs';
 import path from 'path';
 
@@ -247,13 +247,15 @@ export class TaisServiceManager {
   }
 
   // Audit Functions
-  async submitAudit(skillHash: string, auditData: any) {
+  async submitAudit(report: AuditReport) {
     try {
-      // This would integrate with AuditRegistry
-      // For now, simulate successful submission
+      const result = await this.auditRegistry.submitAudit(report);
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
       return {
         success: true,
-        auditId: `audit_${Date.now()}`,
+        auditId: `${report.skill_hash}:${report.auditor}`,
         message: 'Audit submitted successfully'
       };
     } catch (error: any) {

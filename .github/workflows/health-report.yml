@@ -9,6 +9,12 @@ jobs:
   analyze:
     runs-on: ubuntu-latest
     permissions:
+      contents: read  # Required for actions/checkout -- specifying any
+                      # permission at all switches this job from the
+                      # default (permissive) to an explicit allowlist,
+                      # implicitly setting every unlisted permission
+                      # (including contents) to `none`; checkout 403'd on
+                      # every run until this was added.
       issues: read  # Only needs read access to issues
     steps:
       - uses: actions/checkout@v7
@@ -18,7 +24,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: '.nvmrc'
 
       - name: Install Dependencies
         run: npm ci

@@ -106,22 +106,27 @@ export class NotionIntegration {
   }> {
     const context = await this.agent.getContext();
 
-    const sectionPrompts = options.sections.map(section => 
-      `Write content for the "${section}" section of a document about "${options.topic}"`
-    ).join('\n\n');
+    // One chat call per section, rather than combining every section's
+    // prompt into a single call and hoping to split its one text blob
+    // back apart afterward. The previous code did neither of those --
+    // it made the combined call, discarded the response entirely, and
+    // wrote a hardcoded "Content for {title}" placeholder into the real
+    // Notion page instead, burning an LLM call for nothing.
+    const sections: { title: string; content: string }[] = [];
+    for (const title of options.sections) {
+      const response = await this.agent.chat({
+        context,
+        messages: [{
+          role: 'user',
+          content: `Write content for the "${title}" section of a document about "${options.topic}". Provide substantial, well-structured content.`
+        }]
+      });
 
-    const responses = await this.agent.chat({
-      context,
-      messages: [{
-        role: 'user',
-        content: `Generate content for each section. Provide substantial content for each:\n\n${sectionPrompts}`
-      }]
-    });
-
-    const sections = options.sections.map((title, index) => ({
-      title,
-      content: `Content for ${title}` // In production, parse from LLM response
-    }));
+      sections.push({
+        title,
+        content: response.message || `Content for ${title}`
+      });
+    }
 
     const blocks: any[] = [];
     

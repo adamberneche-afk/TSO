@@ -99,7 +99,11 @@ async function verifySkill(skillHash: string): Promise<VerificationResult> {
     ];
 
     return {
-      valid: result.isValid,
+      // Aggregate from the displayed checks rather than trusting a single
+      // upstream flag: result.isValid only ever reflected "not blocked",
+      // so a failing Trust Score or missing Provenance Chain still showed
+      // as individual ❌ rows while the overall verdict reported PASSED.
+      valid: checks.every(check => check.passed),
       type: 'skill',
       checks
     };
@@ -168,7 +172,12 @@ async function verifyAuthor(walletAddress: string): Promise<VerificationResult> 
     ];
 
     return {
-      valid: result.isValid,
+      // See verifySkill: aggregate from the displayed checks instead of
+      // trusting a single upstream flag. result.isValid here only ever
+      // reflected authorSkills > 0, so a missing Publisher NFT or low
+      // Community Reputation still showed ❌ while the overall verdict
+      // reported PASSED.
+      valid: checks.every(check => check.passed),
       type: 'author',
       checks
     };
@@ -236,7 +245,12 @@ async function verifyProvenance(skillHash: string): Promise<VerificationResult> 
     ];
 
     return {
-      valid: result.isValid,
+      // See verifySkill: aggregate from the displayed checks instead of
+      // trusting a single upstream flag. TaisServiceManager.verifyProvenance
+      // hardcodes result.isValid to true unconditionally, so trusting it
+      // directly meant `tais verify --provenance` reported PASSED even
+      // when "Chain Exists" (result.provenance === undefined) showed ❌.
+      valid: checks.every(check => check.passed),
       type: 'provenance',
       checks
     };

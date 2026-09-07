@@ -10,6 +10,37 @@ import { TokenService } from './TokenService';
 
 const MAX_SKILL_SIZE_BYTES = 1024 * 1024;
 
+// manifest.name / skillName ultimately reach path.join(this.skillsPath, name)
+// followed by fs.writeFile / fs.rm(recursive: true, force: true) -- with no
+// validation, a name like "../../../../etc/cron.d/evil" (install) or
+// "../../important-app-data" (uninstall) escapes the skills directory
+// entirely, letting a malicious skill manifest write or recursively delete
+// files anywhere the Electron process can reach. Restrict skill names to a
+// safe charset with no path separators or traversal sequences.
+const SKILL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
+
+/**
+ * Recursively sorts object keys so JSON.stringify produces the same output
+ * for structurally-identical objects regardless of property insertion
+ * order. Arrays keep their element order (order is meaningful there).
+ * Used for hashing, where two equivalent manifests must always hash the
+ * same, and any nested field (e.g. permissions.network.domains) must
+ * actually be reflected in the hash.
+ */
+function canonicalize(value: any): any {
+  if (Array.isArray(value)) {
+    return value.map(canonicalize);
+  }
+  if (value !== null && typeof value === 'object') {
+    const sorted: Record<string, any> = {};
+    for (const key of Object.keys(value).sort()) {
+      sorted[key] = canonicalize(value[key]);
+    }
+    return sorted;
+  }
+  return value;
+}
+
 interface SkillInstallResult {
   success: boolean;
   skillHash?: string;
@@ -47,8 +78,40 @@ export class SkillInstaller {
     await fs.mkdir(this.skillsPath, { recursive: true });
   }
 
+  /**
+   * Validates skillName against SKILL_NAME_PATTERN and resolves it to an
+   * absolute path guaranteed to live inside this.skillsPath. The pattern
+   * check alone should already make escaping impossible, but the resolved-
+   * path containment check is kept as defense in depth against any
+   * character-set edge case (e.g. platform-specific path handling).
+   * Throws rather than returning a nullable path, so every call site's
+   * existing try/catch turns this into a normal error result instead of
+   * an unhandled exception.
+   */
+  private resolveSkillDir(skillName: string): string {
+    if (!SKILL_NAME_PATTERN.test(skillName)) {
+      throw new Error(
+        `Invalid skill name '${skillName}': only letters, numbers, hyphens, and underscores are allowed`
+      );
+    }
+
+    const skillsRoot = path.resolve(this.skillsPath);
+    const resolved = path.resolve(skillsRoot, skillName);
+
+    if (resolved !== skillsRoot && !resolved.startsWith(skillsRoot + path.sep)) {
+      throw new Error(`Invalid skill name '${skillName}': resolves outside the skills directory`);
+    }
+
+    return resolved;
+  }
+
   calculateSkillHash(manifest: SkillManifest): string {
-    const manifestStr = JSON.stringify(manifest, Object.keys(manifest).sort());
+    // Hash everything except skill_hash itself -- it can't be part of what
+    // it's a hash of, or verification would require the manifest's hash to
+    // equal a hash computed over a payload containing that same hash value
+    // (a SHA-256 preimage/fixed point, practically unsatisfiable).
+    const { skill_hash, ...hashableContent } = manifest;
+    const manifestStr = JSON.stringify(canonicalize(hashableContent));
     return crypto.createHash('sha256').update(manifestStr).digest('hex');
   }
 
@@ -60,6 +123,8 @@ export class SkillInstaller {
 
     if (!manifest.name || manifest.name.length === 0) {
       errors.push('Skill name is required');
+    } else if (!SKILL_NAME_PATTERN.test(manifest.name)) {
+      errors.push('Skill name may only contain letters, numbers, hyphens, and underscores');
     }
 
     if (!manifest.version || manifest.version.length === 0) {
@@ -257,7 +322,7 @@ export class SkillInstaller {
         };
       }
 
-      const skillDir = path.join(this.skillsPath, manifest.name);
+      const skillDir = this.resolveSkillDir(manifest.name);
       await fs.mkdir(skillDir, { recursive: true });
 
       const manifestPath = path.join(skillDir, 'manifest.json');
@@ -287,7 +352,7 @@ export class SkillInstaller {
 
   async uninstallSkill(skillName: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const skillDir = path.join(this.skillsPath, skillName);
+      const skillDir = this.resolveSkillDir(skillName);
 
       try {
         await fs.access(skillDir);
@@ -317,7 +382,7 @@ export class SkillInstaller {
 
   async getInstalledSkillManifest(skillName: string): Promise<SkillManifest | null> {
     try {
-      const manifestPath = path.join(this.skillsPath, skillName, 'manifest.json');
+      const manifestPath = path.join(this.resolveSkillDir(skillName), 'manifest.json');
       const data = await fs.readFile(manifestPath, 'utf-8');
       return JSON.parse(data) as SkillManifest;
     } catch {

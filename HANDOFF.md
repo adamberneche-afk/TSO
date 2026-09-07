@@ -4,6 +4,40 @@ Session summary for whoever (human or Claude) picks this project up next. This
 file is the bridge between "TSO was abandoned, is it worth reviving" and
 whatever gets decided next — read this before re-reading the whole repo.
 
+> **Update — 2026-09-07:** The follow-up session this handoff called for
+> happened. `docs/BUG_AUDIT_2026-09.md` (a full 5-way deep-dive audit) was
+> written and then worked phase-by-phase — every phase is now fully done
+> (every finding fixed except `P3.9`, a placeholder NFT contract address
+> that needs a real deployed contract). That includes
+> the "disconnected trust/security layer" called out below as untouched:
+> **YARA-style skill scanning, usage analytics, and the CTO Agent are now
+> wired up for real** (mounted, authenticated, and — where mounting the
+> code as originally written would have shipped an IDOR — access-control
+> holes closed as part of the same fix). A re-verification pass initially
+> found that **Phase 0 had never actually been started** — three live,
+> exploitable security holes on the running server
+> (`/api/v1/rcrt`'s unverified-JWT wallet fallback, `/api/v1/memory`'s
+> complete lack of auth, `/admin/cron`'s fail-open behavior when
+> `CRON_SECRET` is unset) — and that was fixed immediately after being
+> found. A second follow-up pass then closed out Phase 1's 4 remaining
+> CI/quality-gate items (a tautological test, a real test that never ran,
+> no coverage threshold, a watchdog blind spot for silently-disabled
+> scheduled workflows) plus two incidental findings from the same pass
+> (`POST /rcrt/audit`'s forgeable `ownerId`, and a dead duplicate env
+> validator). A third pass then closed the last two incidental findings
+> (`GET /api/v1/skills`'s dead `trending` param and missing pagination,
+> and `securityScannerService.ts`'s PII detector — now wired into
+> `POST /api/v1/scan` as an advisory-only signal). **Phases 0 through 5
+> are now all complete** (`P3.9` excepted), with nothing left open. See
+> `docs/BUG_AUDIT_2026-09.md` and
+> `docs/DOCS_VS_CODEBASE.md` (also updated) for current, accurate status;
+> treat "The verdict" and "What was cleaned up" / "not done" sections
+> below as the record of *that* session, not the current state of the
+> repo — in particular, the specific claim under "The verdict" that
+> `routes/scan.ts` is a hardcoded fake never imported into `index.ts`,
+> and the "12 of 23 / 6 PARTIAL / 5 not built" capability counts, are
+> both now stale; see `docs/DOCS_VS_CODEBASE.md`'s current 16/3/5 of 24.
+
 ## TL;DR
 
 TSO was abandoned mid-August 2026, buried under its own automation, not

@@ -294,7 +294,7 @@ export async function saveConfiguration(
   
   // Get ownership info - always verify fresh to ensure isHolder is accurate
   // The cache might have stale data with isHolder=false even when user has NFTs
-  let ownership = await verifyNFTOwnership(walletAddress);
+  const ownership = await verifyNFTOwnership(walletAddress);
   
   if (!ownership || !ownership.isHolder) {
     throw new Error('No NFTs found for this wallet');

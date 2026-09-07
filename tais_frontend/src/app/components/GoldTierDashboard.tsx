@@ -731,7 +731,7 @@ function CTOAgentSection({ address }: { address: string }) {
         loadProjects();
       } catch (error) {
         console.error('Failed to create project:', error);
-        toast.error(error.message || 'Failed to create project');
+        toast.error(error instanceof Error ? error.message : 'Failed to create project');
       } finally {
         setIsCreating(false);
       }
@@ -772,8 +772,8 @@ function CTOAgentSection({ address }: { address: string }) {
          }
          
          try {
-           const { providers } = await import('ethers');
-           const ethProvider = new providers.Web3Provider(window.ethereum);
+           const { BrowserProvider } = await import('ethers');
+           const ethProvider = new BrowserProvider(window.ethereum);
            const signer = await ethProvider.getSigner();
            
            const { getDecryptedApiKey } = await import('../../services/apiKeyManager');
@@ -787,7 +787,7 @@ function CTOAgentSection({ address }: { address: string }) {
            apiKeyCache.current = apiKey;
          } catch (error) {
            // Handle case where user disconnected MetaMask during the process
-           if (error.message.includes('MetaMask not available')) {
+           if (error instanceof Error && error.message.includes('MetaMask not available')) {
              throw error;
            }
            throw new Error('Failed to connect to wallet. Please try again.');
@@ -990,7 +990,7 @@ ${projectContext}${repoContext}`;
                           return (
                             <Badge 
                               key={safeRepo.id.toString()}
-                              className={`bg-[#333333] hover:bg-[#444444] cursor-pointer text-white text-xs ${selectedRepo?.id === safeRepo.id ? 'ring-2 ring-[#3B82F6]' : ''}`}
+                              className="bg-[#333333] hover:bg-[#444444] cursor-pointer text-white text-xs"
                               onClick={() => handleRepoSelect(safeRepo)}
                             >
                               {safeRepo.name}

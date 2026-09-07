@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import cryptoJS from 'crypto-js';
 import { verifySignature } from '../utils/signature';
 import { verifyNFTOwnership } from '../services/genesisConfigLimits';
 import { authenticateToken } from '../middleware/auth';
@@ -13,26 +12,20 @@ interface AuthenticatedRequest extends Request {
 const TOKEN_EXPIRY_DAYS = 30;
 const CHALLENGE_EXPIRY_MS = 5 * 60 * 1000;
 
-function getEncryptionKey(): string {
-  const key = process.env.TOKEN_ENCRYPTION_KEY;
-  if (!key) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('TOKEN_ENCRYPTION_KEY environment variable is required in production');
-    }
-    return 'tais-default-encryption-key-32b';
-  }
-  return key;
-}
-
-const ENCRYPTION_KEY = getEncryptionKey();
-
-function encryptToken(token: string): string {
-  return cryptoJS.AES.encrypt(token, ENCRYPTION_KEY).toString();
-}
-
-function decryptToken(encrypted: string): string {
-  const bytes = cryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
-  return bytes.toString(cryptoJS.enc.Utf8);
+// Tokens are never read back in plaintext -- every access/refresh token is
+// only ever compared for an exact match (issue it, then look it up again
+// later). A deterministic hash is the right primitive for that, the same
+// way ApiKeyService hashes API keys for storage/lookup. This used to be
+// `cryptoJS.AES.encrypt(token, ENCRYPTION_KEY)`, but CryptoJS's AES.encrypt
+// generates a random salt on every call (it's the OpenSSL-compatible
+// "Salted__" format), so the same plaintext token produced a different
+// ciphertext each time it was encrypted. Every lookup that re-encrypted an
+// incoming token to match it against the stored value
+// (`where: { accessToken: hashToken(code) }` and similar) could never
+// find the row it was looking for -- authorization-code exchange, refresh,
+// and revocation were all unreachable in practice.
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 function generateAccessToken(): string {
@@ -173,8 +166,8 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
 
       const challenge = `TAIS OAuth Authorization\n\nApp: ${pending.appId}\nScopes: ${pending.scopes.join(', ')}\nWallet: ${pending.walletAddress}\nNonce: ${authorizationId}`;
       
-      const isValid = await verifySignature(wallet, challenge, signature);
-      if (!isValid) {
+      const verification = verifySignature(challenge, signature, wallet);
+      if (!verification.valid) {
         return res.status(401).json({ error: 'Invalid signature' });
       }
 
@@ -191,8 +184,8 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
         },
         update: {
           scopes: pending.scopes,
-          accessToken: encryptToken(accessToken),
-          refreshToken: encryptToken(refreshToken),
+          accessToken: hashToken(accessToken),
+          refreshToken: hashToken(refreshToken),
           expiresAt,
           grantedAt: new Date(),
           revokedAt: null,
@@ -201,8 +194,8 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
           walletAddress: pending.walletAddress,
           appId: pending.appId,
           scopes: pending.scopes,
-          accessToken: encryptToken(accessToken),
-          refreshToken: encryptToken(refreshToken),
+          accessToken: hashToken(accessToken),
+          refreshToken: hashToken(refreshToken),
           expiresAt,
         },
       });
@@ -249,7 +242,7 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
         const permission = await prisma.agentAppPermission.findFirst({
           where: {
             appId: app_id,
-            accessToken: encryptToken(code),
+            accessToken: hashToken(code),
             revokedAt: null,
           },
         });
@@ -269,8 +262,8 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
         await prisma.agentAppPermission.update({
           where: { id: permission.id },
           data: {
-            accessToken: encryptToken(newAccessToken),
-            refreshToken: encryptToken(newRefreshToken),
+            accessToken: hashToken(newAccessToken),
+            refreshToken: hashToken(newRefreshToken),
             expiresAt,
           },
         });
@@ -287,7 +280,7 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
         const permission = await prisma.agentAppPermission.findFirst({
           where: {
             appId: app_id,
-            refreshToken: encryptToken(refresh_token),
+            refreshToken: hashToken(refresh_token),
             revokedAt: null,
           },
         });
@@ -303,8 +296,8 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
         await prisma.agentAppPermission.update({
           where: { id: permission.id },
           data: {
-            accessToken: encryptToken(newAccessToken),
-            refreshToken: encryptToken(newRefreshToken),
+            accessToken: hashToken(newAccessToken),
+            refreshToken: hashToken(newRefreshToken),
             expiresAt,
           },
         });
@@ -338,7 +331,7 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
         where: {
           walletAddress: wallet.toLowerCase(),
           appId: app_id,
-          accessToken: encryptToken(access_token),
+          accessToken: hashToken(access_token),
           revokedAt: null,
         },
       });
@@ -404,10 +397,19 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
 
   router.post('/register-app', async (req: Request, res: Response) => {
     try {
-      const { appId, name, description, redirectUris, websiteUrl, developerEmail, developerName, wallet, signature } = req.body;
+      const { appId, name, description, redirectUris, websiteUrl, developerEmail, developerName, wallet, signature, timestamp } = req.body;
 
-      if (!appId || !name || !redirectUris || !wallet || !signature) {
-        return res.status(400).json({ error: 'appId, name, redirectUris, wallet, and signature required' });
+      if (!appId || !name || !redirectUris || !wallet || !signature || !timestamp) {
+        return res.status(400).json({ error: 'appId, name, redirectUris, wallet, signature, and timestamp required' });
+      }
+
+      // The signed challenge embeds a timestamp, so the server has to
+      // reconstruct it with the exact timestamp the client signed --
+      // never a fresh Date.now(), which would never match what was
+      // actually signed. Bound how old that timestamp can be so a
+      // captured signature can't be replayed indefinitely.
+      if (typeof timestamp !== 'number' || Math.abs(Date.now() - timestamp) > CHALLENGE_EXPIRY_MS) {
+        return res.status(401).json({ error: 'Signature challenge has expired' });
       }
 
       if (!Array.isArray(redirectUris) || redirectUris.length === 0) {
@@ -423,11 +425,11 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
       }
 
       const appSecret = crypto.randomBytes(32).toString('hex');
-      
-      const challenge = `TAIS App Registration\n\nApp ID: ${appId}\nApp Name: ${name}\nWallet: ${wallet}\nTimestamp: ${Date.now()}`;
-      
-      const isValid = await verifySignature(wallet, challenge, signature);
-      if (!isValid) {
+
+      const challenge = `TAIS App Registration\n\nApp ID: ${appId}\nApp Name: ${name}\nWallet: ${wallet}\nTimestamp: ${timestamp}`;
+
+      const verification = verifySignature(challenge, signature, wallet);
+      if (!verification.valid) {
         return res.status(401).json({ error: 'Invalid signature' });
       }
 
@@ -616,14 +618,14 @@ export function createOAuthRoutes(prisma: any, logger: any): Router {
           },
         },
         update: {
-          accessToken: encryptToken(testToken),
+          accessToken: hashToken(testToken),
           expiresAt,
         },
         create: {
           walletAddress: wallet.toLowerCase(),
           appId,
           scopes: ['agent:identity:read', 'agent:memory:read', 'agent:memory:write'],
-          accessToken: encryptToken(testToken),
+          accessToken: hashToken(testToken),
           expiresAt,
         },
       });

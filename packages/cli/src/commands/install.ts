@@ -33,21 +33,6 @@ export async function installCommand(skill: string, options: any) {
     // Step 4: Trust score verification
     spinner.succeed(`Trust score: ${(analysisResult.trustScore * 100).toFixed(1)}%`);
 
-    // Step 6: User confirmation
-    if (!options.yes && !options.force) {
-      const { confirmed } = await inquirer.prompt([{
-        type: 'confirm',
-        name: 'confirmed',
-        message: 'Install this skill?',
-        default: false
-      }]);
-
-      if (!confirmed) {
-        console.log(chalk.yellow('Installation cancelled.'));
-        process.exit(0);
-      }
-    }
-
     // Step 5: User confirmation
     if (!options.yes && !options.force) {
       const { confirmed } = await inquirer.prompt([{
@@ -150,9 +135,9 @@ function displayRiskAssessment(manifest: SkillManifest, analysis: any) {
 
   console.log(`   Risk Level: ${riskColor[analysis.riskLevel](analysis.riskLevel.toUpperCase())}`);
   
-  if (analysis.risks.length > 0) {
+  if (analysis.redFlags.length > 0) {
     console.log(chalk.yellow('\n⚠️  Warnings:'));
-    analysis.risks.forEach((risk: string) => {
+    analysis.redFlags.forEach((risk: string) => {
       console.log(`   ${risk}`);
     });
   }

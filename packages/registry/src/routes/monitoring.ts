@@ -1,6 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { getMetrics, getContentType } from '../monitoring/metrics';
+
+interface PrismaRequest extends Request {
+  prisma?: PrismaClient;
+}
 import { AlertManager } from '../monitoring/alerts';
 import { getNFTCacheStats } from '../services/genesisConfigLimits';
 import { getRedisStatus, getRedisStats } from '../services/redis';
@@ -30,10 +34,10 @@ router.get('/metrics', async (req: Request, res: Response) => {
 });
 
 // Dashboard data endpoint
-router.get('/dashboard', async (req: Request, res: Response) => {
+router.get('/dashboard', async (req: PrismaRequest, res: Response) => {
   try {
     // Get system health
-    const dbHealth = await checkDatabaseHealth();
+    const dbHealth = await checkDatabaseHealth(req.prisma);
     const systemHealth = await getSystemHealth();
     
     // Get performance metrics
@@ -233,9 +237,13 @@ router.post('/alerts/test', async (req: Request, res: Response) => {
 });
 
 // Helper functions
-async function checkDatabaseHealth(): Promise<boolean> {
+export async function checkDatabaseHealth(prisma?: PrismaClient): Promise<boolean> {
+  if (!prisma) {
+    // No client available to check -- don't claim health we can't verify.
+    return false;
+  }
   try {
-    // Simple health check - would use actual Prisma in production
+    await prisma.$queryRaw`SELECT 1`;
     return true;
   } catch (error) {
     return false;

@@ -24,8 +24,8 @@ const App: React.FC = () => {
     init();
 
     return () => {
-      if ((window as any).taisAPI && sessionId !== null) {
-        (window as any).taisAPI.cleanupSession(sessionId);
+      if (window.taisAPI && sessionId !== null) {
+        window.taisAPI.cleanupSession(sessionId);
       }
     };
   }, [sessionId]);
@@ -156,7 +156,7 @@ const App: React.FC = () => {
                 <select
                   value={config.providerType || ''}
                   onChange={(e) => {
-                    setConfig((prev) => ({
+                    setConfig((prev: any) => ({
                       ...prev,
                       providerType: e.target.value as 'local' | 'anthropic',
                     }));
@@ -176,7 +176,7 @@ const App: React.FC = () => {
                     type="password"
                     value={config.anthropicApiKey || ''}
                     onChange={(e) => {
-                      setConfig((prev) => ({
+                      setConfig((prev: any) => ({
                         ...prev,
                         anthropicApiKey: e.target.value,
                       }));
@@ -196,7 +196,7 @@ const App: React.FC = () => {
                       : config.anthropicModel
                   }
                   onChange={(e) => {
-                    setConfig((prev) => {
+                    setConfig((prev: any) => {
                       if (prev.providerType === 'local') {
                         return { ...prev, localModel: e.target.value as string };
                       } else {
@@ -230,7 +230,7 @@ const App: React.FC = () => {
                   type="text"
                   value={config.localProviderUrl || ''}
                   onChange={(e) => {
-                    setConfig((prev) => ({
+                    setConfig((prev: any) => ({
                       ...prev,
                       localProviderUrl: e.target.value,
                     }));
@@ -256,7 +256,7 @@ const App: React.FC = () => {
                 <select
                   value={values.identity?.primary_activity || 'learning'}
                   onChange={(e) => {
-                    setValues((prev) => ({
+                    setValues((prev: any) => ({
                       ...prev,
                       identity: {
                         ...(prev.identity || {}),
@@ -278,7 +278,7 @@ const App: React.FC = () => {
                 <select
                   value={values.identity?.experience_level || 'beginner'}
                   onChange={(e) => {
-                    setValues((prev) => ({
+                    setValues((prev: any) => ({
                       ...prev,
                       identity: {
                         ...(prev.identity || {}),
@@ -299,7 +299,7 @@ const App: React.FC = () => {
                 <select
                   value={values.communication?.tone || 'casual'}
                   onChange={(e) => {
-                    setValues((prev) => ({
+                    setValues((prev: any) => ({
                       ...prev,
                       communication: {
                         ...(prev.communication || {}),
@@ -320,7 +320,7 @@ const App: React.FC = () => {
                 <select
                   value={values.communication?.verbosity || 'balanced'}
                   onChange={(e) => {
-                    setValues((prev) => ({
+                    setValues((prev: any) => ({
                       ...prev,
                       communication: {
                         ...(prev.communication || {}),
@@ -341,7 +341,7 @@ const App: React.FC = () => {
                 <select
                   value={values.preferences?.theme || 'dark'}
                   onChange={(e) => {
-                    setValues((prev) => ({
+                    setValues((prev: any) => ({
                       ...prev,
                       preferences: {
                         ...(prev.preferences || {}),
@@ -362,7 +362,7 @@ const App: React.FC = () => {
                 <select
                   value={values.preferences?.default_currency || 'USD'}
                   onChange={(e) => {
-                    setValues((prev) => ({
+                    setValues((prev: any) => ({
                       ...prev,
                       preferences: {
                         ...(prev.preferences || {}),

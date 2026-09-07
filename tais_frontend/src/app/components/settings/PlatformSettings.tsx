@@ -100,7 +100,7 @@ const DEFAULT_SETTINGS: PlatformSettings = {
 const STORAGE_KEY = 'tais_platform_settings';
 
 export function PlatformSettingsPage({ onBack }: { onBack: () => void }) {
-  const { isConnected, wallet } = useWallet();
+  const { isConnected } = useWallet();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_SETTINGS);
@@ -140,7 +140,7 @@ export function PlatformSettingsPage({ onBack }: { onBack: () => void }) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
       
-       if (isConnected && wallet.signer) {
+       if (isConnected) {
          try {
            const token = localStorage.getItem('auth_token');
            if (token) {

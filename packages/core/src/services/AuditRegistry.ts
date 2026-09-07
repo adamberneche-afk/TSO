@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { ethers } from 'ethers';
 import { AuditReport, YARAFinding, AuditReportSchema } from '@think/types';
+import { verifySignature } from '../utils/signature';
 
 // Default to THINK Genesis Bundle for beta testing
 // Future: Custom contracts deployed via $THINK staking
@@ -100,9 +101,15 @@ export class AuditRegistry {
   }
 
   private verifyReportSignature(report: AuditReport): boolean {
+    // Same issue as IsnadService.addLink: a plain hash of public fields
+    // (skill_hash, auditor, status, findings, timestamp) proves nothing --
+    // anyone can compute the same hash for any auditor wallet without
+    // ever touching that wallet's private key, letting them forge a
+    // "malicious" report against a competitor's skill (or a fraudulent
+    // "safe" report for their own). Real ECDSA verification actually
+    // ties the report to the wallet that claims to have authored it.
     const payload = `${report.skill_hash}:${report.auditor}:${report.status}:${JSON.stringify(report.findings)}:${report.timestamp}`;
-    const expectedSignature = crypto.createHash('sha256').update(payload).digest('hex');
-    return report.signature === expectedSignature;
+    return verifySignature(payload, report.signature, report.auditor).valid;
   }
 
   async submitAudit(report: AuditReport): Promise<{ success: boolean; error?: string }> {

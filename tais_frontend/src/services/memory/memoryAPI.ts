@@ -8,6 +8,8 @@ import {
   getMemoryDB,
   MetaMemory,
   ReflectiveMemory,
+  ImmutableMemory,
+  Reflection,
 } from './types';
 import { citationValidator, relevanceFilter } from './citationValidator';
 import { reflectionSynthesizer } from './reflectionSynthesizer';
@@ -317,12 +319,17 @@ export class ReflectiveMemoryAPI {
     }
 
     // Step 4: Generate reflection (LLM synthesis)
-    let reflection = null;
+    let reflection: Reflection;
     try {
       reflection = await reflectionSynthesizer.generate(activeMemory, userProfile);
     } catch (error) {
       console.error('Reflection generation failed:', error);
-      // Continue without reflection if LLM fails
+      // A reflective memory must have a reflection -- if synthesis fails,
+      // leave this memory active rather than promoting it without one.
+      return {
+        promoted: false,
+        reason: 'Reflection generation failed',
+      };
     }
 
     const reflectiveMemory: ReflectiveMemory = {
@@ -400,7 +407,7 @@ export class CoreMemoryAPI {
     const db = await getMemoryDB();
     
     // Try to find in reflective memory first, then immutable
-    let sourceMemory = await db.get('reflectiveMemory', memoryId);
+    let sourceMemory: ReflectiveMemory | ImmutableMemory | undefined = await db.get('reflectiveMemory', memoryId);
     if (!sourceMemory) {
       sourceMemory = await db.get('immutableMemory', memoryId);
     }

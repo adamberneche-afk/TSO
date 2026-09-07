@@ -13,7 +13,7 @@ interface MemoryBackupData {
   salt: string;
 }
 
-async function deriveKeyFromWallet(signer: ethers.JsonRpcSigner, salt: Uint8Array): Promise<CryptoKey> {
+async function deriveKeyFromWallet(signer: ethers.JsonRpcSigner, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
   const address = await signer.getAddress();
   const message = `TAIS Memory Backup Encryption\nWallet: ${address}\nSalt: ${Array.from(salt).join(',')}`;
   

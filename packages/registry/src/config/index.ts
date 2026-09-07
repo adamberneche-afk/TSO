@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+import { PrismaClient } from '@prisma/client';
 
 /**
  * Database Configuration Schema
@@ -186,6 +187,16 @@ export function loadConfig(): AppConfig {
     rateLimitAuth: securityRaw.rateLimitAuth,
   };
 
+  // The /admin/cron/* routes (real side effects: emails to real users, DB
+  // deletes) refuse to serve at all when CRON_SECRET is unset (see
+  // routes/cron.ts) -- that's a safe runtime default, but a production
+  // deploy that's missing it entirely should fail loudly at startup
+  // rather than silently running with those endpoints permanently
+  // disabled until someone happens to notice.
+  if (server.isProduction && !process.env.CRON_SECRET) {
+    throw new Error('CRON_SECRET is required in production (see routes/cron.ts)');
+  }
+
   return {
     database,
     server,
@@ -203,8 +214,6 @@ export function getDatabaseClients(config: AppConfig, logger: any): {
   skillsPrisma: import('@prisma/client').PrismaClient;
   prisma: import('@prisma/client').PrismaClient; // For backward compatibility
 } {
-  const { PrismaClient } = require('@prisma/client');
-  
   // Create RAG Prisma client
   const ragPrisma = new PrismaClient({
     log: config.server.nodeEnv === 'development' 

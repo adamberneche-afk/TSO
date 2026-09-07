@@ -8,8 +8,20 @@ on:
     branches:
       - main
 
+# Both jobs only checkout, run npm/Vercel CLI commands, and use secrets
+# passed explicitly as CLI args -- nothing here needs anything beyond read
+# access to repo contents (flagged by CodeQL's "Workflow does not contain
+# permissions" check, which defaults GITHUB_TOKEN to a wider scope when no
+# block is present at all).
+permissions:
+  contents: read
+
 jobs:
-  deploy:
+  # Runs on every push and PR -- typecheck/test give real CI signal on
+  # pull requests (this is tais_frontend's only such coverage; it isn't
+  # part of the npm workspace build-all-packages.yml builds). Split out
+  # from `deploy` below so a PR never reaches the Vercel steps.
+  test:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -22,9 +34,45 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: '.nvmrc'
           cache: 'npm'
           cache-dependency-path: tais_frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+  # This job used to run unconditionally on both triggers above, so
+  # every pull request into main deployed straight to Vercel production
+  # -- not just merges. `if:` restricts it to an actual push to main;
+  # `needs: test` also means a PR that merges with failing
+  # typecheck/tests never reaches this job in the first place.
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tais_frontend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: tais_frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
@@ -39,7 +87,17 @@ jobs:
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Add Environment Variables
+        # `vercel env add` takes the value via `--value` (or stdin), not as
+        # a second positional argument -- the CLI's actual syntax is
+        # `vercel env add <name> [environment] [options]`, so a value
+        # passed positionally is parsed as the [environment] name instead,
+        # which isn't one of "production"/"preview"/"development" and
+        # fails. That failure was previously hidden behind `|| true`,
+        # which meant these variables were never actually being set in
+        # Vercel on any run, silently. `--force` makes re-running this
+        # step idempotent (overwrite the existing value) instead of
+        # needing `|| true` to survive an "already exists" error.
         run: |
-          vercel env add VITE_REGISTRY_URL https://tso.onrender.com --token=${{ secrets.VERCEL_TOKEN }} --yes || true
-          vercel env add VITE_RPC_URL https://cloudflare-eth.com --token=${{ secrets.VERCEL_TOKEN }} --yes || true
-          vercel env add VITE_GENESIS_CONTRACT 0x11B3EfbF04F0bA505F380aC20444B6952970AdA6 --token=${{ secrets.VERCEL_TOKEN }} --yes || true
+          vercel env add VITE_REGISTRY_URL production --value="https://tso.onrender.com" --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+          vercel env add VITE_RPC_URL production --value="https://cloudflare-eth.com" --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+          vercel env add VITE_GENESIS_CONTRACT production --value="0x11B3EfbF04F0bA505F380aC20444B6952970AdA6" --force --token=${{ secrets.VERCEL_TOKEN }} --yes

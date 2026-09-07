@@ -9,6 +9,11 @@ let backend: ScannerBackend = 'pattern';
 
 // Try native YARA module first (Linux/Mac)
 try {
+  // Deliberately require() rather than import: this is an optional native
+  // dependency that may not be installed/available on every platform, and
+  // only require() (not a static import) can be wrapped in a try/catch to
+  // degrade gracefully to the CLI/pattern backends below.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   yara = require('@automattic/yara');
   backend = 'native';
   console.log('✅ YARA native module available');

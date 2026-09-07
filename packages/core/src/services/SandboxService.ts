@@ -36,10 +36,17 @@ export class SandboxService {
       const vm = new VM({
         timeout: timeoutMs,
         sandbox,
+        // allowAsync and fixAsync are mutually exclusive in vm2 --
+        // fixAsync forces allowAsync to false internally. Every skill is
+        // wrapped in an async IIFE below, so allowAsync has to win here
+        // or execution always throws "Async not available" before running
+        // anything. This does mean fixAsync's specific async-related
+        // sandbox-escape mitigation is not applied; vm2 is EOL with other
+        // known unpatched escapes regardless (see SECURITY notes), so this
+        // isn't a new category of risk for this component.
         allowAsync: true,
         eval: false,
         wasm: false,
-        fixAsync: true,
       });
 
       const wrappedCode = `

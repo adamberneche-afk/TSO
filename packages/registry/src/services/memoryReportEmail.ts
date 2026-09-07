@@ -5,6 +5,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { createSkillsPrismaClient } from '../config/database';
+import sgMail from '@sendgrid/mail';
 
 const prisma = createSkillsPrismaClient();
 
@@ -192,7 +193,6 @@ export async function sendMemoryReportEmail(
     return { success: true, message: 'SendGrid not configured - logged only' };
   }
 
-  const sgMail = require('@sendgrid/mail');
   sgMail.setApiKey(sendGridApiKey);
 
   const html = formatMemoryReportEmail(walletAddress, report, prefs);

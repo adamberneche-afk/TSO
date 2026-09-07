@@ -37,7 +37,7 @@ import { requestIdMiddleware } from './middleware/requestId';
 // Squad Alpha - Authentication
 import { AuthService } from './services/auth';
 import { ApiKeyService } from './services/apiKey';
-import { authenticateToken } from './middleware/auth';
+import { authenticateToken, optionalAuth } from './middleware/auth';
 import { createAdminMiddleware } from './middleware/admin';
 
 // Squad Beta - Access Control & Validation
@@ -94,6 +94,7 @@ const nftService = new NFTVerificationService({
 
 // Create middleware instances
 const authMiddleware = authenticateToken(authService);
+const optionalAuthMiddleware = optionalAuth(authService);
 const adminMiddleware = createAdminMiddleware();
 const publisherNftMiddleware = requirePublisherNFT(nftService);
 const auditorNftMiddleware = requireAuditorNFT(nftService);
@@ -266,8 +267,15 @@ apiV1Router.use('/guided-discovery',
 );
 
 // Admin-only migration endpoint for v2.7.0 hybrid config
+//
+// adminMiddleware only checks req.user -- it never populates it. Without
+// authMiddleware running first, req.user is always undefined here, so
+// this 401'd unconditionally for every caller, including real admins
+// with valid credentials. Mirrors the working '/admin' mount above,
+// which correctly runs authMiddleware before adminMiddleware.
 import { createMigrateRoutes } from './routes/migrate';
 apiV1Router.use('/admin/migrate',
+  authMiddleware,
   adminMiddleware,
   createMigrateRoutes(skillsPrisma)
 );
@@ -310,9 +318,76 @@ apiV1Router.use('/oauth', createOAuthRoutes(skillsPrisma, logger));
 apiV1Router.use('/agent', createAgentRoutes(skillsPrisma, logger));
 apiV1Router.use('/billing', rateLimiters.authenticated, authMiddleware, createBillingRoutes(skillsPrisma, logger));
 apiV1Router.use('/enterprise', rateLimiters.authenticated, authMiddleware, createEnterpriseRoutes(skillsPrisma, logger));
-apiV1Router.use('/memory', createMemoryBackupRoutes(skillsPrisma, logger));
-apiV1Router.use('/rcrt', rateLimiters.rcrt, createRCRTRoutes(ragPrisma, logger));
+// P0.4 fix: mounted with zero auth -- any wallet's private agent
+// memories were readable/writable by anyone who knew or guessed the
+// wallet address. memoryBackup.ts's own handlers now source the wallet
+// from req.user, but that's only populated when authMiddleware runs.
+apiV1Router.use('/memory', authMiddleware, createMemoryBackupRoutes(skillsPrisma, logger));
+// P0.3 fix: this router used to trust an unverified, base64-decoded JWT
+// payload (no signature check) and fell back to a client-supplied
+// `?wallet=`/body `wallet` with no auth at all -- letting any caller read
+// another wallet's RCRT status (including its live connection token),
+// provision a device under someone else's identity, or revoke a real
+// user's RCRT access. `optionalAuthMiddleware` populates req.user from a
+// real, verified JWT when present; rcrt.ts's own handlers now source the
+// wallet only from req.user and 401 where authentication is required
+// (GET /status intentionally stays soft -- see rcrt.ts).
+apiV1Router.use('/rcrt', rateLimiters.rcrt, optionalAuthMiddleware, createRCRTRoutes(ragPrisma, logger));
 apiV1Router.use('/kb', createKBRoutes(prisma, logger));
+
+// ============================================
+// CTO Agent Routes
+// ============================================
+//
+// createCTOAgentRoutes was never imported/mounted here at all, so
+// /api/v1/cto/projects and /api/v1/cto/insights (both actively called by
+// GoldTierDashboard.tsx in tais_frontend) 404'd for every real user.
+// Mounted authenticated: every route in ctoAgent.ts now derives its wallet
+// from req.user (set by authMiddleware) and checks project ownership
+// itself, rather than trusting a client-submitted wallet/project id with
+// no check at all, so gating the whole router this way is required, not
+// just consistent with the routes above.
+import { createCTOAgentRoutes } from './routes/ctoAgent';
+apiV1Router.use('/cto', rateLimiters.authenticated, authMiddleware, createCTOAgentRoutes(prisma, logger));
+
+// ============================================
+// Analytics Routes
+// SDK/CTO-agent usage telemetry and weekly insights
+// ============================================
+//
+// createAnalyticsRoutes was implemented but never imported/mounted here at
+// all, so none of it (including its aggregate insights/summary/reports
+// endpoints) was reachable on a running server. POST /track doesn't
+// require authentication -- it records anonymous SDK session telemetry
+// that can legitimately arrive before a wallet is ever connected -- but it
+// does run optionalAuth so an authenticated caller's verified wallet (not
+// an unverifiable client-submitted one) is what gets recorded when
+// present (see routes/analytics.ts). The GET endpoints expose aggregate
+// platform-wide usage stats (session/error counts, active wallets) and
+// are gated the same way '/monitoring' is.
+import { createAnalyticsRoutes } from './routes/analytics';
+apiV1Router.use('/analytics',
+  (req: any, res: any, next: any) => {
+    if (req.method === 'GET') {
+      return applyMiddlewareChain([authMiddleware, adminMiddleware])(req, res, next);
+    }
+    return optionalAuthMiddleware(req, res, next);
+  },
+  createAnalyticsRoutes(prisma, logger)
+);
+
+// ============================================
+// Security Scanning Routes
+// YARA-backed content scanner (see src/services/yaraScanner.ts)
+// ============================================
+//
+// scanRoutes' POST / used to be a placeholder that always returned a
+// hardcoded "clean" result and ignored the request body, and this router
+// was never imported/mounted at all -- not even the placeholder was
+// reachable. It's now backed by the real YaraScanner and mounted here,
+// authenticated like the other authenticated routes above.
+import { scanRoutes } from './routes/scan';
+apiV1Router.use('/scan', rateLimiters.authenticated, authMiddleware, scanRoutes);
 
 // ============================================
 // Monitoring & Observability Routes
@@ -325,11 +400,23 @@ import { metricsMiddleware } from './monitoring/metrics';
 apiV1Router.use(metricsMiddleware);
 
 // Monitoring routes (unversioned, accessible at /monitoring)
-app.use('/monitoring', monitoringRoutes);
+//
+// Previously mounted with no auth at all: the dashboard (internal
+// system/DB/redis/cache stats), the Prometheus metrics dump, and
+// /alerts/test (which sends a real outbound email via SendGrid on every
+// call) were all reachable by anyone on the internet. Gated the whole
+// router behind the same authMiddleware+adminMiddleware pair used for
+// '/admin', since none of this is meant for public consumption.
+app.use('/monitoring', authMiddleware, adminMiddleware, monitoringRoutes);
 
 // Admin migration fix endpoint (run once to fix failed migrations)
+//
+// Same issue as '/admin/migrate' above: adminMiddleware only checks
+// req.user, it never populates it. Mounted without authMiddleware
+// first, this 401'd unconditionally for every caller -- including real
+// admins with valid credentials -- since req.user was always undefined.
 import { migrationFixRoutes } from './routes/migrationFix';
-app.use('/admin/migration', adminMiddleware, migrationFixRoutes);
+app.use('/admin/migration', authMiddleware, adminMiddleware, migrationFixRoutes);
 
 // Cron endpoints (protected by secret)
 import cronRoutes from './routes/cron';

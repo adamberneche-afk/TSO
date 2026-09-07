@@ -134,7 +134,7 @@ export const rcrtApi = {
       throw new Error('Wallet not found. Please connect your wallet first.');
     }
     await api.delete(`${RCRT_BASE}/provision`, {
-      data: { wallet, agentId }
+      params: { agentId }
     });
   },
 

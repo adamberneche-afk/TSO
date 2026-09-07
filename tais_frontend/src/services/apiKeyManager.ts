@@ -19,7 +19,7 @@ export interface ApiKeyStore {
  * Uses the user's wallet to create a unique encryption key
  */
 export async function deriveEncryptionKey(
-   signer: ethers.providers.JsonRpcSigner
+   signer: ethers.JsonRpcSigner
 ): Promise<CryptoKey> {
   // User signs a static message
   const signature = await signer.signMessage(ENCRYPTION_MESSAGE);
@@ -45,7 +45,7 @@ export async function deriveEncryptionKey(
  */
 export async function encryptApiKey(
    apiKey: string,
-   signer: ethers.providers.JsonRpcSigner
+   signer: ethers.JsonRpcSigner
 ): Promise<{ encryptedData: string; iv: string }> {
   const key = await deriveEncryptionKey(signer);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -73,7 +73,7 @@ export async function encryptApiKey(
 export async function decryptApiKey(
    encryptedData: string,
    iv: string,
-   signer: ethers.providers.JsonRpcSigner
+   signer: ethers.JsonRpcSigner
 ): Promise<string> {
   const key = await deriveEncryptionKey(signer);
   

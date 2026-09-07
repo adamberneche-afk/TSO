@@ -182,16 +182,53 @@ export class TokenService {
       const thinkBalance = holding.holdings.find((h: any) => h.tokenAddress === THINK_TOKEN_ADDRESS);
       if (!thinkBalance) return false;
 
+      // thinkBalance.balance is already a human-readable decimal string
+      // (ethers.formatUnits'd in getTokenBalance/getTokenHoldings), not raw
+      // base units -- BigInt(thinkBalance.balance) either threw on any
+      // fractional balance (caught below, silently returning false) or
+      // compared a tiny whole-number string against `amount` scaled by
+      // 10^decimals, which is never true for a real balance. Parse both
+      // sides through parseUnits so they're compared in the same base
+      // units, mirroring validateTokenTransfer's correct pattern below.
       const amount = ethers.parseUnits(minAmount, thinkBalance.decimals || 18);
-      return BigInt(thinkBalance.balance) >= amount;
+      const availableBalance = ethers.parseUnits(thinkBalance.balance, thinkBalance.decimals || 18);
+      return BigInt(availableBalance) >= amount;
     } catch (error) {
       console.error(`THINK token verification failed:`, error);
       return false;
     }
   }
 
-  calculateTrustScore(walletAddress: string): number {
-    const cacheEntry = this.cacheMap.get(walletAddress);
+  // Cache TTL for a live-fetched balance before it's considered stale
+  // enough to re-fetch.
+  private static readonly CACHE_TTL_MS = 15 * 60 * 1000;
+
+  async calculateTrustScore(walletAddress: string): Promise<number> {
+    let cacheEntry = this.cacheMap.get(walletAddress);
+    const isFresh = cacheEntry && (Date.now() - cacheEntry.timestamp < TokenService.CACHE_TTL_MS);
+
+    if (!isFresh) {
+      // Nothing anywhere in this class ever populated cacheMap with a
+      // live balance -- loadCache() only restores a previous saveCache()
+      // call, and saveCache() was never invoked from anywhere -- so this
+      // always returned 0 for every wallet. Fetch a real balance on a
+      // miss or stale entry and persist it via the existing (until now
+      // unused) signed-cache infrastructure.
+      const tokenBalance = await this.getTokenBalance(walletAddress);
+      if (tokenBalance) {
+        cacheEntry = {
+          balance: tokenBalance.balance,
+          decimals: tokenBalance.decimals ?? 18,
+          symbol: tokenBalance.symbol || 'THINK',
+          timestamp: Date.now(),
+        };
+        this.cacheMap.set(walletAddress, cacheEntry);
+        await this.saveCache();
+      }
+      // If the live fetch failed, fall back to whatever was cached (even
+      // if stale) rather than reporting 0.
+    }
+
     if (!cacheEntry) return 0;
 
     try {
