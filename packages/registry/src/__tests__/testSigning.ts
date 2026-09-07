@@ -37,3 +37,15 @@ export async function signApproveChallenge(
   const challenge = `TAIS OAuth Authorization\n\nApp: ${params.appId}\nScopes: ${params.scopes.join(', ')}\nWallet: ${wallet.address.toLowerCase()}\nNonce: ${params.authorizationId}`;
   return wallet.signMessage(challenge);
 }
+
+// Mirrors the exact challenge string services/ragSession.ts's POST /start
+// handler reconstructs server-side (and the string rag-sdk's
+// startRAGSession() actually signs).
+export async function signRagSessionChallenge(
+  wallet: ethers.Wallet
+): Promise<{ signature: string; timestamp: number }> {
+  const timestamp = Date.now();
+  const challenge = `TAIS RAG Session Authorization\n\nWallet: ${wallet.address}\nTimestamp: ${timestamp}\n\nAuthorize this session for encrypted document uploads.\n\nSession will be valid for 1 hour.`;
+  const signature = await wallet.signMessage(challenge);
+  return { signature, timestamp };
+}
