@@ -12,16 +12,26 @@
 //    fetched or scanned at all -- yaraScanner.ts existed but nothing on the
 //    publish path called it. It's now fetched via the IPFS client and run
 //    through the real scanner; a "malicious" verdict blocks the publish.
+//
+// This mocks our own services/ipfs.ts module, not the underlying
+// ipfs-http-client package directly: ipfs-http-client@60.x (bumped from
+// 55.x by Dependabot) is pure ESM with no CJS build, so services/ipfs.ts
+// now loads it via a native dynamic import constructed with `new Function`
+// (see that file's comment) specifically so tsc/ts-jest can't downlevel it
+// to a `require()` that would crash on an ESM-only package. That same
+// trick makes the import invisible to Jest's mock registry (which hooks
+// `require`, not a raw runtime `import()`), so `jest.mock('ipfs-http-client', ...)`
+// no longer intercepts anything -- mocking the real app-level boundary
+// (createIPFSClient) instead is both the fix and, regardless, the better
+// test design (it doesn't reach into a third-party package's internals).
 
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 
-jest.mock('ipfs-http-client', () => ({
-  create: jest.fn(),
-}));
+jest.mock('../../services/ipfs');
 
-import { create as mockCreateIPFSClient } from 'ipfs-http-client';
+import { createIPFSClient as mockCreateIPFSClient } from '../../services/ipfs';
 import { NFTService } from '../../services/nftVerification';
 import app from '../../index';
 
@@ -93,7 +103,7 @@ describe('POST /api/v1/skills security scanning', () => {
 
   it('publishes a skill whose IPFS package content scans clean', async () => {
     process.env.IPFS_ENABLED = 'true';
-    (mockCreateIPFSClient as jest.Mock).mockReturnValue(
+    (mockCreateIPFSClient as jest.Mock).mockResolvedValue(
       fakeIpfsContent(Buffer.from('function run() { return "hello world"; }'))
     );
 
@@ -118,7 +128,7 @@ describe('POST /api/v1/skills security scanning', () => {
 
   it('rejects a skill whose IPFS package content is flagged malicious, and does not persist it', async () => {
     process.env.IPFS_ENABLED = 'true';
-    (mockCreateIPFSClient as jest.Mock).mockReturnValue(
+    (mockCreateIPFSClient as jest.Mock).mockResolvedValue(
       fakeIpfsContent(Buffer.from('const apiKey = "NOT-A-REAL-SECRET-PLACEHOLDER-VALUE";'))
     );
 

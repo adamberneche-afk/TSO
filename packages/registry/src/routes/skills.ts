@@ -208,7 +208,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunc
     // erroring when its preferred backend isn't available. A genuine
     // "malicious" verdict, however, always blocks the publish.
     if (skillData.packageCid) {
-      const ipfsClient = createIPFSClient();
+      const ipfsClient = await createIPFSClient();
       if (ipfsClient) {
         try {
           const chunks: Buffer[] = [];
