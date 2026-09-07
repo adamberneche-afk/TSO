@@ -46,7 +46,7 @@ services:
 cron:
   - name: memory-reports
     schedule: "0 1 * * *"
-    url: https://tso.onrender.com/api/v1/cron/memory-reports
+    url: https://tso.onrender.com/admin/cron/memory-reports
     method: POST
     headers:
       - key: Authorization
