@@ -323,6 +323,21 @@ apiV1Router.use('/rcrt', rateLimiters.rcrt, createRCRTRoutes(ragPrisma, logger))
 apiV1Router.use('/kb', createKBRoutes(prisma, logger));
 
 // ============================================
+// CTO Agent Routes
+// ============================================
+//
+// createCTOAgentRoutes was never imported/mounted here at all, so
+// /api/v1/cto/projects and /api/v1/cto/insights (both actively called by
+// GoldTierDashboard.tsx in tais_frontend) 404'd for every real user.
+// Mounted authenticated: every route in ctoAgent.ts now derives its wallet
+// from req.user (set by authMiddleware) and checks project ownership
+// itself, rather than trusting a client-submitted wallet/project id with
+// no check at all, so gating the whole router this way is required, not
+// just consistent with the routes above.
+import { createCTOAgentRoutes } from './routes/ctoAgent';
+apiV1Router.use('/cto', rateLimiters.authenticated, authMiddleware, createCTOAgentRoutes(prisma, logger));
+
+// ============================================
 // Analytics Routes
 // SDK/CTO-agent usage telemetry and weekly insights
 // ============================================
