@@ -32,13 +32,20 @@ async function analyzeIssues() {
 
 function analyzeNorthStar(issues) {
   // Check alignment with your stated principles: safety, user ownership, extensibility
-  const safetyIssues = issues.filter(i => 
-    i.labels.some(l => l.name.toLowerCase().includes("security") || 
-                      l.name.toLowerCase().includes("vulnerability") ||
-                  (i.body && (i.body.includes("unsafe") ||
-                           i.body.includes("XSS") ||
-                           i.body.includes("injection") ||
-                           i.body.includes("privacy breach"))))
+  //
+  // The body-keyword check used to be nested inside labels.some(...),
+  // so for any issue with zero labels -- .some() on an empty array is
+  // always false -- the whole filter short-circuited to false no
+  // matter what the body said, silently never counting most
+  // unlabeled, body-only bug reports as safety issues. It's now
+  // (body check) OR (label check), matching ownershipIssues below.
+  const safetyIssues = issues.filter(i =>
+    (i.body && (i.body.includes("unsafe") ||
+                i.body.includes("XSS") ||
+                i.body.includes("injection") ||
+                i.body.includes("privacy breach"))) ||
+    i.labels.some(l => l.name.toLowerCase().includes("security") ||
+                        l.name.toLowerCase().includes("vulnerability"))
   );
   
   const ownershipIssues = issues.filter(i => 
@@ -60,7 +67,13 @@ function analyzeNorthStar(issues) {
       percentage: Math.round((ownershipIssues.length / issues.length) * 100),
       topIssue: ownershipIssues[0]?.title || "None"
     },
-    extensibility: issues.length - (safetyIssues.length + ownershipIssues.length) // Simplified
+    // A percentage, like safety/ownership above -- this used to be a raw
+    // count (issues.length minus the other two categories) rendered with
+    // a literal "%" suffix in the report template, so it could print
+    // values far outside 0-100.
+    extensibility: Math.round(
+      ((issues.length - (safetyIssues.length + ownershipIssues.length)) / issues.length) * 100
+    )
   };
 }
 
@@ -141,9 +154,16 @@ function assessCodeHealth(issues) {
       issues: eslintIssues.length,
       status: eslintIssues.length > 0 ? "NEEDS_ATTENTION" : "HEALTHY"
     },
-    testing: { 
+    testing: {
       issues: testIssues.length,
-      status: testIssues.length > 0 ? "HEALTHY" : "NEEDS_ATTENTION" // Inverse: more test issues = better coverage
+      // This used to be inverted (more issues mentioning tests treated
+      // as "HEALTHY", on the theory that more test-related issue text
+      // implied more test coverage). It's the opposite: an issue whose
+      // body mentions "test"/"jest" is far more likely a bug report
+      // about a broken or missing test than proof one exists. Matches
+      // the same polarity as typescript/eslint above: more matching
+      // issues means more to look at, not less.
+      status: testIssues.length > 0 ? "NEEDS_ATTENTION" : "HEALTHY"
     }
   };
 }
@@ -225,8 +245,13 @@ function generateActions(issues) {
 
 function formatReport(report) {
   return `
-# 📊 TSO REPOSITORY HEALTH REPORT
+# 📊 TSO ISSUE-TRACKER TRIAGE REPORT
 *Generated at ${new Date(report.timestamp).toLocaleString()}*
+
+> This report mines GitHub issue titles/bodies/labels for keywords --
+> it does not read any source code, run tests, or run a linter. A
+> "CODE HEALTH" score below reflects how often issues *mention* a
+> topic, not whether that part of the codebase actually works.
 
 ## 📈 SUMMARY
 - **Total Issues**: ${report.summary.total} (${report.summary.open} open, ${report.summary.closed} closed)
@@ -244,13 +269,13 @@ ${report.frictionPoints.map(p =>
     *Example: "${p.sample}"`
 ).join('\n')}
 
-## 💊 CODE HEALTH
-- **TypeScript**: ${report.codeHealth.typescript.status} 
+## 💊 ISSUE-TRACKER SIGNALS (not a real code-health scan -- see note above)
+- **TypeScript**: ${report.codeHealth.typescript.status}
   (${report.codeHealth.typescript.issues} tsconfig-related issues)
-- **ESLint**: ${report.codeHealth.eslint.status} 
+- **ESLint**: ${report.codeHealth.eslint.status}
   (${report.codeHealth.eslint.issues} linting issues)
-- **Testing**: ${report.codeHealth.testing.status} 
-  (${report.codeHealth.testing.issues} test-related issues → *more = better coverage*)
+- **Testing**: ${report.codeHealth.testing.status}
+  (${report.codeHealth.testing.issues} test-related issues)
 
 ## 🎯 PRIORITY MATRIX
 - **High Impact Issues**: ${report.priorityMatrix.highImpact}
@@ -275,3 +300,12 @@ ${report.recommendedActions.map((a, i) =>
 if (require.main === module) {
   analyzeIssues().then(console.log).catch(console.error);
 }
+
+module.exports = {
+  analyzeNorthStar,
+  identifyFriction,
+  assessCodeHealth,
+  buildPriorityMatrix,
+  generateActions,
+  formatReport,
+};
