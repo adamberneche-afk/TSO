@@ -3,31 +3,32 @@ import ora from 'ora';
 import inquirer from 'inquirer';
 import fs from 'fs';
 import path from 'path';
+import { ethers } from 'ethers';
+import { AuditReport, YARAFinding } from '@think/types';
 import { TaisServiceManager } from '../services/TaisServiceManager';
+import { loadSigningWallet } from '../utils/wallet';
 
-interface YARAFinding {
-  rule_name: string;
-  description: string;
-  severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
-  evidence: string;
-  tags: string[];
-}
+/** Everything about an audit report except the signature -- computed
+ * first so its exact serialized form can be signed. */
+type UnsignedAuditReport = Omit<AuditReport, 'signature'>;
 
-interface AuditReport {
-  skill_hash: string;
-  auditor_wallet: string;
-  status: 'safe' | 'suspicious' | 'malicious';
-  findings: YARAFinding[];
-  timestamp: string;
-  signature: string;
+function signAuditReport(unsigned: UnsignedAuditReport, wallet: ethers.Wallet): AuditReport {
+  const payload = `${unsigned.skill_hash}:${unsigned.auditor}:${unsigned.status}:${JSON.stringify(unsigned.findings)}:${unsigned.timestamp}`;
+  return { ...unsigned, signature: wallet.signMessageSync(payload) };
 }
 
 export async function auditCommand(skill: string, options: any) {
   const spinner = ora();
-  
+
   try {
     console.log(chalk.blue.bold('🔍 TAIS Skill Security Auditor'));
     console.log(chalk.gray('═'.repeat(50)));
+
+    // The wallet that will sign (and be attributed as the auditor for)
+    // this report. Loaded up front so a missing/invalid key fails fast,
+    // before the user spends time on an interactive audit they can't
+    // submit.
+    const wallet = loadSigningWallet();
 
     // Step 1: Load skill information
     spinner.start('Loading skill information...');
@@ -35,17 +36,19 @@ export async function auditCommand(skill: string, options: any) {
     spinner.succeed('Skill information loaded');
 
     // Step 2: Load or create audit report
-    let auditReport: AuditReport;
-    
+    let unsignedReport: UnsignedAuditReport;
+
     if (options.report) {
       spinner.start('Loading YARA report...');
-      auditReport = await loadYARAReport(options.report, skillHash);
+      unsignedReport = await loadYARAReport(options.report, skillHash, wallet.address);
       spinner.succeed('YARA report loaded');
     } else {
       spinner.start('Creating interactive audit...');
-      auditReport = await createInteractiveAudit(skillHash);
+      unsignedReport = await createInteractiveAudit(skillHash, wallet.address);
       spinner.succeed('Interactive audit completed');
     }
+
+    const auditReport = signAuditReport(unsignedReport, wallet);
 
     // Step 3: Display audit summary
     displayAuditSummary(skillName, skillHash, auditReport);
@@ -114,7 +117,7 @@ async function loadSkillInfo(skill: string): Promise<{ skillHash: string; skillN
   throw new Error(`Skill not found: ${skill}`);
 }
 
-async function loadYARAReport(reportPath: string, skillHash: string): Promise<AuditReport> {
+async function loadYARAReport(reportPath: string, skillHash: string, auditorWallet: string): Promise<UnsignedAuditReport> {
   if (!fs.existsSync(reportPath)) {
     throw new Error(`YARA report not found: ${reportPath}`);
   }
@@ -124,15 +127,15 @@ async function loadYARAReport(reportPath: string, skillHash: string): Promise<Au
 
   return {
     skill_hash: skillHash,
-    auditor_wallet: '0x0000000000000000000000000000000000000000', // Would get from config
+    auditor: auditorWallet.toLowerCase(),
     status: reportData.status || 'safe',
     findings: reportData.findings || [],
     timestamp: new Date().toISOString(),
-    signature: '0x0000000000000000000000000000000000000000000000000000000000000000' // Would sign
+    audit_method: 'yara_scan',
   };
 }
 
-async function createInteractiveAudit(skillHash: string): Promise<AuditReport> {
+async function createInteractiveAudit(skillHash: string, auditorWallet: string): Promise<UnsignedAuditReport> {
   const answers = await inquirer.prompt([
     {
       type: 'list',
@@ -160,11 +163,11 @@ async function createInteractiveAudit(skillHash: string): Promise<AuditReport> {
 
   return {
     skill_hash: skillHash,
-    auditor_wallet: '0x0000000000000000000000000000000000000000', // Would get from config
+    auditor: auditorWallet.toLowerCase(),
     status: answers.status,
     findings,
     timestamp: new Date().toISOString(),
-    signature: '0x0000000000000000000000000000000000000000000000000000000000000000' // Would sign
+    audit_method: 'manual_review',
   };
 }
 
@@ -190,18 +193,13 @@ async function collectFindings(): Promise<YARAFinding[]> {
         type: 'list',
         name: 'severity',
         message: 'Severity level:',
-        choices: ['info', 'low', 'medium', 'high', 'critical']
+        choices: ['low', 'medium', 'high', 'critical']
       },
       {
         type: 'input',
         name: 'evidence',
         message: 'Evidence (code snippet, file path, etc.):',
         validate: (input: string) => input.length > 0 || 'Evidence is required'
-      },
-      {
-        type: 'input',
-        name: 'tags',
-        message: 'Tags (comma-separated):'
       }
     ]);
 
@@ -209,8 +207,7 @@ async function collectFindings(): Promise<YARAFinding[]> {
       rule_name: finding.rule_name,
       description: finding.description,
       severity: finding.severity,
-      evidence: finding.evidence,
-      tags: finding.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean)
+      evidence: finding.evidence
     });
 
     const { addMore: shouldAddMore } = await inquirer.prompt([
@@ -243,9 +240,6 @@ function displayAuditSummary(skillName: string, skillHash: string, auditReport: 
       console.log(`      Severity: ${severityColor(finding.severity.toUpperCase())}`);
       console.log(`      Description: ${finding.description}`);
       console.log(`      Evidence: ${finding.evidence}`);
-      if (finding.tags.length > 0) {
-        console.log(`      Tags: ${finding.tags.join(', ')}`);
-      }
     });
   }
 
@@ -273,15 +267,14 @@ function getSeverityColor(severity: string) {
 }
 
 async function submitAudit(auditReport: AuditReport) {
-  // This would integrate with the AuditRegistry service
-  // For now, simulate successful submission
   console.log(chalk.blue('📝 Submitting audit to community registry...'));
-  console.log(`   Auditor: ${auditReport.auditor_wallet}`);
+  console.log(`   Auditor: ${auditReport.auditor}`);
   console.log(`   Skill: ${auditReport.skill_hash.substring(0, 16)}...`);
   console.log(`   Status: ${auditReport.status}`);
   console.log(`   Findings: ${auditReport.findings.length}`);
-  
-  return { success: true, auditId: `audit_${Date.now()}`, error: undefined };
+
+  const serviceManager = new TaisServiceManager();
+  return serviceManager.submitAudit(auditReport);
 }
 
 function displayAuditSubmissionResult(auditReport: AuditReport, result: any) {

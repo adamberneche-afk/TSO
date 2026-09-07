@@ -5,6 +5,7 @@ import { ethers } from 'ethers';
 import { SkillProvenanceSchema, IsnadLink } from '@think/types';
 import { TokenService } from './TokenService';
 import { StakingService } from './StakingService';
+import { verifySignature } from '../utils/signature';
 
 // Default to THINK Genesis Bundle for beta testing
 // Future: Custom contracts deployed via $THINK staking
@@ -149,10 +150,17 @@ export class IsnadService {
         }
       }
 
+      // The "signature" here must actually prove link.wallet's owner
+      // authorized this link -- a plain hash of public fields (skillHash,
+      // wallet, role, timestamp) proves nothing, since anyone can compute
+      // the same hash without ever touching that wallet's private key.
+      // Real ECDSA verification (recover the signer from the signature
+      // and compare against link.wallet) is the only thing that actually
+      // ties this submission to the claimed wallet.
       const signaturePayload = `${skillHash}:${link.wallet}:${link.role}:${link.timestamp}`;
-      const expectedSignature = crypto.createHash('sha256').update(signaturePayload).digest('hex');
+      const verification = verifySignature(signaturePayload, link.signature, link.wallet);
 
-      if (link.signature !== expectedSignature) {
+      if (!verification.valid) {
         return { success: false, error: "Invalid signature" };
       }
 
@@ -214,10 +222,12 @@ export class IsnadService {
       const validated = SkillProvenanceSchema.parse(provenance);
 
       for (const link of validated.auditors) {
+        // See addLink above: this must be a real signature from
+        // link.wallet, not a hash of public fields anyone could compute.
         const signaturePayload = `${link.role}:${link.wallet}:${link.timestamp}`;
-        const expectedSignature = crypto.createHash('sha256').update(signaturePayload).digest('hex');
+        const verification = verifySignature(signaturePayload, link.signature, link.wallet);
 
-        if (link.signature !== expectedSignature) {
+        if (!verification.valid) {
           return false;
         }
       }
