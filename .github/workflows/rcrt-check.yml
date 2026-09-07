@@ -1,0 +1,74 @@
+name: RCRT Build Check
+
+# crates/rcrt-standalone was previously only built in CI on a release tag
+# (rcrt-release.yml), so a breaking dependency bump or code change was only
+# ever caught at release time -- which is exactly how the axum 0.7->0.8
+# route-syntax break (":id" panicking under 0.8's required "{id}" syntax)
+# sat merged on main with the service unable to start a single request.
+# This runs on every push/PR touching the crate so that's caught immediately.
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+
+jobs:
+  build-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry and build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: cargo build
+        run: cargo build -p rcrt-standalone
+
+      - name: cargo clippy
+        run: cargo clippy -p rcrt-standalone --all-targets -- -D warnings
+
+      # A clean build doesn't mean the service can actually start -- this
+      # is exactly the class of bug that slipped through before (axum's
+      # Router::route panics on an invalid path at startup, not at compile
+      # time). Boot it for real and hit a real endpoint.
+      - name: Smoke test the service actually starts and serves requests
+        run: |
+          ./target/debug/rcrt-standalone &
+          SERVER_PID=$!
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:8090/health > /dev/null; then
+              echo "Service is up"
+              break
+            fi
+            if [ "$i" -eq 20 ]; then
+              echo "Service never became healthy"
+              kill $SERVER_PID 2>/dev/null || true
+              exit 1
+            fi
+            sleep 0.5
+          done
+          curl -sf http://localhost:8090/health
+          curl -sf -X POST http://localhost:8090/api/v1/breadcrumbs \
+            -H "Content-Type: application/json" \
+            -d '{"content":"ci smoke test"}'
+          curl -sf http://localhost:8090/api/v1/breadcrumbs | grep -q "ci smoke test"
+          kill $SERVER_PID

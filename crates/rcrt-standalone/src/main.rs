@@ -13,18 +13,20 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use chrono::Utc;
 use rand::Rng;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 const CURRENT_VERSION: &str = "1.0.0";
-const UPDATE_CHECK_URL: &str = "https://api.github.com/repos/adamberneche-afk/TSO/releases/latest";
 
 #[derive(Clone)]
 struct AppState {
     db: Arc<Mutex<Database>>,
     data_dir: PathBuf,
     service_id: String,
+    // Generated per-service but not yet wired into save_db/load_db --
+    // storage is plain JSON today (see status()'s "encryption": "disabled").
+    // Kept as a placeholder for that real feature rather than removed.
+    #[allow(dead_code)]
     encryption_key: String,
 }
 
@@ -98,7 +100,7 @@ fn get_data_dir() -> PathBuf {
     dir
 }
 
-fn load_db(data_dir: &PathBuf) -> Database {
+fn load_db(data_dir: &std::path::Path) -> Database {
     let db_path = data_dir.join("db.json");
     if db_path.exists() {
         if let Ok(data) = fs::read_to_string(&db_path) {
@@ -110,7 +112,7 @@ fn load_db(data_dir: &PathBuf) -> Database {
     Database::default()
 }
 
-fn save_db(data_dir: &PathBuf, db: &Database) {
+fn save_db(data_dir: &std::path::Path, db: &Database) {
     let db_path = data_dir.join("db.json");
     if let Ok(data) = serde_json::to_string_pretty(db) {
         fs::write(db_path, data).ok();
@@ -171,8 +173,8 @@ async fn provision(
         "refreshToken": refresh_token,
         "expiresIn": 900,
         "endpoints": {
-            "breadcrumbs": "http://localhost:8090/api/breadcrumbs",
-            "sync": "http://localhost:8090/api/sync",
+            "breadcrumbs": "http://localhost:8090/api/v1/breadcrumbs",
+            "sync": "http://localhost:8090/api/v1/sync",
             "health": "http://localhost:8090/health"
         }
     }))
@@ -222,8 +224,8 @@ async fn get_breadcrumbs(
 ) -> Json<serde_json::Value> {
     let db = state.db.lock().await;
     
-    let mut breadcrumbs: Vec<_> = db.breadcrumbs.iter()
-        .filter(|b| query.owner_id.as_ref().map_or(true, |o| &b.owner_id == o))
+    let breadcrumbs: Vec<_> = db.breadcrumbs.iter()
+        .filter(|b| query.owner_id.as_ref().is_none_or(|o| &b.owner_id == o))
         .take(query.limit.unwrap_or(100))
         .map(|b| serde_json::json!({
             "id": b.id,
@@ -304,7 +306,7 @@ async fn sync(
     let event = KBEvent {
         id: Uuid::new_v4().to_string(),
         kb_id: req.kb_id.unwrap_or_else(|| "default".to_string()),
-        event_type: "sync".to_string(),
+        event_type: req.context_type.unwrap_or_else(|| "sync".to_string()),
         content: req.content,
         timestamp: now(),
     };
@@ -325,7 +327,9 @@ async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
         "serviceId": state.service_id,
         "version": CURRENT_VERSION,
         "status": "running",
-        "encryption": "enabled",
+        // Storage is plain JSON on disk today; encryption_key is generated
+        // per-service but nothing in this binary actually encrypts with it.
+        "encryption": "disabled",
         "dataDir": state.data_dir.to_string_lossy(),
         "stats": {
             "breadcrumbs": db.breadcrumbs.len(),
@@ -335,7 +339,7 @@ async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
     }))
 }
 
-async fn version(State(state): State<AppState>) -> Json<serde_json::Value> {
+async fn version(State(_state): State<AppState>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "currentVersion": CURRENT_VERSION,
         "updateAvailable": false,
@@ -384,7 +388,7 @@ async fn main() {
         .route("/api/v1/provision", post(provision))
         .route("/api/v1/refresh", post(refresh))
         .route("/api/v1/breadcrumbs", get(get_breadcrumbs).post(create_breadcrumb))
-        .route("/api/v1/breadcrumbs/:id", delete(delete_breadcrumb))
+        .route("/api/v1/breadcrumbs/{id}", delete(delete_breadcrumb))
         .route("/api/v1/sync", post(sync))
         .route("/api/v1/status", get(status))
         .route("/api/v1/version", get(version))
