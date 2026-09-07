@@ -44,6 +44,14 @@ export class E2EEEncryptionService {
    * Initialize or load existing key pair
    */
   async initialize(signer?: ethers.providers.JsonRpcSigner): Promise<void> {
+    // Whether an encrypted key pair is already on disk, independent of
+    // whether we can actually unlock it right now -- loadStoredKeyPair()
+    // returns null for both "nothing stored" and "stored but couldn't be
+    // decrypted" (e.g. the user rejected the unlock signature, or the
+    // wrong wallet account is connected), and those two cases must not be
+    // treated the same way.
+    const hasStoredKey = localStorage.getItem(STORAGE_KEY) !== null;
+
     // Try to load existing key pair
     const stored = await this.loadStoredKeyPair();
     if (stored) {
@@ -51,7 +59,19 @@ export class E2EEEncryptionService {
       return;
     }
 
-    // Generate new key pair if signer provided
+    if (hasStoredKey) {
+      // A key pair exists but couldn't be unlocked. Falling through to
+      // generateKeyPair() here used to silently overwrite it with a
+      // brand-new key pair -- permanently orphaning every document
+      // previously encrypted under the old one, the moment the user
+      // rejected a signature prompt or had the wrong account selected.
+      // Surface the failure instead of destroying data to work around it.
+      throw new Error(
+        'Could not unlock your existing encryption key. Make sure the correct wallet account is connected and approve the signature request, then try again.'
+      );
+    }
+
+    // No key pair exists yet at all -- safe to generate a new one.
     if (signer) {
       await this.generateKeyPair(signer);
     }
