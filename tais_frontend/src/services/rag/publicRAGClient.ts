@@ -59,10 +59,21 @@ export class PublicRAGClient {
        return storedKey;
      }
 
-     // Create new API key by signing a message
-     const message = 'TAIS RAG API Key Creation';
+     // Create new API key by signing a message. The message includes a
+     // nonce generated locally, right here, rather than being a fixed
+     // string -- personal_sign is deterministic (RFC 6979) for a given
+     // wallet + message, so a fixed string meant any unrelated site that
+     // got a user to sign that exact text could compute the exact same
+     // signature, and therefore the exact same derived API key, without
+     // ever touching the wallet's private key. The nonce is generated
+     // and consumed entirely on this client, so a phishing site has no
+     // way to predict or reproduce it, and can no longer derive a real
+     // session's key from a phished signature.
+     const nonce = crypto.getRandomValues(new Uint8Array(16));
+     const nonceB64 = btoa(String.fromCharCode(...nonce));
+     const message = `TAIS RAG API Key Creation\n\nNonce: ${nonceB64}`;
      const signature = await signer.signMessage(message);
-     
+
      // Derive API key from signature
      const encoder = new TextEncoder();
      const hash = await crypto.subtle.digest('SHA-256', encoder.encode(signature));
