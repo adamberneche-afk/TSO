@@ -19,8 +19,13 @@ whatever gets decided next — read this before re-reading the whole repo.
 > (`/api/v1/rcrt`'s unverified-JWT wallet fallback, `/api/v1/memory`'s
 > complete lack of auth, `/admin/cron`'s fail-open behavior when
 > `CRON_SECRET` is unset) — and that was fixed immediately after being
-> found. Phase 1 has 4 minor CI/quality-gate items still open (not
-> security-relevant). See `docs/BUG_AUDIT_2026-09.md` and
+> found. A second follow-up pass then closed out Phase 1's 4 remaining
+> CI/quality-gate items (a tautological test, a real test that never ran,
+> no coverage threshold, a watchdog blind spot for silently-disabled
+> scheduled workflows) plus two incidental findings from the same pass
+> (`POST /rcrt/audit`'s forgeable `ownerId`, and a dead duplicate env
+> validator). **Phases 0 through 5 are now all complete** (`P3.9`
+> excepted). See `docs/BUG_AUDIT_2026-09.md` and
 > `docs/DOCS_VS_CODEBASE.md` (also updated) for current, accurate status;
 > treat the "What was cleaned up" / "not done" sections below as the
 > record of *that* session, not the current state of the repo.

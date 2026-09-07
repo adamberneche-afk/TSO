@@ -1,21 +1,24 @@
 # Codebase Bug Audit & Remediation Plan — 2026-09
 
-> **Status as of 2026-09-07: Phases 0, 2, 3 (minus P3.9), 4, and 5 are
-> complete; Phase 1 has 4 open items.** This started as a discovery +
-> planning document — every finding below was either confirmed by
-> actually running/building the code, or is unambiguous on read — and was
-> then worked phase-by-phase over several follow-up sessions on
-> `claude/review-handoff-md-n90lsy`. A re-verification pass initially
-> found that **Phase 0 had never actually been started** despite being
-> labeled "do first, same day" and containing three live, exploitable
-> security holes — that was fixed immediately after being found (see
-> Phase 0 below). **Read "Outstanding after this remediation pass" at the
-> bottom** for what's genuinely still open. Each completed fix shipped
-> with a regression test verified against the pre-fix code (reverted →
-> confirmed it failed → restored → confirmed it passed). See the ✅
-> markers on each phase heading and the per-item status columns below for
-> specifics, and `docs/DOCS_VS_CODEBASE.md` (also updated) for the
-> resulting capability status.
+> **Status as of 2026-09-07: Phases 0, 1, 2, 3 (minus P3.9), 4, and 5 are
+> all complete.** This started as a discovery + planning document — every
+> finding below was either confirmed by actually running/building the
+> code, or is unambiguous on read — and was then worked phase-by-phase
+> over several follow-up sessions on `claude/review-handoff-md-n90lsy`. A
+> re-verification pass initially found that **Phase 0 had never actually
+> been started** despite being labeled "do first, same day" and
+> containing three live, exploitable security holes — that was fixed
+> immediately after being found (see Phase 0 below); a second pass then
+> closed out Phase 1's 4 remaining open items (P1.5, P1.6, P1.7, P1.9)
+> plus two incidental findings noticed along the way (`POST /rcrt/audit`
+> write-integrity, and a dead duplicate env validator). **Read
+> "Outstanding after this remediation pass" at the bottom** for what's
+> genuinely still open. Each completed fix shipped with a regression test
+> verified against the pre-fix code (reverted → confirmed it failed →
+> restored → confirmed it passed). See the ✅ markers on each phase
+> heading and the per-item status columns below for specifics, and
+> `docs/DOCS_VS_CODEBASE.md` (also updated) for the resulting capability
+> status.
 
 Full deep-dive audit of the TSO/TAIS monorepo, run as five parallel deep-reads
 (registry backend, core services + Rust RCRT service, CLI/SDK packages,
@@ -78,12 +81,13 @@ shipped with a regression test verified against the pre-fix code
 
 ---
 
-## Phase 1 — Rebuild the safety net — mostly done, 4 items still open
+## Phase 1 — Rebuild the safety net — ✅ COMPLETE
 
 Every fix after this phase needs a CI job to actually run its regression
-test. Re-verified 2026-09-07: P1.1-1.4, 1.8, 1.10 are fixed; **P1.5, 1.6,
-1.7, and 1.9 are still open** (all coverage/quality-gate gaps, not
-security holes).
+test. P1.1-1.4, 1.8, 1.10 were fixed first; **P1.5, 1.6, 1.7, and 1.9**
+(all coverage/quality-gate gaps, not security holes) were closed out
+2026-09-07 in a follow-up pass, each with its own reverted → failed →
+restored → passed regression-test cycle.
 
 | # | Issue | Fix | Status |
 |---|---|---|---|
@@ -91,11 +95,11 @@ security holes).
 | P1.2 | `tais_frontend` has no `tsconfig.json`, no `@types/react`, never type-checked | Add tsconfig, install `@types/react`/`@types/react-dom`, add `"typecheck": "tsc --noEmit"`, wire into CI | ✅ FIXED — `tais_frontend/tsconfig.json` exists, `npm run typecheck` runs in `deploy.yml` |
 | P1.3 | `test.yml` lint job: eslint isn't installed, no config exists, always exits 127 | Either install+configure eslint for real, or remove the job until it's real | ✅ FIXED — eslint is a real devDependency with a real config; `test.yml` has a dedicated `lint` job |
 | P1.4 | `test.yml` "build" job only checks `dist/index.js` exists, not that it runs | Add `node -e "require('./dist/index.js')"` or boot + curl `/health` | ✅ FIXED — the job now boots the server and curls `/health` for a real response |
-| P1.5 | `tests/silent_errors.test.js` is tautological (asserts `typeof x === 'boolean'` on expressions that can only ever be boolean) — cannot fail | Delete it or replace with real assertions against actual repo code | ❌ **STILL OPEN** — file is unchanged, still tautological |
-| P1.6 | `tests/e2e-hybrid-config.ts` (real, 30+ assertions) is never run — wrong extension for the `npm test` glob | Fix the glob or the extension, wire into CI | ❌ **STILL OPEN** — root `package.json`'s `test` script still globs `tests/*.test.js` only; this file is `.ts` and still never runs |
-| P1.7 | Coverage collected and uploaded but no threshold enforced | Add `coverageThreshold` to `jest.config.js`, `fail_ci_if_error: true` on Codecov step | ❌ **STILL OPEN** — neither exists yet |
+| P1.5 | `tests/silent_errors.test.js` is tautological (asserts `typeof x === 'boolean'` on expressions that can only ever be boolean) — cannot fail | Delete it or replace with real assertions against actual repo code | ✅ FIXED — deleted, along with the now-pointless `test:hunt` script and the `fast-check` devDependency |
+| P1.6 | `tests/e2e-hybrid-config.ts` (real, 30+ assertions) is never run — wrong extension for the `npm test` glob | Fix the glob or the extension, wire into CI | ✅ FIXED — root `test` script now also runs it via `tsx`; `root-tests` CI job gained its own `tais_frontend` `npm ci` step so the suite's cross-project imports resolve there too |
+| P1.7 | Coverage collected and uploaded but no threshold enforced | Add `coverageThreshold` to `jest.config.js`, `fail_ci_if_error: true` on Codecov step | ✅ FIXED — `coverageThreshold.global` set a few points below the real measured baseline (33.96%/19.88%/29.51%/34.13%), as a regression floor rather than an aspirational target; Codecov step got `fail_ci_if_error: true` |
 | P1.8 | `tools/watchdog/check.js` reports "all clean" if actionlint's output doesn't parse (wrong shape, panic, permission error) | If exit was non-zero and zero lines matched, flag every file instead of none | ✅ FIXED |
-| P1.9 | Watchdog can't detect a schedule that silently stopped firing (GitHub auto-disables workflows after 60 days idle) | Also check `workflow.state !== 'active'` via the Actions API, and flag runs older than ~2x the cron interval | ❌ **STILL OPEN** — `checkScheduledWorkflowRuns` only checks the last run's conclusion, never workflow state or staleness |
+| P1.9 | Watchdog can't detect a schedule that silently stopped firing (GitHub auto-disables workflows after 60 days idle) | Also check `workflow.state !== 'active'` via the Actions API, and flag runs older than ~2x the cron interval | ✅ FIXED — added both checks: workflow-state via the Actions API, and a schedule-aware staleness check (`estimateCronIntervalMs`) that flags a run more than 2x its own interval old even if it succeeded |
 | P1.10 | `crates/rcrt-standalone` only builds in CI on a release tag, never on a PR | Add a `cargo build`/`cargo clippy` job on every PR touching `crates/**` | ✅ FIXED — `.github/workflows/rcrt-check.yml` |
 | P1.11 | Rust service currently **panics on startup** — see Phase 2 — needs P1.10 to ever be caught again | (tracked here for sequencing; the fix itself is P2.5, below) | ✅ FIXED (see P2.5) |
 
@@ -222,33 +226,31 @@ Per-fix rule going forward, not just for this pass:
 
 ## Outstanding after this remediation pass
 
-For anyone picking this up next, in priority order:
+Phases 0-5 are now all complete (P3.9 excepted, tracked separately in its
+own section above). Everything that was open in previous passes —
+Phase 1's P1.5/P1.6/P1.7/P1.9, `POST /rcrt/audit`'s write-integrity gap,
+and the dead `config/env.ts` validator — has been fixed, each with its
+own reverted → failed → restored → passed regression test. What's left,
+for anyone picking this up next:
 
-1. **P1.5, P1.6, P1.7, P1.9** — CI/quality-gate gaps (a tautological test,
-   a real test that never runs, no coverage threshold, a watchdog blind
-   spot). Lower severity, but each is exactly the kind of gap that let
-   Phases 2-4's bugs go unnoticed for as long as they did.
-2. A few incidental findings surfaced while re-verifying and updating docs
-   during this pass, not yet independently tracked as their own items:
-   `GET /api/v1/skills` doesn't implement the pagination or `trending`
+1. `GET /api/v1/skills` doesn't implement the pagination or `trending`
    filter this doc's own `API.md` used to describe (see that file's
    current text for specifics), and `securityScannerService.ts` is a
    second, still-unwired regex-based scanner distinct from
-   `yaraScanner.ts` (see `YARA.md`).
-3. `packages/registry/src/routes/rcrt.ts`'s `POST /audit` (the endpoint
-   RCRT devices use to write their own audit-trail entries) still trusts
-   a raw `ownerId` from the request body with no verification against the
-   presented `token` -- narrower than P0.3 (this is a write-integrity gap
-   on an audit trail, not a read/takeover hole), left alone when P0.3 was
-   fixed since it wasn't part of that item's original wording, but worth
-   a look.
-4. `config/env.ts`'s `validateEnvironment()` (a real Zod schema with a
-   "throw at startup if unsafe in production" pattern already used for
-   `JWT_SECRET`) is never imported or called anywhere -- dead validation
-   code, noticed while fixing P0.5/P0.6's `CRON_SECRET` handling. Wiring
-   it up for real (and adding `CRON_SECRET` to its schema) would be a
-   more centralized way to enforce this class of "required in production"
-   rule than the per-route checks added here.
+   `yaraScanner.ts` (see `YARA.md`). Both surfaced incidentally while
+   re-verifying and updating docs during this pass and are still open.
+
+~~2. `packages/registry/src/routes/rcrt.ts`'s `POST /audit`~~ — **FIXED**:
+now requires the caller to present the real, non-revoked token that was
+actually provisioned for the claimed `ownerId` (401 otherwise), instead
+of trusting a raw `ownerId` from the request body.
+
+~~3. `config/env.ts`'s `validateEnvironment()`~~ — resolved by deletion,
+not by wiring it up: it had zero importers anywhere in the codebase, and
+duplicating/diverging from the real, actively-used `config/index.ts`
+would have been worse than having no second system at all. The
+`CRON_SECRET`-required-in-production check it would have provided was
+instead added directly to `config/index.ts`'s `loadConfig()`.
 
 ---
 
@@ -257,7 +259,7 @@ _Generated by Claude Code, 2026-09-06 — five parallel deep-dive audits of
 CLI/SDK packages, `tais_frontend`, and CI/tooling. Session:
 [claude.ai/code/session_011JD9uEuXzzS29ZuUHWbwUX](https://claude.ai/code/session_011JD9uEuXzzS29ZuUHWbwUX)_
 
-_Remediation tracked here (Phases 0, 2-5, minus the items marked open
-above — part of Phase 1 remains) done 2026-09-07 on a continuation of the
-same session — see commit history on `claude/review-handoff-md-n90lsy`
-for the fix-by-fix record._
+_Remediation tracked here (all of Phases 0-5, minus P3.9 and the items
+listed in "Outstanding after this remediation pass" above) done
+2026-09-07 across two follow-up passes on the same session — see commit
+history on `claude/review-handoff-md-n90lsy` for the fix-by-fix record._
