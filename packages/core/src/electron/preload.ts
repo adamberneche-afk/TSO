@@ -14,7 +14,14 @@ const taisAPI = {
   saveProfile: (profile: UserProfile) => ipcRenderer.invoke('tais:save-profile', profile),
   startInterview: (config: InterviewConfig, walletAddress: string) =>
     ipcRenderer.invoke('tais:start-interview', config, walletAddress),
-  cleanupSession: () => ipcRenderer.send('tais:cleanup-session'),
+  updateExpertise: (sessionId: number, updates: Partial<InterviewConfig>) =>
+    ipcRenderer.invoke('tais:update-expertise', sessionId, updates),
+  updateValues: (sessionId: number, updates: Partial<UserProfile>) =>
+    ipcRenderer.invoke('tais:update-values', sessionId, updates),
+  askQuestion: (questionId: string, context: string, userAnswer: string, sessionId: number) =>
+    ipcRenderer.invoke('tais:askQuestion', questionId, context, userAnswer, sessionId),
+  cloneAgent: (sessionId: number) => ipcRenderer.invoke('tais:clone-agent', sessionId),
+  cleanupSession: (sessionId: number) => ipcRenderer.invoke('tais:cleanup-session', sessionId),
 
   installSkill: (manifest: SkillManifest, skillCode: string) =>
     ipcRenderer.invoke('tais:install-skill', manifest, skillCode),

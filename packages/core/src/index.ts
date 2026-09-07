@@ -17,3 +17,4 @@ export { AnthropicProvider } from './llm/AnthropicProvider';
 export { LocalProvider } from './llm/LocalProvider';
 
 export { registerProfileIpcHandlers } from './electron/ipcHandler';
+export type { TaisApi } from './electron/preload';
