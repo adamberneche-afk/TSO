@@ -182,8 +182,17 @@ export class TokenService {
       const thinkBalance = holding.holdings.find((h: any) => h.tokenAddress === THINK_TOKEN_ADDRESS);
       if (!thinkBalance) return false;
 
+      // thinkBalance.balance is already a human-readable decimal string
+      // (ethers.formatUnits'd in getTokenBalance/getTokenHoldings), not raw
+      // base units -- BigInt(thinkBalance.balance) either threw on any
+      // fractional balance (caught below, silently returning false) or
+      // compared a tiny whole-number string against `amount` scaled by
+      // 10^decimals, which is never true for a real balance. Parse both
+      // sides through parseUnits so they're compared in the same base
+      // units, mirroring validateTokenTransfer's correct pattern below.
       const amount = ethers.parseUnits(minAmount, thinkBalance.decimals || 18);
-      return BigInt(thinkBalance.balance) >= amount;
+      const availableBalance = ethers.parseUnits(thinkBalance.balance, thinkBalance.decimals || 18);
+      return BigInt(availableBalance) >= amount;
     } catch (error) {
       console.error(`THINK token verification failed:`, error);
       return false;
