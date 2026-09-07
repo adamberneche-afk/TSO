@@ -199,8 +199,36 @@ export class TokenService {
     }
   }
 
-  calculateTrustScore(walletAddress: string): number {
-    const cacheEntry = this.cacheMap.get(walletAddress);
+  // Cache TTL for a live-fetched balance before it's considered stale
+  // enough to re-fetch.
+  private static readonly CACHE_TTL_MS = 15 * 60 * 1000;
+
+  async calculateTrustScore(walletAddress: string): Promise<number> {
+    let cacheEntry = this.cacheMap.get(walletAddress);
+    const isFresh = cacheEntry && (Date.now() - cacheEntry.timestamp < TokenService.CACHE_TTL_MS);
+
+    if (!isFresh) {
+      // Nothing anywhere in this class ever populated cacheMap with a
+      // live balance -- loadCache() only restores a previous saveCache()
+      // call, and saveCache() was never invoked from anywhere -- so this
+      // always returned 0 for every wallet. Fetch a real balance on a
+      // miss or stale entry and persist it via the existing (until now
+      // unused) signed-cache infrastructure.
+      const tokenBalance = await this.getTokenBalance(walletAddress);
+      if (tokenBalance) {
+        cacheEntry = {
+          balance: tokenBalance.balance,
+          decimals: tokenBalance.decimals ?? 18,
+          symbol: tokenBalance.symbol || 'THINK',
+          timestamp: Date.now(),
+        };
+        this.cacheMap.set(walletAddress, cacheEntry);
+        await this.saveCache();
+      }
+      // If the live fetch failed, fall back to whatever was cached (even
+      // if stale) rather than reporting 0.
+    }
+
     if (!cacheEntry) return 0;
 
     try {

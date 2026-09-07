@@ -199,7 +199,7 @@ export class IsnadService {
     // Additional score from THINK token holdings
     if (walletAddress) {
       try {
-        const stakingWeight = this.stakingService.calculateStakingWeight(walletAddress);
+        const stakingWeight = await this.stakingService.calculateStakingWeight(walletAddress);
         score += Math.min(30, stakingWeight * 30); // Up to 30 points for staking
       } catch (error) {
         console.warn('Failed to get THINK staking weight for trust scoring:', error);
