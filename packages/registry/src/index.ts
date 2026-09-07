@@ -318,8 +318,21 @@ apiV1Router.use('/oauth', createOAuthRoutes(skillsPrisma, logger));
 apiV1Router.use('/agent', createAgentRoutes(skillsPrisma, logger));
 apiV1Router.use('/billing', rateLimiters.authenticated, authMiddleware, createBillingRoutes(skillsPrisma, logger));
 apiV1Router.use('/enterprise', rateLimiters.authenticated, authMiddleware, createEnterpriseRoutes(skillsPrisma, logger));
-apiV1Router.use('/memory', createMemoryBackupRoutes(skillsPrisma, logger));
-apiV1Router.use('/rcrt', rateLimiters.rcrt, createRCRTRoutes(ragPrisma, logger));
+// P0.4 fix: mounted with zero auth -- any wallet's private agent
+// memories were readable/writable by anyone who knew or guessed the
+// wallet address. memoryBackup.ts's own handlers now source the wallet
+// from req.user, but that's only populated when authMiddleware runs.
+apiV1Router.use('/memory', authMiddleware, createMemoryBackupRoutes(skillsPrisma, logger));
+// P0.3 fix: this router used to trust an unverified, base64-decoded JWT
+// payload (no signature check) and fell back to a client-supplied
+// `?wallet=`/body `wallet` with no auth at all -- letting any caller read
+// another wallet's RCRT status (including its live connection token),
+// provision a device under someone else's identity, or revoke a real
+// user's RCRT access. `optionalAuthMiddleware` populates req.user from a
+// real, verified JWT when present; rcrt.ts's own handlers now source the
+// wallet only from req.user and 401 where authentication is required
+// (GET /status intentionally stays soft -- see rcrt.ts).
+apiV1Router.use('/rcrt', rateLimiters.rcrt, optionalAuthMiddleware, createRCRTRoutes(ragPrisma, logger));
 apiV1Router.use('/kb', createKBRoutes(prisma, logger));
 
 // ============================================

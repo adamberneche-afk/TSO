@@ -1,16 +1,33 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 
+interface AuthenticatedRequest extends Request {
+  user?: {
+    walletAddress: string;
+  };
+}
+
 export function createMemoryBackupRoutes(prisma: PrismaClient, logger: any): Router {
   const router = Router();
 
   // Sync memories to cloud (backup)
-  router.post('/backup', async (req: Request, res: Response) => {
+  //
+  // Every route here used to trust a `wallet` value straight from the
+  // request body/query with no authentication at all -- anyone could
+  // write fake "backup" content attributed to any wallet, or read/enumerate
+  // another wallet's backed-up private agent memories just by naming it.
+  // The wallet now always comes from req.user, populated by authMiddleware
+  // (see index.ts's mount of this router).
+  router.post('/backup', async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { wallet, memories } = req.body;
+      const wallet = req.user?.walletAddress;
+      const { memories } = req.body;
 
-      if (!wallet || !memories || !Array.isArray(memories)) {
-        return res.status(400).json({ error: 'Wallet and memories array required' });
+      if (!wallet) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      if (!memories || !Array.isArray(memories)) {
+        return res.status(400).json({ error: 'memories array required' });
       }
 
       // Upsert all memories (create or update)
@@ -42,12 +59,12 @@ export function createMemoryBackupRoutes(prisma: PrismaClient, logger: any): Rou
   });
 
   // Restore memories from cloud
-  router.get('/restore', async (req: Request, res: Response) => {
+  router.get('/restore', async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { wallet } = req.query;
+      const wallet = req.user?.walletAddress;
 
-      if (!wallet || typeof wallet !== 'string') {
-        return res.status(400).json({ error: 'Wallet address required' });
+      if (!wallet) {
+        return res.status(401).json({ error: 'Authentication required' });
       }
 
       const backups = await prisma.cTOInsight.findMany({
@@ -77,12 +94,12 @@ export function createMemoryBackupRoutes(prisma: PrismaClient, logger: any): Rou
   });
 
   // Get backup status
-  router.get('/status', async (req: Request, res: Response) => {
+  router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { wallet } = req.query;
+      const wallet = req.user?.walletAddress;
 
-      if (!wallet || typeof wallet !== 'string') {
-        return res.status(400).json({ error: 'Wallet address required' });
+      if (!wallet) {
+        return res.status(401).json({ error: 'Authentication required' });
       }
 
       const count = await prisma.cTOInsight.count({

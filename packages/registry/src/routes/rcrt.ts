@@ -1,38 +1,37 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import { authenticateToken } from '../middleware/auth';
 import { PrismaClient } from '@prisma/client';
 
-interface UserWithWallet {
-  walletAddress: string;
+interface AuthenticatedRequest extends Request {
+  user?: {
+    walletAddress: string;
+  };
 }
 
-function extractWallet(req: Request): string | undefined {
-   // Try to get wallet from Authorization header (JWT)
-   const authHeader = req.headers.authorization;
-   if (authHeader) {
-     const token = authHeader.replace('Bearer ', '');
-     try {
-       // Decode JWT payload (base64url)
-       const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-       if (payload.walletAddress) {
-         return payload.walletAddress;
-       }
-     } catch {
-       // invalid token, continue to other sources
-     }
-   }
-   // Fallback to query/body
-   return (req.query.wallet as string) || (req.body && (req.body as Record<string, any>).wallet as string);
- }
+// extractWallet() used to base64-decode the JWT payload itself and trust
+// whatever `walletAddress` claim it found -- with no signature
+// verification, anyone could forge a token with an arbitrary wallet
+// claim (or just skip that entirely and pass `?wallet=`/body `wallet`
+// directly, which the fallback trusted unconditionally). That let any
+// caller read another wallet's RCRT status (including its live
+// connection token -- full device takeover), provision a device under
+// someone else's identity, or revoke a real user's RCRT access outright.
+//
+// The wallet now comes only from `req.user`, populated by real,
+// signature-verified JWT auth (see index.ts's mount of this router).
+function walletOf(req: AuthenticatedRequest): string | undefined {
+  return req.user?.walletAddress;
+}
 
 export function createRCRTRoutes(prisma: any, logger: any): Router {
   const router = Router();
 
-  // Get RCRT status - use authenticated user wallet or fallback to query/body
-  router.get('/status', async (req: Request, res: Response) => {
-    const wallet = extractWallet(req);
-    
+  // Get RCRT status for the authenticated caller (soft: an anonymous
+  // caller just gets "not logged in", not a hard 401, so the UI can
+  // render a logged-out state without erroring).
+  router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
+    const wallet = walletOf(req);
+
     if (!wallet) {
       return res.json({ 
         provisioned: false,
@@ -76,10 +75,10 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
   });
 
   // Provision RCRT - creates a token for the user
-  router.post('/provision', async (req: Request, res: Response) => {
-    const wallet = extractWallet(req);
+  router.post('/provision', async (req: AuthenticatedRequest, res: Response) => {
+    const wallet = walletOf(req);
     if (!wallet) {
-      return res.status(400).json({ error: 'Wallet address required' });
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     try {
@@ -160,11 +159,11 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
   });
 
   // Revoke provision (optional)
-  router.delete('/provision', async (req: Request, res: Response) => {
-    const wallet = extractWallet(req);
+  router.delete('/provision', async (req: AuthenticatedRequest, res: Response) => {
+    const wallet = walletOf(req);
     const agentId = (req.query.agentId as string) || (req.body && req.body.agentId);
     if (!wallet) {
-      return res.status(400).json({ error: 'Wallet address required' });
+      return res.status(401).json({ error: 'Authentication required' });
     }
     try {
       if (agentId) {
@@ -198,10 +197,10 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
   });
 
   // Get RCRT audit logs
-  router.get('/audit', async (req: Request, res: Response) => {
-    const wallet = extractWallet(req);
+  router.get('/audit', async (req: AuthenticatedRequest, res: Response) => {
+    const wallet = walletOf(req);
     if (!wallet) {
-      return res.status(400).json({ error: 'Wallet address required' });
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const action = req.query.action as string | undefined;
