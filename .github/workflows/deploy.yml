@@ -8,6 +8,14 @@ on:
     branches:
       - main
 
+# Both jobs only checkout, run npm/Vercel CLI commands, and use secrets
+# passed explicitly as CLI args -- nothing here needs anything beyond read
+# access to repo contents (flagged by CodeQL's "Workflow does not contain
+# permissions" check, which defaults GITHUB_TOKEN to a wider scope when no
+# block is present at all).
+permissions:
+  contents: read
+
 jobs:
   # Runs on every push and PR -- typecheck/test give real CI signal on
   # pull requests (this is tais_frontend's only such coverage; it isn't

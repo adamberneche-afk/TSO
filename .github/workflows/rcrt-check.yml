@@ -21,6 +21,13 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
 
+# Only checkout + cargo build/clippy + a local smoke test -- no step here
+# needs anything beyond read access to repo contents (flagged by CodeQL's
+# "Workflow does not contain permissions" check, which defaults
+# GITHUB_TOKEN to a wider scope when no block is present at all).
+permissions:
+  contents: read
+
 jobs:
   build-and-lint:
     runs-on: ubuntu-latest

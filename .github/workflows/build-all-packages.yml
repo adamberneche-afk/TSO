@@ -13,6 +13,13 @@ on:
   pull_request:
     branches: [main, develop]
 
+# Only checkout + local builds/smoke-tests -- no step here needs anything
+# beyond read access to repo contents (flagged by CodeQL's "Workflow does
+# not contain permissions" check, which defaults GITHUB_TOKEN to a wider
+# scope when no block is present at all).
+permissions:
+  contents: read
+
 jobs:
   build-workspace:
     runs-on: ubuntu-latest
