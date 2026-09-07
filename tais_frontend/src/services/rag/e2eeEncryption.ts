@@ -22,7 +22,11 @@ declare global {
 const DERIVATION_MESSAGE = 'TAIS Public RAG Encryption Key v2';
 const STORAGE_KEY = 'public_rag_keypair_v2';
 const CURVE = 'P-384';
-const COMMUNITY_SALT = 'TAIS-RAG-COMMUNITY-SHARED-KEY-v1'; // NIST P-384 curve for strong security
+// Public, non-secret marker used only to recognize a community-tier
+// document (isCommunitySalt) and to tag requests to the community
+// encryption API below -- it is not a decryption key. The actual
+// encryption secret now lives server-side only; see encryptForCommunity.
+const COMMUNITY_SALT = 'TAIS-RAG-COMMUNITY-SHARED-KEY-v1';
 
 // Encrypted key pair storage format
 interface StoredKeyPair {
@@ -349,83 +353,58 @@ export class E2EEEncryptionService {
   }
 
   /**
-   * Encrypt data for community/public documents
-   * Uses a shared community salt so anyone can decrypt
+   * Encrypt data for community/public documents.
+   *
+   * This used to derive the AES key entirely client-side from
+   * COMMUNITY_SALT, a string constant compiled straight into this JS
+   * bundle -- since the bundle is downloadable by anyone, no login
+   * required, that provided zero real confidentiality: any anonymous
+   * visitor could read the constant out of the bundle and decrypt every
+   * community document themselves. The actual encryption now happens
+   * server-side, behind the same authentication required for every
+   * other /rag endpoint, so it genuinely requires a real TAIS platform
+   * account -- not just possession of the bundle.
    */
   async encryptForCommunity(data: string): Promise<{ encrypted: string; iv: string; salt: string }> {
-    const salt = this.stringToArrayBuffer(COMMUNITY_SALT);
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-
-    const key = await this.deriveKeyFromMessage(COMMUNITY_SALT, salt);
-
-    const encoder = new TextEncoder();
-    const encodedData = encoder.encode(data);
-
-    const encryptedBuffer = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      encodedData
-    );
-
-    return {
-      encrypted: this.arrayBufferToBase64(new Uint8Array(encryptedBuffer)),
-      iv: this.arrayBufferToBase64(iv),
-      salt: this.arrayBufferToBase64(salt)
-    };
+    return this.callCommunityCryptoApi<{ encrypted: string; iv: string; salt: string }>('/community/encrypt', { data });
   }
 
   /**
-   * Decrypt community/public documents
-   * Uses the shared community salt
+   * Decrypt community/public documents. See encryptForCommunity above.
    */
   async decryptCommunity(encrypted: string, iv: string, salt: string): Promise<string> {
-    const saltBytes = this.base64ToArrayBuffer(salt);
-    
-    // Verify this is actually a community document (uses community salt)
-    if (this.arrayBufferToBase64(saltBytes) !== this.arrayBufferToBase64(this.stringToArrayBuffer(COMMUNITY_SALT))) {
-      throw new Error('Invalid salt for community document');
-    }
-
-    const key = await this.deriveKeyFromMessage(COMMUNITY_SALT, saltBytes);
-
-    const encryptedBytes = this.base64ToArrayBuffer(encrypted);
-    const ivBytes = this.base64ToArrayBuffer(iv);
-
-    const decryptedBuffer = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: ivBytes },
-      key,
-      encryptedBytes
-    );
-
-    const decoder = new TextDecoder();
-    return decoder.decode(decryptedBuffer);
+    const result = await this.callCommunityCryptoApi<{ data: string }>('/community/decrypt', { encrypted, iv, salt });
+    return result.data;
   }
 
-  /**
-   * Derive key from a message string (used for community key)
-   */
-  private async deriveKeyFromMessage(message: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
-    const encoder = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(message),
-      { name: 'PBKDF2' },
-      false,
-      ['deriveKey']
-    );
+  private async callCommunityCryptoApi<T>(path: string, body: Record<string, unknown>): Promise<T> {
+    const baseUrl = (import.meta as any).env?.VITE_PUBLIC_RAG_API_URL || 'https://tso.onrender.com/api/v1/rag';
+    const token =
+      localStorage.getItem('tais_token') ||
+      localStorage.getItem('auth_token') ||
+      localStorage.getItem('token');
 
-    return crypto.subtle.deriveKey(
-      {
-        name: 'PBKDF2',
-        salt,
-        iterations: 100000,
-        hash: 'SHA-256',
+    const response = await fetch(`${baseUrl}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      keyMaterial,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['encrypt', 'decrypt']
-    );
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      let message = `Community ${path} failed: ${response.status}`;
+      try {
+        const errorBody = await response.json();
+        message = errorBody.error || message;
+      } catch {
+        // ignore -- use the default message
+      }
+      throw new Error(message);
+    }
+
+    return response.json();
   }
 
   /**

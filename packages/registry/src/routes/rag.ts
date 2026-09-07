@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { validateInput, sanitizeValidationErrors } from '../validation/schemas';
 import { z } from 'zod';
+import crypto from 'crypto';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -667,6 +668,110 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
     });
   } catch (error) {
     handleError(res, error, 'Failed to get stats');
+  }
+});
+
+// ============================================
+// Community/public-tier encryption
+// ============================================
+//
+// This used to be a client-side scheme keyed by a string constant
+// ('TAIS-RAG-COMMUNITY-SHARED-KEY-v1') compiled directly into the
+// public frontend bundle, used as both the PBKDF2 password and salt.
+// Since the JS bundle is downloadable by anyone -- no login required --
+// that "encryption" provided zero real confidentiality: any anonymous
+// visitor could extract the constant and decrypt every community
+// document themselves.
+//
+// The actual cryptography now lives here, server-side, behind
+// authMiddleware (this whole router is mounted with
+// `apiV1Router.use('/rag', authMiddleware, ...)` in index.ts) -- so
+// decrypting a community document now genuinely requires a valid,
+// authenticated TAIS platform account (there is no separate concept of
+// distinct "communities"/groups anywhere in this schema; "the
+// community" is the platform's authenticated user base), not just
+// possession of the public JS bundle.
+//
+// The salt is kept as a public, non-secret marker -- its only
+// cryptographic role is to prevent rainbow-table reuse across
+// unrelated PBKDF2 derivations, not to gate access, so there's no harm
+// in it being a well-known constant. The actual secret is the
+// password, which now lives only in this process's environment and is
+// never sent to any client. It defaults to the same value the client
+// used to hardcode, purely so documents already encrypted under it
+// remain decryptable without a data migration -- operators should set
+// RAG_COMMUNITY_ENCRYPTION_KEY to a real secret in production.
+const COMMUNITY_SALT_MARKER = 'TAIS-RAG-COMMUNITY-SHARED-KEY-v1';
+
+function deriveCommunityKey(): Buffer {
+  const password = process.env.RAG_COMMUNITY_ENCRYPTION_KEY || COMMUNITY_SALT_MARKER;
+  return crypto.pbkdf2Sync(password, COMMUNITY_SALT_MARKER, 100000, 32, 'sha256');
+}
+
+function communitySaltBase64(): string {
+  return Buffer.from(COMMUNITY_SALT_MARKER, 'utf8').toString('base64');
+}
+
+router.post('/community/encrypt', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user?.walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { data } = req.body;
+    if (typeof data !== 'string' || data.length === 0) {
+      return res.status(400).json({ error: 'data is required' });
+    }
+    if (Buffer.byteLength(data, 'utf8') > 1_000_000) {
+      return res.status(400).json({ error: 'data too large (max 1MB)' });
+    }
+
+    const iv = crypto.randomBytes(12);
+    const key = deriveCommunityKey();
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const ciphertext = Buffer.concat([cipher.update(data, 'utf8'), cipher.final()]);
+    // Match the Web Crypto API convention this replaces: AES-GCM
+    // ciphertext has the auth tag appended to its end, not kept separate.
+    const combined = Buffer.concat([ciphertext, cipher.getAuthTag()]);
+
+    res.json({
+      encrypted: combined.toString('base64'),
+      iv: iv.toString('base64'),
+      salt: communitySaltBase64(),
+    });
+  } catch (error) {
+    handleError(res, error, 'Failed to encrypt community data');
+  }
+});
+
+router.post('/community/decrypt', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user?.walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { encrypted, iv, salt } = req.body;
+    if (!encrypted || !iv || !salt) {
+      return res.status(400).json({ error: 'encrypted, iv, and salt are required' });
+    }
+
+    if (salt !== communitySaltBase64()) {
+      return res.status(400).json({ error: 'Invalid salt for community document' });
+    }
+
+    const ivBuf = Buffer.from(iv, 'base64');
+    const combined = Buffer.from(encrypted, 'base64');
+    const authTag = combined.subarray(combined.length - 16);
+    const ciphertext = combined.subarray(0, combined.length - 16);
+
+    const key = deriveCommunityKey();
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, ivBuf);
+    decipher.setAuthTag(authTag);
+    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+
+    res.json({ data: decrypted.toString('utf8') });
+  } catch (error) {
+    handleError(res, error, 'Failed to decrypt community data');
   }
 });
 
