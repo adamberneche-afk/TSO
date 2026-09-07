@@ -4,6 +4,83 @@ Session summary for whoever (human or Claude) picks this project up next. This
 file is the bridge between "TSO was abandoned, is it worth reviving" and
 whatever gets decided next — read this before re-reading the whole repo.
 
+> **Session closed out — 2026-09-07, end of day.** Everything below this box
+> and the "Update — 2026-09-07" box right under it is historical narrative
+> from earlier in this multi-day effort; read this box first, it supersedes
+> both for "what's the current state" purposes.
+>
+> **All work is merged to `main`** (squash-merged as PR
+> [#2020](https://github.com/adamberneche-afk/TSO/pull/2020), commit
+> `903c102`). `docs/BUG_AUDIT_2026-09.md` — the full 5-way deep-dive audit —
+> is completely closed out: **Phases 0 through 5 are all done, `P3.9`
+> excepted** (a placeholder NFT contract address that needs a real deployed
+> contract; see that doc's Phase 3 table). `docs/DOCS_VS_CODEBASE.md` is
+> current (16 BUILT / 3 PARTIAL / 5 NOT BUILT of 24). Both were re-verified
+> against actual running code multiple times this session, not just trusted
+> from memory or commit messages — a dedicated cross-check pass late in the
+> session found and fixed 6 further stale doc spots elsewhere in the repo
+> (`TESTING.md`, this file's own then-current "verdict" section,
+> `packages/registry/API.md`, `tais_frontend/README.md` and
+> `IMPLEMENTATION.md`) that had drifted after earlier fixes landed.
+>
+> **Two things a fresh session should pick up first:**
+>
+> 1. **`.github/workflows/test.yml` ("Test and Build") and `deploy.yml`
+>    ("Deploy to Vercel") are still `disabled_manually`**, since
+>    2026-08-24 — confirmed still disabled as of this handoff. `test.yml` is
+>    the workflow with the registry's actual Jest suite, lint, and build
+>    jobs; nothing has run it for real via GitHub Actions in the ~2 weeks
+>    before this session, and PR #2020 above merged without it running at
+>    all (only CodeQL and a couple of doc-check workflows fired). The user
+>    asked to re-enable them, but no tool available this session wraps
+>    GitHub's enable-workflow endpoint — re-enabling needs the GitHub web UI
+>    (Actions tab → workflow → "···" menu → Enable workflow) or `gh workflow
+>    enable "Test and Build"` / `"Deploy to Vercel"` run by someone with
+>    real `gh` access. **Once re-enabled, don't just trust it's green** —
+>    verify the next real run actually passes, since it hasn't been
+>    exercised in a while and this session's own merge (which included a
+>    real, previously-latent `ipfs-http-client` ESM-vs-CJS break, see below)
+>    is proof that "nothing's touched this in weeks" isn't the same as
+>    "nothing would break."
+> 2. **Three CodeQL alerts on `crates/rcrt-standalone/src/main.rs` (lines
+>    163/167, alert IDs #42/#43/#44)** — "Uncontrolled data used in path
+>    expression". Investigated on PR #2020: the only external input feeding
+>    the flagged `fs::write`/`fs::rename` calls is the `HOME`/`APPDATA` env
+>    var used to resolve the app's own local data directory (standard
+>    desktop-app pattern, equivalent to `os.homedir()`); every path
+>    *suffix* joined onto it is a hardcoded literal, so there's no
+>    attacker-suppliable filename or `../` component reachable through this
+>    code. Full reasoning is on the PR's review threads (now marked
+>    resolved there) — but resolving a PR conversation thread is not the
+>    same as dismissing the underlying code-scanning alert, so these may
+>    still show as **open** in the repo's Security → Code scanning tab.
+>    Worth a look to formally dismiss them ("won't fix" / false positive)
+>    if the reasoning holds up, rather than leaving them looking
+>    unaddressed to whoever next opens that tab.
+>
+> **Smaller things worth knowing, not blocking anything:**
+> - `main` had moved 4 commits (3 Dependabot bumps + a weekly issue-export
+>   chore) between when this branch was cut and when PR #2020 merged. One
+>   of those bumps, `ipfs-http-client` 55→60, is a real breaking change
+>   disguised as routine (60.x is pure ESM, no CJS build at all) — it was
+>   crashing 22 of 26 registry test suites on load before being fixed (see
+>   `packages/registry/src/services/ipfs.ts`'s comment for the fix: a
+>   native dynamic `import()` constructed via `new Function(...)` so
+>   TypeScript's CJS compilation target can't downlevel it back to a
+>   `require()` that would crash on the ESM-only package). Worth watching
+>   for the same class of surprise on any *other* dependency bump that
+>   looks routine but changes a package's module format.
+> - The `adamberneche-afk/Tais` repo (separate from this one) was checked
+>   this session too: its own `claude/review-handoff-md-n90lsy` branch is
+>   already identical to its `main` (0 ahead/behind) — nothing pending
+>   there, no action needed.
+>
+> **A fresh session picking this up**: read `docs/BUG_AUDIT_2026-09.md`,
+> `docs/DOCS_VS_CODEBASE.md`, and this box, in that order, before the rest
+> of this file — the sections below (including the next "Update —
+> 2026-09-07" box) describe earlier points in this same multi-day effort
+> and are kept for continuity, not as current status.
+
 > **Update — 2026-09-07:** The follow-up session this handoff called for
 > happened. `docs/BUG_AUDIT_2026-09.md` (a full 5-way deep-dive audit) was
 > written and then worked phase-by-phase — every phase is now fully done
@@ -215,3 +292,9 @@ alone, that check doesn't cover this.
 ---
 _Generated by Claude Code, 2026-09-06 — session
 [claude.ai/code/session_01MhivLABzq6q9UZvHqyyZCx](https://claude.ai/code/session_01MhivLABzq6q9UZvHqyyZCx)_
+
+_Closed out 2026-09-07 across several follow-up passes on session
+[claude.ai/code/session_011JD9uEuXzzS29ZuUHWbwUX](https://claude.ai/code/session_011JD9uEuXzzS29ZuUHWbwUX)
+— see the "Session closed out" box at the top of this file, and commit
+history on `main` (PR #2020) and `claude/review-handoff-md-n90lsy` for the
+fix-by-fix record._

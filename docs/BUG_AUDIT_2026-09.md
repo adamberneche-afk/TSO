@@ -276,4 +276,7 @@ CLI/SDK packages, `tais_frontend`, and CI/tooling. Session:
 
 _Remediation tracked here (all of Phases 0-5, minus P3.9) done 2026-09-07
 across three follow-up passes on the same session — see commit history
-on `claude/review-handoff-md-n90lsy` for the fix-by-fix record._
+on `claude/review-handoff-md-n90lsy` for the fix-by-fix record. All of it
+is merged to `main` as of PR #2020 (commit `903c102`); see `HANDOFF.md`
+for what's still open (two disabled CI workflows, three CodeQL alerts
+assessed as non-issues) as of that merge._
