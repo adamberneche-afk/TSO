@@ -304,7 +304,15 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
     }
   });
 
-  // Create audit log entry (internal)
+  // Create audit log entry (internal -- called by the RCRT device itself,
+  // authenticating with the same provisioned token /connect verifies, not
+  // a user JWT)
+  //
+  // Used to trust `ownerId` straight from the body with no verification at
+  // all -- anyone could write fake audit-trail entries attributed to any
+  // wallet, forging a record of activity (or inactivity) that never
+  // happened. Now requires the caller to present the real, non-revoked
+  // token that was actually provisioned for that ownerId.
   router.post('/audit', async (req: Request, res: Response) => {
     const {
       ownerId,
@@ -325,8 +333,17 @@ export function createRCRTRoutes(prisma: any, logger: any): Router {
       return res.status(400).json({ error: 'ownerId and action are required' });
     }
 
+    if (!token) {
+      return res.status(401).json({ error: 'A valid RCRT token is required to write audit log entries' });
+    }
+
     try {
-      const maskedToken = token ? token.substring(0, 8) : null;
+      const agent = await prisma.rCRTAgent.findFirst({ where: { token, revoked: false } });
+      if (!agent || agent.ownerId !== String(ownerId).toLowerCase()) {
+        return res.status(401).json({ error: 'Invalid token for the given ownerId' });
+      }
+
+      const maskedToken = token.substring(0, 8);
       const now = new Date();
 
       await prisma.$executeRawUnsafe(

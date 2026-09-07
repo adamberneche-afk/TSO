@@ -205,11 +205,17 @@ describe('RCRT Routes', () => {
   });
 
   describe('POST /api/v1/rcrt/audit', () => {
-    it('should create audit log entry', async () => {
+    it('creates an audit log entry when the real provisioned token is presented', async () => {
+      const provisionResponse = await request(app)
+        .post('/api/v1/rcrt/provision')
+        .set('Authorization', `Bearer ${authToken(OWNER_WALLET)}`)
+        .send({});
+
       const response = await request(app)
         .post('/api/v1/rcrt/audit')
         .send({
           ownerId: OWNER_WALLET,
+          token: provisionResponse.body.token,
           action: 'provision',
           agentId: 'test-agent-id',
           status: 'success',
@@ -217,6 +223,32 @@ describe('RCRT Routes', () => {
         .expect(200);
 
       expect(response.body).toHaveProperty('success');
+    });
+
+    it('rejects a write with no token at all', async () => {
+      const response = await request(app)
+        .post('/api/v1/rcrt/audit')
+        .send({ ownerId: OWNER_WALLET, action: 'provision' })
+        .expect(401);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    it('rejects a write whose token does not actually belong to the claimed ownerId', async () => {
+      const provisionResponse = await request(app)
+        .post('/api/v1/rcrt/provision')
+        .set('Authorization', `Bearer ${authToken(OWNER_WALLET)}`)
+        .send({});
+
+      // Real token, but claiming to write it under someone else's identity.
+      const response = await request(app)
+        .post('/api/v1/rcrt/audit')
+        .send({
+          ownerId: ATTACKER_WALLET,
+          token: provisionResponse.body.token,
+          action: 'provision',
+        })
+        .expect(401);
+      expect(response.body).toHaveProperty('error');
     });
 
     it('should require ownerId and action', async () => {
