@@ -1,30 +1,19 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import cryptoJS from 'crypto-js';
 import { verifySignature } from '../utils/signature';
 import { verifyNFTOwnership } from '../services/genesisConfigLimits';
 import { normalizeWalletAddress, walletAddressesEqual } from '../utils/wallet';
 
-function getEncryptionKey(): string {
-  const key = process.env.TOKEN_ENCRYPTION_KEY;
-  if (!key) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('TOKEN_ENCRYPTION_KEY environment variable is required in production');
-    }
-    return 'tais-default-encryption-key-32b';
-  }
-  return key;
-}
-
-const ENCRYPTION_KEY = getEncryptionKey();
-
-function encryptToken(token: string): string {
-  return cryptoJS.AES.encrypt(token, ENCRYPTION_KEY).toString();
-}
-
-function decryptToken(encrypted: string): string {
-  const bytes = cryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
-  return bytes.toString(cryptoJS.enc.Utf8);
+// See the matching comment in routes/oauth.ts: the access token is only
+// ever compared for an exact match against the stored value, never read
+// back, so a deterministic hash is the correct primitive here. The prior
+// `cryptoJS.AES.encrypt` produced a different ciphertext every call (random
+// salt per encryption), so re-encrypting an incoming bearer token to look
+// it up could never match the value stored at grant time -- every
+// authenticated /agent/* request failed with "Invalid or expired access
+// token".
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 function generateSessionId(): string {
@@ -48,7 +37,7 @@ async function authenticateRequest(prisma: any, req: Request): Promise<{ walletA
 
   const permission = await prisma.agentAppPermission.findFirst({
     where: {
-      accessToken: encryptToken(accessToken),
+      accessToken: hashToken(accessToken),
       revokedAt: null,
     },
   });

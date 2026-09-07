@@ -809,8 +809,8 @@ model AgentAppPermission {
   id            String   @id @default(uuid())
   walletAddress String   @map("wallet_address")
   appId         String   @map("app_id")
-  app           AgentApp @relation(fields: [appId], references: [id], onDelete: Cascade)
-  
+  app           AgentApp @relation(fields: [appId], references: [appId], onDelete: Cascade)
+
   // Scopes granted
   scopes        String[] // e.g., ["agent:identity:read", "agent:memory:write"]
   
@@ -837,7 +837,7 @@ model AgentSession {
   sessionId      String   @unique @map("session_id")
   walletAddress  String   @map("wallet_address")
   appId          String   @map("app_id")
-  app            AgentApp @relation(fields: [appId], references: [id], onDelete: Cascade)
+  app            AgentApp @relation(fields: [appId], references: [appId], onDelete: Cascade)
   
   // Session linking (for handoff)
   parentSessionId String? @map("parent_session_id") // If agent came from another app
@@ -901,7 +901,7 @@ model AgentMemoryEntry {
 model AppUsageMetric {
   id                String     @id @default(uuid())
   appId             String     @map("app_id")
-  app               AgentApp   @relation(fields: [appId], references: [id], onDelete: Cascade)
+  app               AgentApp   @relation(fields: [appId], references: [appId], onDelete: Cascade)
   walletAddress     String     @map("wallet_address")
   
   interactionType   String     @map("interaction_type") // "chat", "context_read", "memory_write"
