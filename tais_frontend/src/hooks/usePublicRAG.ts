@@ -181,17 +181,31 @@ export const usePublicRAGStore = create<PublicRAGState>()(
 
 /**
  * Hook for Public RAG operations
+ *
+ * @param autoInitialize Whether merely calling this hook should trigger
+ * `initialize()` (and therefore a MetaMask signature prompt) on mount.
+ * Defaults to true for callers that use Public RAG as soon as they
+ * render (e.g. PublicRAGManager, KnowledgeStep). Pass `false` for a
+ * caller that wants to read RAG state without forcing a signature
+ * prompt until the user takes some explicit action -- e.g. Dashboard,
+ * which calls the returned `initialize` itself only when the user
+ * clicks Edit/Add RAG. Without this, every component that calls
+ * usePublicRAG() at all -- regardless of what it actually does with the
+ * result -- unconditionally fired this effect on its own mount, which is
+ * exactly what Dashboard's own code comment said it was relying on this
+ * hook *not* to do.
  */
-export function usePublicRAG() {
+export function usePublicRAG(autoInitialize: boolean = true) {
   const store = usePublicRAGStore();
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!store.isInitialized && !store.isAuthenticating) {
+    if (autoInitialize && !store.isInitialized && !store.isAuthenticating) {
       store.initialize().catch(console.error);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoInitialize]);
 
   const performSearch = useCallback(async (query: string) => {
     setIsSearching(true);
@@ -233,23 +247,29 @@ export function usePublicRAGUpload() {
   ) => {
     setIsUploading(true);
     setUploadProgress(0);
-    
+
+    // Declared outside the try so the catch block below can clear it too --
+    // it used to only be cleared on the success path. A failed upload
+    // (store.uploadDocument throwing) skipped straight to catch, leaving
+    // this interval running forever, ticking setUploadProgress every 200ms
+    // for the lifetime of the component (or the page).
+    const interval = setInterval(() => {
+      setUploadProgress(prev => Math.min(prev + 10, 90));
+    }, 200);
+
     try {
       // Simulate progress (actual progress would come from chunk uploads)
-      const interval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90));
-      }, 200);
-      
       await store.uploadDocument(title, content, isPublic, tags);
-      
+
       clearInterval(interval);
       setUploadProgress(100);
-      
+
       setTimeout(() => {
         setUploadProgress(0);
         setIsUploading(false);
       }, 500);
     } catch (error) {
+      clearInterval(interval);
       setIsUploading(false);
       setUploadProgress(0);
       throw error;

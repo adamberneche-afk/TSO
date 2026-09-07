@@ -77,7 +77,7 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
     isLoading: isLoadingRAG,
     isInitialized,
     initialize
-  } = usePublicRAG();
+  } = usePublicRAG(false);
 
   // Don't auto-initialize RAG on mount - only when user clicks Edit or Add RAG
   // This prevents unwanted signature requests
