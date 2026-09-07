@@ -111,7 +111,7 @@ Trust scores range from 0.0 to 1.0 based on:
 
 ### Security Scanning
 
-`yaraScanner.ts` implements real detection logic for credential theft, data exfiltration, malicious domains, process injection, suspicious imports, and obfuscated code, and is wired into both the standalone scan endpoint and the skill publish path (see [Security Scanning](#security-scanning-1) below and [YARA.md](./YARA.md)).
+`yaraScanner.ts` implements real detection logic for credential theft, data exfiltration, malicious domains, process injection, suspicious imports, and obfuscated code, and is wired into both the standalone scan endpoint and the skill publish path (see [Security Scanning](#security-scanning-1) below and [YARA.md](./YARA.md)). `securityScannerService.ts`'s PII detector (SSN/credit-card/email/phone patterns — something `yaraScanner.ts` doesn't attempt) is also wired into the standalone scan endpoint as an advisory-only `piiFindings` field; its cruder, overlapping exploit/malware detectors were left unused (see `YARA.md`).
 
 ## API Endpoints
 
@@ -125,40 +125,42 @@ GET /api/v1/skills
 **Query Parameters** (`routes/skills.ts`'s current implementation):
 - `category` (string): Filter by category name
 - `search` (string): Case-insensitive match against name or description
+- `trending` (boolean): If present/truthy, order by `downloadCount` descending instead of the default `createdAt` descending
+- `limit` (number): Max results per page, default 20, capped at 100
+- `offset` (number): Results to skip, default 0
 
 Only `APPROVED`, non-blocked skills are ever returned; there is no way to
 request other statuses.
 
-> **Known gap:** the handler also destructures a `trending` query param but
-> never uses it (dead code — passing it has no effect), and there is no
-> `limit`/`offset`/pagination support at all despite an earlier version of
-> this doc describing one — every call returns the full result set as a
-> plain JSON array, not `{ skills, pagination }`. Tracked in
-> `docs/BUG_AUDIT_2026-09.md`.
-
 **Example:**
 ```bash
-curl "https://tso.onrender.com/api/v1/skills?category=weather&search=api"
+curl "https://tso.onrender.com/api/v1/skills?category=weather&search=api&trending=true&limit=10"
 ```
 
-**Response** (a plain array, not an envelope object):
+**Response** (shape matches `tais_frontend`'s `SearchResults` type, the one
+real consumer already parsing it):
 ```json
-[
-  {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "skillHash": "Qm...",
-    "name": "weather-api",
-    "version": "1.2.0",
-    "description": "Get weather data from multiple sources",
-    "author": "0x742d...",
-    "trustScore": 0.85,
-    "downloadCount": 1523,
-    "status": "APPROVED",
-    "createdAt": "2024-02-01T12:00:00Z",
-    "categories": [ ],
-    "audits": [ ]
-  }
-]
+{
+  "skills": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "skillHash": "Qm...",
+      "name": "weather-api",
+      "version": "1.2.0",
+      "description": "Get weather data from multiple sources",
+      "author": "0x742d...",
+      "trustScore": 0.85,
+      "downloadCount": 1523,
+      "status": "APPROVED",
+      "createdAt": "2024-02-01T12:00:00Z",
+      "categories": [ ],
+      "audits": [ ]
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 20
+}
 ```
 
 #### Get Skill
@@ -237,9 +239,13 @@ detection) and how this ties into skill publishing.
 ```
 `encoding` is `"utf8"` (default) or `"base64"`.
 
-**Response:** `200` with `{ success: true, result: "safe", findings: [...], summary: {...} }`
-on a clean scan, or `403` with `{ success: false, result: "malicious", findings: [...] }`
-if the content matches a critical/high-severity rule.
+**Response:** `200` with `{ success: true, result: "safe", findings: [...], summary: {...}, piiFindings: [...] }`
+on a clean scan, or `403` with `{ success: false, result: "malicious", findings: [...], piiFindings: [...] }`
+if the content matches a critical/high-severity rule. `piiFindings` (from
+`securityScannerService.ts`'s PII detector) is always present, defaulting
+to `[]` — it's advisory only and never affects `success`/`result`, since
+its patterns (e.g. any 10-digit number as a "phone number") are
+approximate enough that blocking on them would be its own bug.
 
 ### Analytics
 
@@ -484,6 +490,16 @@ async function makeRequest(url, options) {
 ```
 
 ## Changelog
+
+### v1.1.1 (2026-09-07)
+- `GET /api/v1/skills` now actually implements `trending` (previously
+  destructured and never read) and `limit`/`offset` pagination, and
+  returns `{ skills, total, page, limit }` instead of a bare array —
+  matching the shape `tais_frontend`'s `RegistryClient` already expected
+- `POST /api/v1/scan` now also runs `securityScannerService.ts`'s PII
+  detector and returns its findings as an advisory-only `piiFindings`
+  field; the service's overlapping exploit/malware detectors were left
+  unused (see `YARA.md`)
 
 ### v1.1.0 (2026-09-07)
 - Security scanning is now real and reachable: `POST /api/v1/scan` runs the

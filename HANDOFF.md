@@ -24,8 +24,12 @@ whatever gets decided next — read this before re-reading the whole repo.
 > no coverage threshold, a watchdog blind spot for silently-disabled
 > scheduled workflows) plus two incidental findings from the same pass
 > (`POST /rcrt/audit`'s forgeable `ownerId`, and a dead duplicate env
-> validator). **Phases 0 through 5 are now all complete** (`P3.9`
-> excepted). See `docs/BUG_AUDIT_2026-09.md` and
+> validator). A third pass then closed the last two incidental findings
+> (`GET /api/v1/skills`'s dead `trending` param and missing pagination,
+> and `securityScannerService.ts`'s PII detector — now wired into
+> `POST /api/v1/scan` as an advisory-only signal). **Phases 0 through 5
+> are now all complete** (`P3.9` excepted), with nothing left open. See
+> `docs/BUG_AUDIT_2026-09.md` and
 > `docs/DOCS_VS_CODEBASE.md` (also updated) for current, accurate status;
 > treat the "What was cleaned up" / "not done" sections below as the
 > record of *that* session, not the current state of the repo.

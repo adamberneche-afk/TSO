@@ -1,23 +1,27 @@
 # Codebase Bug Audit & Remediation Plan — 2026-09
 
 > **Status as of 2026-09-07: Phases 0, 1, 2, 3 (minus P3.9), 4, and 5 are
-> all complete.** This started as a discovery + planning document — every
-> finding below was either confirmed by actually running/building the
-> code, or is unambiguous on read — and was then worked phase-by-phase
-> over several follow-up sessions on `claude/review-handoff-md-n90lsy`. A
+> all complete, and nothing tracked in this doc remains open.** This
+> started as a discovery + planning document — every finding below was
+> either confirmed by actually running/building the code, or is
+> unambiguous on read — and was then worked phase-by-phase over several
+> follow-up sessions on `claude/review-handoff-md-n90lsy`. A
 > re-verification pass initially found that **Phase 0 had never actually
 > been started** despite being labeled "do first, same day" and
 > containing three live, exploitable security holes — that was fixed
 > immediately after being found (see Phase 0 below); a second pass then
 > closed out Phase 1's 4 remaining open items (P1.5, P1.6, P1.7, P1.9)
 > plus two incidental findings noticed along the way (`POST /rcrt/audit`
-> write-integrity, and a dead duplicate env validator). **Read
-> "Outstanding after this remediation pass" at the bottom** for what's
-> genuinely still open. Each completed fix shipped with a regression test
-> verified against the pre-fix code (reverted → confirmed it failed →
-> restored → confirmed it passed). See the ✅ markers on each phase
-> heading and the per-item status columns below for specifics, and
-> `docs/DOCS_VS_CODEBASE.md` (also updated) for the resulting capability
+> write-integrity, and a dead duplicate env validator); a third pass
+> closed the last two incidental findings from that same second pass
+> (`GET /api/v1/skills`'s pagination/`trending` gap, and
+> `securityScannerService.ts`'s unwired PII detector). **Read "Outstanding
+> after this remediation pass" at the bottom** for confirmation nothing is
+> left. Each completed fix shipped with a regression test verified against
+> the pre-fix code (reverted → confirmed it failed → restored → confirmed
+> it passed). See the ✅ markers on each phase heading and the per-item
+> status columns below for specifics, and `docs/DOCS_VS_CODEBASE.md` (also
+> updated) for the resulting capability
 > status.
 
 Full deep-dive audit of the TSO/TAIS monorepo, run as five parallel deep-reads
@@ -227,18 +231,27 @@ Per-fix rule going forward, not just for this pass:
 ## Outstanding after this remediation pass
 
 Phases 0-5 are now all complete (P3.9 excepted, tracked separately in its
-own section above). Everything that was open in previous passes —
-Phase 1's P1.5/P1.6/P1.7/P1.9, `POST /rcrt/audit`'s write-integrity gap,
-and the dead `config/env.ts` validator — has been fixed, each with its
-own reverted → failed → restored → passed regression test. What's left,
-for anyone picking this up next:
+own section above). Everything that was open in previous passes has been
+fixed, each with its own reverted → failed → restored → passed regression
+test:
 
-1. `GET /api/v1/skills` doesn't implement the pagination or `trending`
-   filter this doc's own `API.md` used to describe (see that file's
-   current text for specifics), and `securityScannerService.ts` is a
-   second, still-unwired regex-based scanner distinct from
-   `yaraScanner.ts` (see `YARA.md`). Both surfaced incidentally while
-   re-verifying and updating docs during this pass and are still open.
+~~1. `GET /api/v1/skills` doesn't implement the pagination or `trending`
+filter~~ — **FIXED**: `trending=true` now orders by `downloadCount`
+descending instead of the default `createdAt` descending, and
+`limit`/`offset` (capped at 100, like every other list route) are real;
+the response is now `{ skills, total, page, limit }`, matching what
+`tais_frontend`'s `RegistryClient` already expected.
+
+~~`securityScannerService.ts` is a second, still-unwired regex-based
+scanner~~ — **FIXED** (decision made: partial wire-up, not merge or
+delete): its PII detector (SSN/credit-card/email/phone patterns — the one
+thing `yaraScanner.ts` doesn't attempt) is now called from
+`POST /api/v1/scan` and returned as an advisory-only `piiFindings` field,
+never affecting the blocking verdict. Its exploit/malware detectors were
+deliberately left unused — they duplicate `yaraScanner.ts`'s
+process-injection/credential-theft/data-exfiltration rules with cruder
+regexes and add nothing on top of an already-integrated, real severity
+model. See `YARA.md`.
 
 ~~2. `packages/registry/src/routes/rcrt.ts`'s `POST /audit`~~ — **FIXED**:
 now requires the caller to present the real, non-revoked token that was
@@ -252,6 +265,8 @@ would have been worse than having no second system at all. The
 `CRON_SECRET`-required-in-production check it would have provided was
 instead added directly to `config/index.ts`'s `loadConfig()`.
 
+Nothing tracked in this doc remains open as of this pass.
+
 ---
 
 _Generated by Claude Code, 2026-09-06 — five parallel deep-dive audits of
@@ -259,7 +274,6 @@ _Generated by Claude Code, 2026-09-06 — five parallel deep-dive audits of
 CLI/SDK packages, `tais_frontend`, and CI/tooling. Session:
 [claude.ai/code/session_011JD9uEuXzzS29ZuUHWbwUX](https://claude.ai/code/session_011JD9uEuXzzS29ZuUHWbwUX)_
 
-_Remediation tracked here (all of Phases 0-5, minus P3.9 and the items
-listed in "Outstanding after this remediation pass" above) done
-2026-09-07 across two follow-up passes on the same session — see commit
-history on `claude/review-handoff-md-n90lsy` for the fix-by-fix record._
+_Remediation tracked here (all of Phases 0-5, minus P3.9) done 2026-09-07
+across three follow-up passes on the same session — see commit history
+on `claude/review-handoff-md-n90lsy` for the fix-by-fix record._
