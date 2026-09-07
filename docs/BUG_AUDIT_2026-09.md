@@ -1,20 +1,21 @@
 # Codebase Bug Audit & Remediation Plan — 2026-09
 
-> **Status as of 2026-09-07: Phases 2, 3 (minus P3.9), 4, and 5 are
-> complete; Phase 0 is entirely unfixed and Phase 1 has 4 open items.**
-> This started as a discovery + planning
-> document — every finding below was either confirmed by actually
-> running/building the code, or is unambiguous on read — and was then
-> worked phase-by-phase over several follow-up sessions on
-> `claude/review-handoff-md-n90lsy`. **Read "Outstanding after this
-> remediation pass" at the bottom before assuming this is done** — Phase 0
-> in particular contains live, exploitable security holes that were never
-> actually addressed, despite being labeled "do first, same day." Each
-> completed fix shipped with a regression test verified against the
-> pre-fix code (reverted → confirmed it failed → restored → confirmed it
-> passed). See the ✅/❌ markers on each phase heading and the per-item
-> status columns below for specifics, and `docs/DOCS_VS_CODEBASE.md` (also
-> updated) for the resulting capability status.
+> **Status as of 2026-09-07: Phases 0, 2, 3 (minus P3.9), 4, and 5 are
+> complete; Phase 1 has 4 open items.** This started as a discovery +
+> planning document — every finding below was either confirmed by
+> actually running/building the code, or is unambiguous on read — and was
+> then worked phase-by-phase over several follow-up sessions on
+> `claude/review-handoff-md-n90lsy`. A re-verification pass initially
+> found that **Phase 0 had never actually been started** despite being
+> labeled "do first, same day" and containing three live, exploitable
+> security holes — that was fixed immediately after being found (see
+> Phase 0 below). **Read "Outstanding after this remediation pass" at the
+> bottom** for what's genuinely still open. Each completed fix shipped
+> with a regression test verified against the pre-fix code (reverted →
+> confirmed it failed → restored → confirmed it passed). See the ✅
+> markers on each phase heading and the per-item status columns below for
+> specifics, and `docs/DOCS_VS_CODEBASE.md` (also updated) for the
+> resulting capability status.
 
 Full deep-dive audit of the TSO/TAIS monorepo, run as five parallel deep-reads
 (registry backend, core services + Rust RCRT service, CLI/SDK packages,
@@ -59,23 +60,21 @@ the edges — some findings are two-line-item bugs bundled together.)
 
 ---
 
-## Phase 0 — Stop the bleeding (do first, same day) — ❌ STILL ENTIRELY OPEN
+## Phase 0 — Stop the bleeding (do first, same day) — ✅ COMPLETE
 
-**Re-verified 2026-09-07: every item in this phase is still unfixed in the
-current codebase.** This phase was never actually started — the session
-that produced this doc went straight to Phases 1-5 and never circled back.
-Three of these six are live, exploitable security holes reachable on the
-running server *right now*. This is the most important thing for whoever
-reads this doc next to act on.
+**Fixed 2026-09-07**, immediately after the re-verification pass above
+turned up that this phase had never actually been started. Every fix
+shipped with a regression test verified against the pre-fix code
+(reverted → confirmed it failed → restored → confirmed it passed).
 
 | # | Issue | Fix | Status |
 |---|---|---|---|
-| P0.1 | `deploy.yml` deploys to **production** on every PR, not just push to `main` | Add `if: github.event_name == 'push'` | ❌ **STILL OPEN** — `.github/workflows/deploy.yml` runs `vercel deploy --prebuilt --prod` on `pull_request` with no event-type guard |
-| P0.2 | `health-report.yml`'s `permissions:` block implicitly sets `contents: none`, so checkout 403s every run | Add `contents: read` | ❌ **STILL OPEN** — permissions block is still `issues: read` only |
-| P0.3 | `/api/v1/rcrt/*` trusts an unverified JWT payload and falls back to a `?wallet=` query param — unauthenticated device-token disclosure + takeover | Apply `authMiddleware`; require `req.user.walletAddress`, never trust client-supplied wallet | ❌ **STILL OPEN** — `routes/rcrt.ts`'s `extractWallet()` still base64-decodes the JWT payload with no signature check and falls back to a client-supplied wallet; `/rcrt` is mounted in `index.ts` with only rate limiting, no `authMiddleware` |
-| P0.4 | `/api/v1/memory/*` mounted with zero auth — any wallet's private agent memories readable/writable by anyone | Apply `authMiddleware` | ❌ **STILL OPEN** — `index.ts` mounts `'/memory'` with `createMemoryBackupRoutes(...)` and nothing else |
-| P0.5 | `/admin/cron/*` fails **open** (not closed) when `CRON_SECRET` is unset | Fail closed: refuse to serve, or crash-on-boot if unset outside dev | ❌ **STILL OPEN** — `routes/cron.ts`'s auth check is `if (expectedToken && authHeader !== ...) return 401`; an unset `CRON_SECRET` makes `expectedToken` falsy and skips the check entirely |
-| P0.6 | Same fail-open pattern, `packages/registry/src/routes/cron.ts` (this is the same code as P0.5, listed once) | — | ❌ **STILL OPEN** (same code as P0.5) |
+| P0.1 | `deploy.yml` deploys to **production** on every PR, not just push to `main` | Add `if: github.event_name == 'push'` | ✅ FIXED — split into a `test` job (typecheck+test, runs on push and PR) and a `deploy` job gated on `github.event_name == 'push'` and `needs: test`, so a PR can no longer reach the Vercel steps |
+| P0.2 | `health-report.yml`'s `permissions:` block implicitly sets `contents: none`, so checkout 403s every run | Add `contents: read` | ✅ FIXED |
+| P0.3 | `/api/v1/rcrt/*` trusts an unverified JWT payload and falls back to a `?wallet=` query param — unauthenticated device-token disclosure + takeover | Apply `authMiddleware`; require `req.user.walletAddress`, never trust client-supplied wallet | ✅ FIXED — mounted behind `optionalAuthMiddleware`; every handler sources the wallet only from `req.user` (GET `/status` stays soft on purpose; provision/revoke/audit-read now 401 without auth) |
+| P0.4 | `/api/v1/memory/*` mounted with zero auth — any wallet's private agent memories readable/writable by anyone | Apply `authMiddleware` | ✅ FIXED — mounted behind `authMiddleware`; every handler sources the wallet from `req.user` |
+| P0.5 | `/admin/cron/*` fails **open** (not closed) when `CRON_SECRET` is unset | Fail closed: refuse to serve, or crash-on-boot if unset outside dev | ✅ FIXED — refuses to serve (503) in every environment when the secret isn't configured, rather than silently becoming public |
+| P0.6 | Same fail-open pattern, `packages/registry/src/routes/cron.ts` (this is the same code as P0.5, listed once) | — | ✅ FIXED (same fix as P0.5) |
 
 ---
 
@@ -225,21 +224,31 @@ Per-fix rule going forward, not just for this pass:
 
 For anyone picking this up next, in priority order:
 
-1. **Phase 0 (all 6 items)** — never actually started, and three of them
-   (P0.3, P0.4, P0.5/P0.6) are live, exploitable security holes on the
-   currently-running server. Do these first, same as the original plan
-   said.
-2. **P1.5, P1.6, P1.7, P1.9** — CI/quality-gate gaps (a tautological test,
+1. **P1.5, P1.6, P1.7, P1.9** — CI/quality-gate gaps (a tautological test,
    a real test that never runs, no coverage threshold, a watchdog blind
    spot). Lower severity, but each is exactly the kind of gap that let
    Phases 2-4's bugs go unnoticed for as long as they did.
-3. A few incidental findings surfaced while re-verifying and updating docs
+2. A few incidental findings surfaced while re-verifying and updating docs
    during this pass, not yet independently tracked as their own items:
    `GET /api/v1/skills` doesn't implement the pagination or `trending`
    filter this doc's own `API.md` used to describe (see that file's
    current text for specifics), and `securityScannerService.ts` is a
    second, still-unwired regex-based scanner distinct from
    `yaraScanner.ts` (see `YARA.md`).
+3. `packages/registry/src/routes/rcrt.ts`'s `POST /audit` (the endpoint
+   RCRT devices use to write their own audit-trail entries) still trusts
+   a raw `ownerId` from the request body with no verification against the
+   presented `token` -- narrower than P0.3 (this is a write-integrity gap
+   on an audit trail, not a read/takeover hole), left alone when P0.3 was
+   fixed since it wasn't part of that item's original wording, but worth
+   a look.
+4. `config/env.ts`'s `validateEnvironment()` (a real Zod schema with a
+   "throw at startup if unsafe in production" pattern already used for
+   `JWT_SECRET`) is never imported or called anywhere -- dead validation
+   code, noticed while fixing P0.5/P0.6's `CRON_SECRET` handling. Wiring
+   it up for real (and adding `CRON_SECRET` to its schema) would be a
+   more centralized way to enforce this class of "required in production"
+   rule than the per-route checks added here.
 
 ---
 
@@ -248,7 +257,7 @@ _Generated by Claude Code, 2026-09-06 — five parallel deep-dive audits of
 CLI/SDK packages, `tais_frontend`, and CI/tooling. Session:
 [claude.ai/code/session_011JD9uEuXzzS29ZuUHWbwUX](https://claude.ai/code/session_011JD9uEuXzzS29ZuUHWbwUX)_
 
-_Remediation tracked here (Phases 2-5, minus the items marked open above —
-Phase 0 and part of Phase 1 remain) done 2026-09-07 on a continuation of
-the same session — see commit history on `claude/review-handoff-md-n90lsy`
+_Remediation tracked here (Phases 0, 2-5, minus the items marked open
+above — part of Phase 1 remains) done 2026-09-07 on a continuation of the
+same session — see commit history on `claude/review-handoff-md-n90lsy`
 for the fix-by-fix record._

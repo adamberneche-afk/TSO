@@ -6,20 +6,21 @@ whatever gets decided next — read this before re-reading the whole repo.
 
 > **Update — 2026-09-07:** The follow-up session this handoff called for
 > happened. `docs/BUG_AUDIT_2026-09.md` (a full 5-way deep-dive audit) was
-> written and then worked phase-by-phase — Phases 2 through 5 are fully
-> done (every finding fixed except `P3.9`, a placeholder NFT contract
-> address that needs a real deployed contract). That includes the
-> "disconnected trust/security layer"
-> called out below as untouched: **YARA-style skill scanning, usage
-> analytics, and the CTO Agent are now wired up for real** (mounted,
-> authenticated, and — where mounting the code as originally written
-> would have shipped an IDOR — access-control holes closed as part of the
-> same fix). **Phase 0 of that audit was never started and is still
-> entirely open** — it documents three live, exploitable security holes
-> on the running server (`/api/v1/rcrt`'s unverified-JWT wallet fallback,
-> `/api/v1/memory`'s complete lack of auth, `/admin/cron`'s fail-open
-> behavior when `CRON_SECRET` is unset) that a next session should treat
-> as the actual top priority. See `docs/BUG_AUDIT_2026-09.md` and
+> written and then worked phase-by-phase — Phases 0, 2 through 5 are
+> fully done (every finding fixed except `P3.9`, a placeholder NFT
+> contract address that needs a real deployed contract). That includes
+> the "disconnected trust/security layer" called out below as untouched:
+> **YARA-style skill scanning, usage analytics, and the CTO Agent are now
+> wired up for real** (mounted, authenticated, and — where mounting the
+> code as originally written would have shipped an IDOR — access-control
+> holes closed as part of the same fix). A re-verification pass initially
+> found that **Phase 0 had never actually been started** — three live,
+> exploitable security holes on the running server
+> (`/api/v1/rcrt`'s unverified-JWT wallet fallback, `/api/v1/memory`'s
+> complete lack of auth, `/admin/cron`'s fail-open behavior when
+> `CRON_SECRET` is unset) — and that was fixed immediately after being
+> found. Phase 1 has 4 minor CI/quality-gate items still open (not
+> security-relevant). See `docs/BUG_AUDIT_2026-09.md` and
 > `docs/DOCS_VS_CODEBASE.md` (also updated) for current, accurate status;
 > treat the "What was cleaned up" / "not done" sections below as the
 > record of *that* session, not the current state of the repo.
