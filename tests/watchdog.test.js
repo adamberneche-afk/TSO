@@ -12,6 +12,8 @@ const path = require('path');
 const {
   listWorkflowFiles,
   hasScheduleTrigger,
+  extractCronExpression,
+  estimateCronIntervalMs,
   runActionlint,
   checkScheduledWorkflowRuns,
   buildWatchdogReport,
@@ -89,21 +91,32 @@ test('runActionlint: a missing/unspawnable binary is a finding on every file, ne
 test('checkScheduledWorkflowRuns only queries workflows that actually declare a schedule trigger', async () => {
   const dir = makeWorkflowsDir({ 'push-only.yml': SIMPLE_WORKFLOW, 'scheduled.yml': SCHEDULED_WORKFLOW });
   const calls = [];
+  const now = () => new Date('2026-01-01T00:00:00.000Z');
   const fetchImpl = async (url) => {
     calls.push(url);
-    return { ok: true, json: async () => ({ workflow_runs: [{ conclusion: 'success', html_url: 'https://x/1' }] }) };
+    if (url.endsWith('/scheduled.yml')) return { ok: true, json: async () => ({ state: 'active' }) };
+    return {
+      ok: true,
+      json: async () => ({ workflow_runs: [{ conclusion: 'success', html_url: 'https://x/1', run_started_at: now().toISOString() }] })
+    };
   };
-  const findings = await checkScheduledWorkflowRuns('o', 'r', 'tok', { dir, fetchImpl });
-  assert.equal(calls.length, 1);
-  assert.ok(calls[0].includes('scheduled.yml'));
+  const findings = await checkScheduledWorkflowRuns('o', 'r', 'tok', { dir, fetchImpl, now });
+  // Two calls for the one scheduled workflow (state check + run history),
+  // none at all for the push-only one.
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every((u) => u.includes('scheduled.yml')));
   assert.equal(findings.length, 0);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test('checkScheduledWorkflowRuns flags a scheduled workflow whose last run concluded failure', async () => {
   const dir = makeWorkflowsDir({ 'scheduled.yml': SCHEDULED_WORKFLOW });
-  const fetchImpl = fakeFetchJson(200, { workflow_runs: [{ conclusion: 'failure', html_url: 'https://x/2' }] });
-  const findings = await checkScheduledWorkflowRuns('o', 'r', 'tok', { dir, fetchImpl });
+  const now = () => new Date('2026-01-01T00:00:00.000Z');
+  const fetchImpl = async (url) => {
+    if (url.endsWith('/scheduled.yml')) return { ok: true, json: async () => ({ state: 'active' }) };
+    return { ok: true, json: async () => ({ workflow_runs: [{ conclusion: 'failure', html_url: 'https://x/2', run_started_at: now().toISOString() }] }) };
+  };
+  const findings = await checkScheduledWorkflowRuns('o', 'r', 'tok', { dir, fetchImpl, now });
   assert.equal(findings.length, 1);
   assert.equal(findings[0].file, 'scheduled.yml');
   assert.ok(findings[0].issue.includes('https://x/2'));
@@ -119,12 +132,59 @@ test('checkScheduledWorkflowRuns flags a schedule trigger with zero recorded run
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test('checkScheduledWorkflowRuns judges only the most recent run\'s conclusion, never how long ago it ran', async () => {
-  const dir = makeWorkflowsDir({ 'weekly.yml': SCHEDULED_WORKFLOW });
-  const fetchImpl = fakeFetchJson(200, { workflow_runs: [{ conclusion: 'success', html_url: 'https://x/3' }] });
-  const findings = await checkScheduledWorkflowRuns('o', 'r', 'tok', { dir, fetchImpl });
+test('checkScheduledWorkflowRuns does not flag a recent, successful run', async () => {
+  const dir = makeWorkflowsDir({ 'weekly.yml': SCHEDULED_WORKFLOW }); // daily cron
+  const now = () => new Date('2026-01-02T00:00:00.000Z');
+  const runStartedAt = '2026-01-01T07:00:00.000Z'; // ~17h ago, well under the 2-day (48h) threshold
+  const fetchImpl = async (url) => {
+    if (url.endsWith('/weekly.yml')) return { ok: true, json: async () => ({ state: 'active' }) };
+    return { ok: true, json: async () => ({ workflow_runs: [{ conclusion: 'success', html_url: 'https://x/3', run_started_at: runStartedAt }] }) };
+  };
+  const findings = await checkScheduledWorkflowRuns('o', 'r', 'tok', { dir, fetchImpl, now });
   assert.equal(findings.length, 0);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('checkScheduledWorkflowRuns flags a run far older than 2x its own schedule interval, even though it succeeded', async () => {
+  const dir = makeWorkflowsDir({ 'daily.yml': SCHEDULED_WORKFLOW }); // '0 7 * * *' -- daily, so stale past 48h
+  const now = () => new Date('2026-01-10T00:00:00.000Z');
+  const runStartedAt = '2026-01-01T07:00:00.000Z'; // ~9 days ago
+  const fetchImpl = async (url) => {
+    if (url.endsWith('/daily.yml')) return { ok: true, json: async () => ({ state: 'active' }) };
+    return { ok: true, json: async () => ({ workflow_runs: [{ conclusion: 'success', html_url: 'https://x/4', run_started_at: runStartedAt }] }) };
+  };
+  const findings = await checkScheduledWorkflowRuns('o', 'r', 'tok', { dir, fetchImpl, now });
+  assert.equal(findings.length, 1);
+  assert.ok(findings[0].issue.includes('silently stopped firing'));
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('checkScheduledWorkflowRuns flags a workflow GitHub has auto-disabled, even if its last run succeeded', async () => {
+  const dir = makeWorkflowsDir({ 'scheduled.yml': SCHEDULED_WORKFLOW });
+  const now = () => new Date('2026-01-01T00:00:00.000Z');
+  const fetchImpl = async (url) => {
+    if (url.endsWith('/scheduled.yml')) return { ok: true, json: async () => ({ state: 'disabled_inactivity' }) };
+    return { ok: true, json: async () => ({ workflow_runs: [{ conclusion: 'success', html_url: 'https://x/5', run_started_at: now().toISOString() }] }) };
+  };
+  const findings = await checkScheduledWorkflowRuns('o', 'r', 'tok', { dir, fetchImpl, now });
+  assert.equal(findings.length, 1);
+  assert.ok(findings[0].issue.includes("state: 'disabled_inactivity'"));
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('estimateCronIntervalMs: daily, weekly, and unrecognized shapes', () => {
+  assert.equal(estimateCronIntervalMs('0 7 * * *'), 24 * 60 * 60 * 1000);
+  assert.equal(estimateCronIntervalMs('0 9 * * 1'), 7 * 24 * 60 * 60 * 1000);
+  assert.equal(estimateCronIntervalMs('*/15 * * * *'), 15 * 60 * 1000);
+  assert.equal(estimateCronIntervalMs('0 */4 * * *'), 4 * 60 * 60 * 1000);
+  assert.equal(estimateCronIntervalMs('0 0 1 * *'), 30 * 24 * 60 * 60 * 1000); // monthly (dom fixed, dow '*')
+  assert.equal(estimateCronIntervalMs('0 0 1 1 *'), null); // month restricted -- don't guess
+  assert.equal(estimateCronIntervalMs('0 0 15 * 1'), null); // both dom and dow restricted -- ambiguous
+});
+
+test('extractCronExpression pulls the quoted cron string out of a workflow file', () => {
+  assert.equal(extractCronExpression(SCHEDULED_WORKFLOW), '0 7 * * *');
+  assert.equal(extractCronExpression(SIMPLE_WORKFLOW), null);
 });
 
 test('checkScheduledWorkflowRuns reports a non-2xx API response as a finding rather than throwing', async () => {
