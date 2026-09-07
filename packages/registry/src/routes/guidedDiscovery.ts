@@ -140,12 +140,16 @@ export function createGuidedDiscoveryRoutes(prisma: PrismaClient, logger: any): 
       const { id } = req.params;
       const { wallet } = req.body;
 
+      if (!wallet) {
+        return res.status(400).json({ error: 'Wallet address required' });
+      }
+
       const session = await service.getSession(id);
       if (!session) {
         return res.status(404).json({ error: 'Session not found' });
       }
 
-      if (wallet && session.walletAddress !== wallet.toLowerCase()) {
+      if (session.walletAddress !== wallet.toLowerCase()) {
         return res.status(403).json({ error: 'Not authorized' });
       }
 
