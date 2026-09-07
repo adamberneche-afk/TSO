@@ -157,11 +157,10 @@ tais-platform/
 
 ### Registry Endpoints
 ```typescript
-GET  /api/v1/skills              # List all skills
+GET  /api/v1/skills              # List all skills (?trending=true sorts by downloads, not recency -- no separate trending endpoint)
 GET  /api/v1/skills/:hash        # Get skill details
 POST /api/v1/skills              # Publish skill (requires NFT)
 GET  /api/v1/search?q=query      # Search skills
-GET  /api/v1/search/trending     # Get trending skills
 ```
 
 ### Environment Variables

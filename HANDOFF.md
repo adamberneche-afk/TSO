@@ -6,9 +6,9 @@ whatever gets decided next — read this before re-reading the whole repo.
 
 > **Update — 2026-09-07:** The follow-up session this handoff called for
 > happened. `docs/BUG_AUDIT_2026-09.md` (a full 5-way deep-dive audit) was
-> written and then worked phase-by-phase — Phases 0, 2 through 5 are
-> fully done (every finding fixed except `P3.9`, a placeholder NFT
-> contract address that needs a real deployed contract). That includes
+> written and then worked phase-by-phase — every phase is now fully done
+> (every finding fixed except `P3.9`, a placeholder NFT contract address
+> that needs a real deployed contract). That includes
 > the "disconnected trust/security layer" called out below as untouched:
 > **YARA-style skill scanning, usage analytics, and the CTO Agent are now
 > wired up for real** (mounted, authenticated, and — where mounting the
@@ -31,8 +31,12 @@ whatever gets decided next — read this before re-reading the whole repo.
 > are now all complete** (`P3.9` excepted), with nothing left open. See
 > `docs/BUG_AUDIT_2026-09.md` and
 > `docs/DOCS_VS_CODEBASE.md` (also updated) for current, accurate status;
-> treat the "What was cleaned up" / "not done" sections below as the
-> record of *that* session, not the current state of the repo.
+> treat "The verdict" and "What was cleaned up" / "not done" sections
+> below as the record of *that* session, not the current state of the
+> repo — in particular, the specific claim under "The verdict" that
+> `routes/scan.ts` is a hardcoded fake never imported into `index.ts`,
+> and the "12 of 23 / 6 PARTIAL / 5 not built" capability counts, are
+> both now stale; see `docs/DOCS_VS_CODEBASE.md`'s current 16/3/5 of 24.
 
 ## TL;DR
 

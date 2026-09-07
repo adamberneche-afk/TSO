@@ -409,21 +409,23 @@ skill = client.skills.register(
 
 ### 1. Handle Pagination
 
-Always check for `hasMore` and implement pagination:
+`GET /api/v1/skills` returns `{ skills, total, page, limit }` (no
+`pagination`/`hasMore` field — see [List Skills](#list-skills) above).
+Keep paging while the accumulated offset is still less than `total`:
 
 ```javascript
 let offset = 0;
-let hasMore = true;
+let total = Infinity;
 
-while (hasMore) {
-  const response = await fetch(`/api/v1/skills?offset=${offset}`);
+while (offset < total) {
+  const response = await fetch(`/api/v1/skills?offset=${offset}&limit=20`);
   const data = await response.json();
-  
+
   // Process skills
   processSkills(data.skills);
-  
-  hasMore = data.pagination.hasMore;
-  offset += data.pagination.limit;
+
+  total = data.total;
+  offset += data.limit;
 }
 ```
 
@@ -512,8 +514,9 @@ async function makeRequest(url, options) {
 - `/monitoring/*` now requires wallet auth + admin status (previously
   public)
 - Corrected this doc's `GET /api/v1/skills` description to match its
-  actual behavior (no pagination, plain array response — see the note in
-  that section)
+  actual behavior at the time (no pagination, plain array response) —
+  since superseded by v1.1.1 below, which implemented the gap this
+  bullet only documented
 
 ### v1.0.0 (2024-02-05)
 - Initial release
