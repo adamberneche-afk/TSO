@@ -3,7 +3,8 @@ import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Activity, Database, Cpu, MemoryStick, AlertTriangle, Clock, RefreshCw } from 'lucide-react';
 import { motion } from 'motion/react';
-import { api } from '../../api/client';
+import { api } from '../../../api/client';
+import { env } from '../../../lib/env';
 
 interface DashboardData {
   timestamp: string;
@@ -202,12 +203,12 @@ export function MonitoringDashboard() {
       <Card className="bg-[#141415] border-[#262626] p-4">
         <h3 className="text-xs text-[#717171] uppercase tracking-widest mb-3">Prometheus Metrics</h3>
         <a 
-          href={`${REGISTRY_URL}/monitoring/metrics`}
+          href={`${env.registryUrl || 'https://tso.onrender.com'}/monitoring/metrics`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-[#3B82F6] hover:underline text-sm font-mono"
         >
-          {`${REGISTRY_URL}/monitoring/metrics`}
+          {`${env.registryUrl || 'https://tso.onrender.com'}/monitoring/metrics`}
         </a>
         <p className="text-xs text-[#717171] mt-2">
           Scrape this endpoint with Prometheus to collect metrics

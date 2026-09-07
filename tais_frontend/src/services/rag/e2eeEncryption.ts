@@ -43,7 +43,7 @@ export class E2EEEncryptionService {
   /**
    * Initialize or load existing key pair
    */
-  async initialize(signer?: ethers.JsonRpcSigner): Promise<void> {
+  async initialize(signer?: ethers.providers.JsonRpcSigner): Promise<void> {
     // Try to load existing key pair
     const stored = await this.loadStoredKeyPair();
     if (stored) {
@@ -61,7 +61,7 @@ export class E2EEEncryptionService {
    * Generate ECDH key pair using Web Crypto API
    * Private key encrypted with wallet-derived key for storage
    */
-  async generateKeyPair(signer: ethers.JsonRpcSigner): Promise<PublicRAGKeyPair> {
+  async generateKeyPair(signer: ethers.providers.JsonRpcSigner): Promise<PublicRAGKeyPair> {
     // Generate ECDH key pair using P-384 curve
     const keyPair = await crypto.subtle.generateKey(
       {
@@ -130,8 +130,8 @@ export class E2EEEncryptionService {
    * Derive AES key from wallet signature
    */
   private async deriveKeyFromWallet(
-    signer: ethers.JsonRpcSigner,
-    salt: Uint8Array
+    signer: ethers.providers.JsonRpcSigner,
+    salt: Uint8Array<ArrayBuffer>
   ): Promise<CryptoKey> {
     const message = DERIVATION_MESSAGE + this.arrayBufferToBase64(salt);
     const signature = await signer.signMessage(message);
@@ -265,7 +265,7 @@ export class E2EEEncryptionService {
    * Encrypt data with AES-256-GCM using wallet-derived key
    * Returns encrypted data with IV and salt
    */
-  async encrypt(data: string, signer?: ethers.JsonRpcSigner): Promise<{ encrypted: string; iv: string; salt: string }> {
+  async encrypt(data: string, signer?: ethers.providers.JsonRpcSigner): Promise<{ encrypted: string; iv: string; salt: string }> {
     if (!signer) {
       if (!window.ethereum) {
         throw new Error('No wallet detected');
@@ -301,7 +301,7 @@ export class E2EEEncryptionService {
   /**
    * Decrypt data with AES-256-GCM using wallet-derived key
    */
-  async decrypt(encrypted: string, iv: string, salt: string, signer?: ethers.JsonRpcSigner): Promise<string> {
+  async decrypt(encrypted: string, iv: string, salt: string, signer?: ethers.providers.JsonRpcSigner): Promise<string> {
     if (!signer) {
       if (!window.ethereum) {
         throw new Error('No wallet detected');
@@ -384,7 +384,7 @@ export class E2EEEncryptionService {
   /**
    * Derive key from a message string (used for community key)
    */
-  private async deriveKeyFromMessage(message: string, salt: Uint8Array): Promise<CryptoKey> {
+  private async deriveKeyFromMessage(message: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
     const encoder = new TextEncoder();
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
@@ -423,7 +423,7 @@ export class E2EEEncryptionService {
   /**
    * Convert string to ArrayBuffer
    */
-  private stringToArrayBuffer(str: string): Uint8Array {
+  private stringToArrayBuffer(str: string): Uint8Array<ArrayBuffer> {
     const encoder = new TextEncoder();
     return encoder.encode(str);
   }
@@ -623,7 +623,7 @@ export class E2EEEncryptionService {
   /**
    * Utility: Convert Base64 to ArrayBuffer
    */
-  private base64ToArrayBuffer(base64: string): Uint8Array {
+  private base64ToArrayBuffer(base64: string): Uint8Array<ArrayBuffer> {
     try {
       const binary = atob(base64);
       const bytes = new Uint8Array(binary.length);

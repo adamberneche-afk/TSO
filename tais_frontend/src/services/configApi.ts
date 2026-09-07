@@ -81,6 +81,7 @@ export const configApi = {
       name?: string;
       description?: string;
       configData?: any;
+      personalityMd?: string;
     }
   ): Promise<{ success: boolean; configuration: AgentConfiguration }> {
     return api.put(`/api/v1/configurations/${configId}`, {

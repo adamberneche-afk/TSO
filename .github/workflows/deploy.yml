@@ -26,6 +26,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: tais_frontend/package-lock.json
 
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 

@@ -86,10 +86,10 @@ export interface PublicRAGKeyPair {
 
 export interface PublicRAGStats {
   totalDocuments: number;
-  totalChunks: number;
   publicDocuments: number;
-  myDocuments: number;
-  storageUsed: number;
+  totalSize: number;
+  /** Pre-formatted by the backend, e.g. "12.34 MB" -- not a raw byte count. */
+  storageUsed: string;
 }
 
 export interface CommunityDocument {

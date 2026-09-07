@@ -52,7 +52,7 @@ export class PublicRAGClient {
    /**
     * Get or create API key for the user
     */
-   private async getOrCreateAPIKey(signer: ethers.JsonRpcSigner): Promise<string> {
+   private async getOrCreateAPIKey(signer: ethers.providers.JsonRpcSigner): Promise<string> {
      // Try to get existing key from localStorage
      const storedKey = localStorage.getItem('tais_rag_api_key');
      if (storedKey) {
@@ -165,7 +165,7 @@ export class PublicRAGClient {
     * Returns encrypted results that must be decrypted client-side
     */
    async search(request: PublicRAGSearchRequest): Promise<PublicRAGSearchResult[]> {
-     if (!this.apiKey) {
+     if (!this.apiKey || !this.walletAddress) {
        throw new Error('Not authenticated');
      }
 

@@ -13,7 +13,7 @@ interface MemoryBackupData {
   salt: string;
 }
 
-async function deriveKeyFromWallet(signer: ethers.JsonRpcSigner, salt: Uint8Array): Promise<CryptoKey> {
+async function deriveKeyFromWallet(signer: ethers.providers.JsonRpcSigner, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
   const address = await signer.getAddress();
   const message = `TAIS Memory Backup Encryption\nWallet: ${address}\nSalt: ${Array.from(salt).join(',')}`;
   
@@ -76,7 +76,7 @@ export function getStoredBackupFolderName(): string | null {
 }
 
 export async function exportMemoriesToLocal(
-  signer: ethers.JsonRpcSigner
+  signer: ethers.providers.JsonRpcSigner
 ): Promise<{ success: boolean; count: number; message: string }> {
   try {
     const dirHandle = await chooseMemoryBackupFolder();
@@ -145,7 +145,7 @@ export async function exportMemoriesToLocal(
 }
 
 export async function importMemoriesFromLocal(
-  signer: ethers.JsonRpcSigner
+  signer: ethers.providers.JsonRpcSigner
 ): Promise<{ success: boolean; count: number; message: string }> {
   try {
     const dirHandle = await chooseMemoryBackupFolder();

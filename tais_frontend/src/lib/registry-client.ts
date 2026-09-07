@@ -106,6 +106,10 @@ export class RegistryClient {
       const newSkill: Skill = {
         ...skillData,
         id: `mock-${Date.now()}`,
+        owner: 'mock-owner',
+        trustScore: 0,
+        downloadCount: 0,
+        categories: undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -165,8 +169,10 @@ export class RegistryClient {
     }
 
     try {
-      const result = await api.get<Skill[]>(`${API_BASE}/search/trending`);
-      return Array.isArray(result) ? result : result.skills || [];
+      // There is no separate /search/trending endpoint on the backend --
+      // trending is a query flag on the same route getSkills() already uses.
+      const result = await this.getSkills({ trending: true });
+      return result.skills;
     } catch (error) {
       console.error('Error fetching trending skills:', error);
       return [];

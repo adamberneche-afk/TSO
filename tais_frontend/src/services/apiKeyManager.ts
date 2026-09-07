@@ -176,7 +176,7 @@ export function clearAllApiKeys(): void {
  */
 export async function getDecryptedApiKey(
   provider: string,
-  signer: ethers.JsonRpcSigner
+  signer: ethers.providers.JsonRpcSigner
 ): Promise<string | null> {
   const stored = getStoredApiKey(provider);
   if (!stored) return null;

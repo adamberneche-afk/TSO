@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { providers, Contract } from 'ethers';
-import registryClient from '../lib/registry-client';
 import { authApi } from '../services/authApi';
 import { toast } from 'sonner';
 import { normalizeEthAddress } from '@/utils/addressValidator';
@@ -144,11 +143,8 @@ export function useWallet(): UseWalletReturn {
       console.log('[Wallet] Checking Genesis NFT...');
       const hasNFT = await checkGenesisNFT(walletAddress);
       console.log('[Wallet] Genesis NFT check:', hasNFT);
-      
-      // Set wallet for registry API
-      registryClient.setWalletAddress(walletAddress);
-      
-      toast.success('Wallet connected!', { 
+
+      toast.success('Wallet connected!', {
         description: hasNFT ? 'Genesis NFT holder verified' : 'Standard wallet connected' 
       });
     } catch (err: any) {
@@ -171,7 +167,6 @@ export function useWallet(): UseWalletReturn {
     setIsConnected(false);
     setHasGenesisNFT(false);
     setError(null);
-    registryClient.setWalletAddress('');
     authApi.logout();
     toast.info('Wallet disconnected');
   };
@@ -189,7 +184,6 @@ export function useWallet(): UseWalletReturn {
             if (accounts.includes(walletAddress)) {
               setAddress(walletAddress);
               setIsConnected(true);
-              registryClient.setWalletAddress(walletAddress);
               await checkGenesisNFT(walletAddress);
             } else {
               // Wallet disconnected externally, clear session

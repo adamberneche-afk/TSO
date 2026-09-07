@@ -143,7 +143,7 @@ export function ConversationalGoalsStep({ onComplete }: ConversationalGoalsStepP
     setIsLoading(true);
 
     try {
-      let response: string;
+      let response: string = '';
       let usedLLM = false;
 
       if (llmClient) {

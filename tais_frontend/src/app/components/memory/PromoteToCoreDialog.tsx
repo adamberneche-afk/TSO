@@ -123,7 +123,7 @@ export function PromoteToCoreDialog({ learning, memoryId, open, onOpenChange, on
           </RadioGroup>
         </div>
 
-        <Alert variant="outline" className="mt-4">
+        <Alert variant="default" className="mt-4">
           <AlertTitle className="text-xs">What does this mean?</AlertTitle>
           <AlertDescription className="text-xs">
             This classification determines how the agent challenges you if your behavior contradicts this memory.

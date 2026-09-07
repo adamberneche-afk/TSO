@@ -206,6 +206,7 @@ export function usePublicRAG() {
 
   return {
     ...store,
+    isLoading: !store.isInitialized || store.isAuthenticating,
     isSearching,
     searchResults,
     performSearch,
