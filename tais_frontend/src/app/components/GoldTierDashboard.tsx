@@ -772,8 +772,8 @@ function CTOAgentSection({ address }: { address: string }) {
          }
          
          try {
-           const { providers } = await import('ethers');
-           const ethProvider = new providers.Web3Provider(window.ethereum);
+           const { BrowserProvider } = await import('ethers');
+           const ethProvider = new BrowserProvider(window.ethereum);
            const signer = await ethProvider.getSigner();
            
            const { getDecryptedApiKey } = await import('../../services/apiKeyManager');

@@ -11,14 +11,29 @@
 // derived API key, without ever touching the wallet's private key.
 //
 // getOrCreateAPIKey is private; called directly via `as any` (bypassing
-// the need to mock window.ethereum / ethers.providers.Web3Provider,
-// which initializeWithWallet would otherwise require) with a real
+// the need to mock window.ethereum / ethers.BrowserProvider, which
+// initializeWithWallet would otherwise require) with a real
 // ethers.Wallet standing in for the injected browser signer -- it has
 // the same async signMessage(message): Promise<string> shape the real
 // code calls.
+//
+// Built via `new ethers.Wallet(privateKey)` from a Node-generated random
+// key (see randomWallet() below) rather than `ethers.Wallet.createRandom()`:
+// createRandom()'s entropy-to-mnemonic path calls into ethers' bundled
+// sha256, which
+// misreads the typed array jsdom's crypto.getRandomValues polyfill
+// returns (jsdom's realm has its own Uint8Array constructor, distinct
+// from the one ethers' bundle checks against) -- an environment quirk
+// unrelated to the code under test, which needs jsdom for its own
+// localStorage/crypto.getRandomValues usage.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ethers } from 'ethers';
+import crypto from 'crypto';
+
+function randomWallet(): ethers.Wallet {
+  return new ethers.Wallet('0x' + crypto.randomBytes(32).toString('hex'));
+}
 
 vi.mock('../e2eeEncryption', () => ({
   getE2EEEncryptionService: () => ({
@@ -41,7 +56,7 @@ describe('PublicRAGClient.getOrCreateAPIKey', () => {
   });
 
   it('signs a different message (and derives a different key) each time, not a fixed nonce-less string', async () => {
-    const wallet = ethers.Wallet.createRandom();
+    const wallet = randomWallet();
     const client = new PublicRAGClient();
 
     const key1 = await (client as any).getOrCreateAPIKey(wallet);
@@ -56,7 +71,7 @@ describe('PublicRAGClient.getOrCreateAPIKey', () => {
   });
 
   it('embeds a random nonce in the signed message rather than a fixed string', async () => {
-    const wallet = ethers.Wallet.createRandom();
+    const wallet = randomWallet();
     const signMessageSpy = vi.spyOn(wallet, 'signMessage');
     const client = new PublicRAGClient();
 
@@ -74,7 +89,7 @@ describe('PublicRAGClient.getOrCreateAPIKey', () => {
   });
 
   it('still returns a cached key from localStorage without re-signing', async () => {
-    const wallet = ethers.Wallet.createRandom();
+    const wallet = randomWallet();
     const signMessageSpy = vi.spyOn(wallet, 'signMessage');
     const client = new PublicRAGClient();
 

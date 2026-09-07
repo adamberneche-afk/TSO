@@ -24,8 +24,8 @@ interface LLMSettingsState {
   setProvider: (provider: LLMProvider) => void;
   setCustomBaseUrl: (url: string) => void;
   updateCostSettings: (settings: Partial<CostSettings>) => void;
-  saveProviderApiKey: (provider: LLMProvider, apiKey: string, signer: ethers.providers.JsonRpcSigner) => Promise<void>;
-  getDecryptedApiKey: (provider: LLMProvider, signer: ethers.providers.JsonRpcSigner) => Promise<string | null>;
+  saveProviderApiKey: (provider: LLMProvider, apiKey: string, signer: ethers.JsonRpcSigner) => Promise<void>;
+  getDecryptedApiKey: (provider: LLMProvider, signer: ethers.JsonRpcSigner) => Promise<string | null>;
   hasApiKey: (provider: LLMProvider) => boolean;
   deleteApiKey: (provider: LLMProvider) => void;
   clearAllKeys: () => void;
@@ -56,7 +56,7 @@ export const useLLMSettings = create<LLMSettingsState>()(
         }));
       },
 
-      saveProviderApiKey: async (provider: LLMProvider, apiKey: string, signer: ethers.providers.JsonRpcSigner) => {
+      saveProviderApiKey: async (provider: LLMProvider, apiKey: string, signer: ethers.JsonRpcSigner) => {
         set({ isLoading: true, error: null });
         try {
           const { encryptedData, iv } = await encryptApiKey(apiKey, signer);
@@ -71,7 +71,7 @@ export const useLLMSettings = create<LLMSettingsState>()(
         }
       },
 
-      getDecryptedApiKey: async (provider: LLMProvider, signer: ethers.providers.JsonRpcSigner) => {
+      getDecryptedApiKey: async (provider: LLMProvider, signer: ethers.JsonRpcSigner) => {
         return await getDecryptedApiKey(provider, signer);
       },
 

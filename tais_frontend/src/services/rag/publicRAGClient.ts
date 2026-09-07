@@ -38,7 +38,7 @@ export class PublicRAGClient {
        throw new Error('No wallet detected');
      }
 
-     const provider = new ethers.providers.Web3Provider(window.ethereum);
+     const provider = new ethers.BrowserProvider(window.ethereum);
      const signer = await provider.getSigner();
      this.walletAddress = await signer.getAddress();
 
@@ -52,7 +52,7 @@ export class PublicRAGClient {
    /**
     * Get or create API key for the user
     */
-   private async getOrCreateAPIKey(signer: ethers.providers.JsonRpcSigner): Promise<string> {
+   private async getOrCreateAPIKey(signer: ethers.JsonRpcSigner): Promise<string> {
      // Try to get existing key from localStorage
      const storedKey = localStorage.getItem('tais_rag_api_key');
      if (storedKey) {

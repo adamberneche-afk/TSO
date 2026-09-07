@@ -47,7 +47,7 @@ export class E2EEEncryptionService {
   /**
    * Initialize or load existing key pair
    */
-  async initialize(signer?: ethers.providers.JsonRpcSigner): Promise<void> {
+  async initialize(signer?: ethers.JsonRpcSigner): Promise<void> {
     // Whether an encrypted key pair is already on disk, independent of
     // whether we can actually unlock it right now -- loadStoredKeyPair()
     // returns null for both "nothing stored" and "stored but couldn't be
@@ -85,7 +85,7 @@ export class E2EEEncryptionService {
    * Generate ECDH key pair using Web Crypto API
    * Private key encrypted with wallet-derived key for storage
    */
-  async generateKeyPair(signer: ethers.providers.JsonRpcSigner): Promise<PublicRAGKeyPair> {
+  async generateKeyPair(signer: ethers.JsonRpcSigner): Promise<PublicRAGKeyPair> {
     // Generate ECDH key pair using P-384 curve
     const keyPair = await crypto.subtle.generateKey(
       {
@@ -154,7 +154,7 @@ export class E2EEEncryptionService {
    * Derive AES key from wallet signature
    */
   private async deriveKeyFromWallet(
-    signer: ethers.providers.JsonRpcSigner,
+    signer: ethers.JsonRpcSigner,
     salt: Uint8Array<ArrayBuffer>
   ): Promise<CryptoKey> {
     const message = DERIVATION_MESSAGE + this.arrayBufferToBase64(salt);
@@ -253,7 +253,7 @@ export class E2EEEncryptionService {
       // Check if wallet is available to decrypt private key
       if (!window.ethereum) return null;
 
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
 
       // Derive wallet key and decrypt private key
@@ -289,12 +289,12 @@ export class E2EEEncryptionService {
    * Encrypt data with AES-256-GCM using wallet-derived key
    * Returns encrypted data with IV and salt
    */
-  async encrypt(data: string, signer?: ethers.providers.JsonRpcSigner): Promise<{ encrypted: string; iv: string; salt: string }> {
+  async encrypt(data: string, signer?: ethers.JsonRpcSigner): Promise<{ encrypted: string; iv: string; salt: string }> {
     if (!signer) {
       if (!window.ethereum) {
         throw new Error('No wallet detected');
       }
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const provider = new ethers.BrowserProvider(window.ethereum);
       signer = await provider.getSigner();
     }
 
@@ -325,12 +325,12 @@ export class E2EEEncryptionService {
   /**
    * Decrypt data with AES-256-GCM using wallet-derived key
    */
-  async decrypt(encrypted: string, iv: string, salt: string, signer?: ethers.providers.JsonRpcSigner): Promise<string> {
+  async decrypt(encrypted: string, iv: string, salt: string, signer?: ethers.JsonRpcSigner): Promise<string> {
     if (!signer) {
       if (!window.ethereum) {
         throw new Error('No wallet detected');
       }
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const provider = new ethers.BrowserProvider(window.ethereum);
       signer = await provider.getSigner();
     }
 
