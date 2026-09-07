@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import WeeklyInsightsEmailService from '../services/weeklyInsightsEmail';
 import { pruneExpiredVersions } from '../services/configurationVersioning';
-import { generateMemoryReport, getAggregatedStats, getOrCreatePreferences } from '../services/memoryReports';
+import { generateMemoryReport, getAggregatedStats, getOrCreatePreferences, computeAlignmentFactors } from '../services/memoryReports';
 import { sendMemoryReportEmail } from '../services/memoryReportEmail';
 
 interface AuthUser {
@@ -106,29 +106,8 @@ export function createAdminRoutes(prisma: PrismaClient, logger: any): Router {
             continue;
           }
 
-          const sessionCount = Math.floor(Math.random() * 20) + 1;
-          const avgDuration = Math.random() * 30 + 5;
-          const messageCount = Math.floor(Math.random() * 100) + 10;
-          const memoriesCreated = Math.floor(Math.random() * 10);
-          const memoriesPromoted = Math.floor(memoriesCreated * 0.3);
-          const coreMemories = Math.floor(Math.random() * 3);
-          const driftScore = Math.random() * 0.6;
-          const driftTrend = driftScore > 0.4 ? 'declining' : (driftScore > 0.2 ? 'stable' : 'improving');
-          
-          const factors = {
-            driftScore,
-            driftTrend: driftTrend as 'improving' | 'stable' | 'declining',
-            sessionCount,
-            avgSessionDuration: avgDuration,
-            messageCount,
-            appUsage: { 'conversation': sessionCount - 1, 'rag': Math.floor(sessionCount * 0.3) },
-            ragQueries: Math.floor(messageCount * 0.2),
-            ragPoolUsage: { 'public': Math.floor(messageCount * 0.15), 'private': Math.floor(messageCount * 0.05) },
-            memoriesCreated,
-            memoriesPromoted,
-            coreMemories,
-          };
-          
+          const factors = await computeAlignmentFactors(user.walletAddress, periodStart, periodEnd);
+
           const report = await generateMemoryReport(
             user.walletAddress,
             periodStart,
