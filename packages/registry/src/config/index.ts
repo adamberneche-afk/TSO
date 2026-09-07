@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+import { PrismaClient } from '@prisma/client';
 
 /**
  * Database Configuration Schema
@@ -203,8 +204,6 @@ export function getDatabaseClients(config: AppConfig, logger: any): {
   skillsPrisma: import('@prisma/client').PrismaClient;
   prisma: import('@prisma/client').PrismaClient; // For backward compatibility
 } {
-  const { PrismaClient } = require('@prisma/client');
-  
   // Create RAG Prisma client
   const ragPrisma = new PrismaClient({
     log: config.server.nodeEnv === 'development' 

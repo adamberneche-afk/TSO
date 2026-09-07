@@ -43,7 +43,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunct
   try {
     const { category, search, trending } = req.query;
     
-    let where: any = { status: 'APPROVED', isBlocked: false };
+    const where: any = { status: 'APPROVED', isBlocked: false };
     
     if (category) {
       where.categories = {
