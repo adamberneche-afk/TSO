@@ -44,3 +44,8 @@ coverage/
 
 # Rust
 /target/
+
+# Generated at runtime by YaraScanner.initialize() (native/CLI backends
+# write the default rules out as .yar files so the real engine/binary can
+# compile them; pattern-mode backend never writes this).
+yara-rules/

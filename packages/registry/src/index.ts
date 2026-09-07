@@ -322,6 +322,19 @@ apiV1Router.use('/rcrt', rateLimiters.rcrt, createRCRTRoutes(ragPrisma, logger))
 apiV1Router.use('/kb', createKBRoutes(prisma, logger));
 
 // ============================================
+// Security Scanning Routes
+// YARA-backed content scanner (see src/services/yaraScanner.ts)
+// ============================================
+//
+// scanRoutes' POST / used to be a placeholder that always returned a
+// hardcoded "clean" result and ignored the request body, and this router
+// was never imported/mounted at all -- not even the placeholder was
+// reachable. It's now backed by the real YaraScanner and mounted here,
+// authenticated like the other authenticated routes above.
+import { scanRoutes } from './routes/scan';
+apiV1Router.use('/scan', rateLimiters.authenticated, authMiddleware, scanRoutes);
+
+// ============================================
 // Monitoring & Observability Routes
 // Prometheus metrics, health dashboard, alerts
 // ============================================
