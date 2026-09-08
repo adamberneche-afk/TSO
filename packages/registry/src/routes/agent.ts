@@ -26,9 +26,9 @@ interface AuthenticatedRequest extends Request {
   scopes?: string[];
 }
 
-async function authenticateRequest(prisma: any, req: Request): Promise<{ walletAddress: string; scopes: string[] } | null> {
+async function authenticateRequest(prisma: any, req: Request): Promise<{ walletAddress: string; scopes: string[]; appId: string } | null> {
   const authHeader = req.headers.authorization;
-  
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
@@ -53,6 +53,7 @@ async function authenticateRequest(prisma: any, req: Request): Promise<{ walletA
   return {
     walletAddress: permission.walletAddress,
     scopes: permission.scopes,
+    appId: permission.appId,
   };
 }
 
@@ -254,7 +255,16 @@ export function createAgentRoutes(prisma: any, logger: any): Router {
 
       const sessionId = generateSessionId();
       const walletAddress = auth.walletAddress.toLowerCase();
-      const appId = req.headers['x-app-id'] as string || 'unknown';
+      // agent_sessions.app_id and app_usage_metrics.app_id both carry a
+      // foreign key into agent_apps, so this must be the app the caller
+      // actually authenticated as (auth.appId, from the OAuth token
+      // exchanged for this access token) -- not the client-supplied
+      // X-App-ID header. Trusting that header let any authenticated
+      // caller crash this endpoint with a foreign key violation (no
+      // X-App-ID -> the literal string 'unknown', which is never a real
+      // app) or silently misattribute usage to a different, arbitrary
+      // app it merely happens to name.
+      const appId = auth.appId;
 
       let inheritedMessages: any[] = [];
       

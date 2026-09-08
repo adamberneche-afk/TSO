@@ -5,6 +5,12 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  # This workflow was disabled at the GitHub Actions level for an
+  # extended period (see HANDOFF.md) with no push/PR-based way to
+  # verify a fix to it without waiting for the next real push. Adding
+  # workflow_dispatch gives it a manual "Run workflow" button for
+  # exactly that case going forward.
+  workflow_dispatch: {}
 
 jobs:
   test:
@@ -41,6 +47,28 @@ jobs:
         cd packages/registry
         npm ci
 
+    # @think/types is a `file:../types` dependency of packages/registry
+    # (routes/audits.ts imports AuditReportSchema from it) -- the "npm
+    # ci" above (run from packages/registry, an npm workspace member)
+    # already hoists a full, correctly-pinned install -- including
+    # typescript -- to the repo root, but never compiles packages/types
+    # itself, so tsc/ts-jest fail with "Cannot find module '@think/
+    # types' or its corresponding type declarations" (dist/index.d.ts
+    # doesn't exist yet) without this step. Deliberately does NOT run
+    # its own `npm ci` here: doing so once regressed this fix by pruning
+    # the already-hoisted root node_modules down to just this one
+    # workspace member's own (typescript-free) dependency list, deleting
+    # the very typescript install the previous step had just hoisted
+    # (reproduced locally: after a scoped `npm ci` in packages/types,
+    # root node_modules/typescript no longer exists). `npx tsc` alone
+    # resolves the already-hoisted, correctly-pinned typescript via
+    # ordinary ancestor node_modules lookup -- verified against a fresh
+    # clone running this exact two-step sequence.
+    - name: Build packages/types (registry's @think/types dependency)
+      run: |
+        cd packages/types
+        npx tsc
+
     - name: Generate Prisma Client
       run: |
         cd packages/registry
@@ -64,17 +92,34 @@ jobs:
         # used a 32+ char value; this job just never got the same fix.
         JWT_SECRET: test-secret-key-that-is-at-least-32-characters-long
         NODE_ENV: test
+        # analytics.e2e.test.ts, admin-migration-auth.e2e.test.ts, and
+        # monitoring-security.e2e.test.ts each read
+        # process.env.ADMIN_WALLET_ADDRESSES! at module load time (no
+        # fallback) to build their own test wallet -- unset, all three
+        # suites failed to even load, before running a single test.
+        ADMIN_WALLET_ADDRESSES: '0x1111111111111111111111111111111111111111'
       run: |
         cd packages/registry
         npm test -- --coverage
 
     - name: Upload coverage to Codecov
+      # No CODECOV_TOKEN secret is configured for this repo, so a
+      # tokenless upload is all this step can ever attempt -- and
+      # Codecov now rejects those outright ("Token required - not valid
+      # tokenless upload"), independent of anything the actual test run
+      # does. With fail_ci_if_error: true that turned a passing test
+      # suite into a failed job on every single run. Coverage reporting
+      # failing to upload is not the same signal as a test failing, so
+      # it shouldn't gate CI the same way; flip to false rather than
+      # requiring a secret this job has no way to provision. (Also
+      # renamed the deprecated `file` input to `files` -- codecov-action
+      # v7 warns "Unexpected input(s) 'file'".)
       uses: codecov/codecov-action@v7
       with:
-        file: ./packages/registry/coverage/lcov.info
+        files: ./packages/registry/coverage/lcov.info
         flags: unittests
         name: codecov-umbrella
-        fail_ci_if_error: true
+        fail_ci_if_error: false
 
   build:
     runs-on: ubuntu-latest
@@ -110,6 +155,15 @@ jobs:
       run: |
         cd packages/registry
         npm ci
+
+    # See the same step in the `test` job above: @think/types must be
+    # compiled before packages/registry's own `tsc` build can resolve
+    # it, and this deliberately doesn't run its own `npm ci` (that
+    # pruned the already-hoisted typescript install right back out).
+    - name: Build packages/types (registry's @think/types dependency)
+      run: |
+        cd packages/types
+        npx tsc
 
     - name: Generate Prisma Client
       run: |

@@ -1,5 +1,6 @@
 import request from 'supertest';
 import crypto from 'crypto';
+import * as genesisConfigLimits from '../../services/genesisConfigLimits';
 import app from '../../index';
 import { createTestWallet, signRegisterAppChallenge } from '../testSigning';
 
@@ -176,12 +177,27 @@ describe('OAuth E2E', () => {
 
   describe('App Listing', () => {
     it('should list registered apps for valid wallet', async () => {
-      const response = await request(app)
-        .get('/api/v1/oauth/apps')
-        .query({ wallet: TEST_WALLET })
-        .expect(200);
+      // GET /oauth/apps requires the wallet hold a Genesis NFT (any
+      // free-tier caller gets 403), and this test's random wallet
+      // (createTestWallet()) genuinely holds none on-chain -- that's
+      // real, correct behavior, not something to route around by
+      // relaxing the assertion. Mocking verifyNFTOwnership is what
+      // actually exercises "a valid, sufficiently-tiered wallet" the
+      // way this test's name describes.
+      const nftSpy = jest
+        .spyOn(genesisConfigLimits, 'verifyNFTOwnership')
+        .mockResolvedValue({ isHolder: true, tokenCount: 1, tokenIds: ['1'] });
 
-      expect(Array.isArray(response.body.apps)).toBe(true);
+      try {
+        const response = await request(app)
+          .get('/api/v1/oauth/apps')
+          .query({ wallet: TEST_WALLET })
+          .expect(200);
+
+        expect(Array.isArray(response.body.apps)).toBe(true);
+      } finally {
+        nftSpy.mockRestore();
+      }
     });
 
     it('should require wallet parameter', async () => {
