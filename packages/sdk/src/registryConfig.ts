@@ -11,9 +11,22 @@
 let registryBaseUrl = 'https://registry.tais.ai';
 let authToken: string | undefined;
 
+/**
+ * Strips trailing slashes without a regex -- `/\/+$/` on caller-supplied
+ * input is exactly the "polynomial regex on uncontrolled data" shape
+ * CodeQL flags (a trailing `+` anchored to `$`), so this walks the
+ * string instead: linear, and there's nothing for that class of
+ * analysis to flag.
+ */
+function stripTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url.charCodeAt(end - 1) === 47 /* '/' */) end--;
+  return url.slice(0, end);
+}
+
 export function configureRegistry(config: { baseUrl?: string; authToken?: string }): void {
   if (config.baseUrl) {
-    registryBaseUrl = config.baseUrl.replace(/\/+$/, '');
+    registryBaseUrl = stripTrailingSlashes(config.baseUrl);
   }
   if (config.authToken !== undefined) {
     authToken = config.authToken;

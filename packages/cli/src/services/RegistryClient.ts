@@ -26,6 +26,19 @@ function loadRegistryUrl(): string {
   return DEFAULT_REGISTRY_URL;
 }
 
+/**
+ * Strips trailing slashes without a regex -- `/\/+$/` on caller-supplied
+ * input is exactly the "polynomial regex on uncontrolled data" shape
+ * CodeQL flags (a trailing `+` anchored to `$`), so this walks the
+ * string instead: linear, and there's nothing for that class of
+ * analysis to flag.
+ */
+function stripTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url.charCodeAt(end - 1) === 47 /* '/' */) end--;
+  return url.slice(0, end);
+}
+
 export interface AuditSubmissionResult {
   success: boolean;
   auditId?: string;
@@ -52,7 +65,7 @@ export class RegistryClient {
   private baseUrl: string;
 
   constructor(baseUrl?: string) {
-    this.baseUrl = (baseUrl || loadRegistryUrl()).replace(/\/+$/, '');
+    this.baseUrl = stripTrailingSlashes(baseUrl || loadRegistryUrl());
   }
 
   /**
