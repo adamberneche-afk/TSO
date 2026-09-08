@@ -23,6 +23,13 @@ export class TAISAgent {
   private tokens: OAuthTokens | null = null;
 
   constructor(config: TAISAgentConfig) {
+    // appId is required by TAISAgentConfig's type, but a plain-JS (or
+    // `as any`-cast) caller can still bypass that at compile time --
+    // this is the runtime backstop for the SDK's actual entry point.
+    if (!config.appId) {
+      throw new Error('TAISAgent requires a non-empty appId in config');
+    }
+
     this.config = {
       baseUrl: DEFAULT_BASE_URL,
       ...config,
@@ -43,6 +50,14 @@ export class TAISAgent {
 
   getTokens(): OAuthTokens | null {
     return this.tokens;
+  }
+
+  getAccessToken(): string | null {
+    return this.tokens?.accessToken ?? null;
+  }
+
+  clearTokens(): void {
+    this.tokens = null;
   }
 
   private getAuthHeaders(): Record<string, string> {
