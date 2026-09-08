@@ -2,6 +2,9 @@ import { UserProfile } from '@think/types';
 import { InterviewConfig } from '@think/types';
 import { SkillManifest } from '@think/types';
 import { AuditReport } from '@think/types';
+import { getRegistryBaseUrl, getRegistryAuthToken } from './registryConfig';
+
+export { configureRegistry } from './registryConfig';
 
 class ProfileAdapter {
   isElectronRenderer(): boolean {
@@ -39,7 +42,35 @@ class SkillAdapter {
     if (this.isElectronRenderer()) {
       return await (window as any).taisAPI.installSkill(manifest, skillCode);
     }
-    return { success: false, error: 'Not in Electron environment' };
+    // Real security scan via the registry's POST /api/v1/scan (mounted
+    // and YARA-backed for real as of the 2026-09 remediation pass -- see
+    // docs/DOCS_VS_CODEBASE.md row 5). Requires an authenticated caller;
+    // a host with no token configured (see configureRegistry) gets a
+    // clear error here instead of the previous unconditional
+    // "Not in Electron environment" regardless of whether it could have
+    // actually reached the registry.
+    const token = getRegistryAuthToken();
+    if (!token) {
+      return { success: false, error: 'No registry auth token configured -- call configureRegistry({ authToken }) first' };
+    }
+    try {
+      const res = await fetch(`${getRegistryBaseUrl()}/api/v1/scan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ content: skillCode, encoding: 'utf8', filename: manifest.name }),
+      });
+      const body: any = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: body.error || `Scan failed with status ${res.status}` };
+      }
+      return {
+        success: body.success !== false,
+        skillHash: manifest.skill_hash,
+        warnings: (body.findings || []).map((f: any) => `${f.rule} (${f.severity})`),
+      };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   }
 
   async uninstall(skillName: string) {
@@ -67,14 +98,47 @@ class SkillAdapter {
     if (this.isElectronRenderer()) {
       return await (window as any).taisAPI.submitSkillAudit(report);
     }
-    return { success: false, error: 'Not in Electron environment' };
+    // The report is already signed by the caller's own wallet (that's
+    // why this takes a complete AuditReport rather than raw fields) --
+    // this just needs to reach the real POST /api/v1/audits, same as
+    // packages/cli/src/services/RegistryClient.ts's submitAudit.
+    const token = getRegistryAuthToken();
+    if (!token) {
+      return { success: false, error: 'No registry auth token configured -- call configureRegistry({ authToken }) first' };
+    }
+    try {
+      const res = await fetch(`${getRegistryBaseUrl()}/api/v1/audits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(report),
+      });
+      const body: any = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: body.message || body.error || `Registry returned ${res.status}` };
+      }
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   }
 
    async checkMalicious(skillHash: string): Promise<boolean> {
      if (this.isElectronRenderer()) {
        return await (window as any).taisAPI.checkSkillMalicious(skillHash);
      }
-     return false;
+     // GET /api/v1/audits/:skillHash is public (no auth required), so
+     // this works for any non-Electron host with zero configuration --
+     // previously this branch was a hardcoded `false` regardless of
+     // what the community registry actually knew about this skill (see
+     // docs/DOCS_VS_CODEBASE.md row 7).
+     try {
+       const res = await fetch(`${getRegistryBaseUrl()}/api/v1/audits/${skillHash}`);
+       if (!res.ok) return false; // includes 404: registry has never heard of this skill
+       const body: any = await res.json();
+       return !!body.skill?.isBlocked;
+     } catch {
+       return false;
+     }
    }
 
     async askQuestion(questionId: string, context: string, userAnswer: string, sessionId: number) {

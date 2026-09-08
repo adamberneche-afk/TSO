@@ -57,7 +57,12 @@ jobs:
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tais_registry_test
         TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tais_registry_test
-        JWT_SECRET: test-secret-key
+        # AuthService (src/services/auth.ts) rejects any JWT_SECRET under
+        # 32 characters -- this one was 15, so `npm test` here never got
+        # past `import app from '../../index'` and every e2e suite failed
+        # before running a single test. The "build" job below already
+        # used a 32+ char value; this job just never got the same fix.
+        JWT_SECRET: test-secret-key-that-is-at-least-32-characters-long
         NODE_ENV: test
       run: |
         cd packages/registry

@@ -3,6 +3,7 @@ import ora from 'ora';
 import fs from 'fs';
 import path from 'path';
 import { TaisServiceManager } from '../services/TaisServiceManager';
+import { RegistryClient } from '../services/RegistryClient';
 
 interface VerificationResult {
   valid: boolean;
@@ -65,6 +66,51 @@ function determineVerificationType(target: string, options: any): string {
 }
 
 async function verifySkill(skillHash: string): Promise<VerificationResult> {
+  // Real tier: the community registry's actual audit history and trust
+  // score (see docs/DOCS_VS_CODEBASE.md row 9 -- this used to not exist
+  // at all, so every "Trust Score" below was a hardcoded mock value
+  // regardless of what any real auditor had reported). Falls through to
+  // the local/mock tiers below for a skill the registry has never heard
+  // of, or if the registry can't be reached.
+  try {
+    const registryClient = new RegistryClient();
+    const remote = await registryClient.getSkillAudits(skillHash);
+    if (remote) {
+      const checks: VerificationCheck[] = [
+        {
+          name: 'Hash Format',
+          passed: isValidHash(skillHash),
+          message: isValidHash(skillHash) ? 'Valid SHA-256 hash format' : 'Invalid hash format'
+        },
+        {
+          name: 'Community Safety',
+          passed: !remote.isBlocked,
+          message: remote.isBlocked ? 'Flagged as malicious by community' : 'Not flagged as malicious by community'
+        },
+        {
+          name: 'Trust Score',
+          passed: remote.trustScore > 0.5,
+          message: `Trust score: ${(remote.trustScore * 100).toFixed(1)}%`,
+          details: remote.trustScore > 0.5 ? 'Above minimum threshold (50%)' : 'Below minimum threshold'
+        },
+        {
+          name: 'Community Audits',
+          passed: remote.auditCount > 0,
+          message: `${remote.auditCount} community audit(s) on record`,
+          details: remote.auditCount > 0 ? remote.auditors.slice(0, 3).join(', ') : 'No auditor has reviewed this skill yet'
+        }
+      ];
+
+      return {
+        valid: checks.every(check => check.passed),
+        type: 'skill',
+        checks
+      };
+    }
+  } catch {
+    // Registry unreachable -- fall through to the local/mock tiers below.
+  }
+
   try {
     const serviceManager = new TaisServiceManager();
     const result = await serviceManager.verifySkill(skillHash);

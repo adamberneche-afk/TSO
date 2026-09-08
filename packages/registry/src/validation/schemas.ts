@@ -63,39 +63,18 @@ export const skillSchema = z.object({
 export type SkillInput = z.infer<typeof skillSchema>;
 
 /**
- * Audit Schema - Validates audit submission
+ * Audit submissions are validated with the shared `AuditReportSchema`
+ * from @think/types (packages/registry/src/routes/audits.ts) -- the same
+ * schema packages/cli/src/commands/audit.ts builds its signed payload
+ * against. A local, divergent `auditSchema` used to live here instead:
+ * it validated `skillHash` as an IPFS CID (`Qm...`, 46 chars) when every
+ * real skillHash in this codebase is a 64-char SHA-256 hex digest (see
+ * `crypto.createHash('sha256')` in routes/scan.ts), and used an
+ * uppercase SAFE/SUSPICIOUS/MALICIOUS status enum that never matched
+ * the lowercase values the CLI actually produces. It had no other
+ * importers -- nothing wired to it ever caught the mismatch -- so it
+ * was deleted rather than fixed in place.
  */
-export const auditSchema = z.object({
-  skillHash: z.string()
-    .min(46)
-    .max(64)
-    .regex(/^Qm[1-9A-HJ-NP-Za-km-z]{44}$/),
-  
-  auditor: z.string()
-    .regex(/^0x[a-fA-F0-9]{40}$/, 'Auditor must be a valid Ethereum address'),
-  
-  auditorNft: z.string().optional(),
-  
-  status: z.enum(['SAFE', 'SUSPICIOUS', 'MALICIOUS']),
-  
-  signature: z.string()
-    .min(130, 'Signature must be at least 130 characters')
-    .regex(/^0x[a-fA-F0-9]{130}$/, 'Invalid signature format'),
-  
-  findings: z.array(z.object({
-    rule: z.string(),
-    severity: z.enum(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO']),
-    message: z.string().max(500),
-    line: z.number().optional(),
-    column: z.number().optional()
-  })).optional(),
-  
-  summary: z.string()
-    .max(2000, 'Summary must be at most 2000 characters')
-    .optional()
-});
-
-export type AuditInput = z.infer<typeof auditSchema>;
 
 /**
  * Search Schema - Validates search parameters
@@ -218,7 +197,6 @@ export function sanitizeValidationErrors(error: z.ZodError): Array<{
 
 export default {
   skillSchema,
-  auditSchema,
   searchSchema,
   authLoginSchema,
   apiKeySchema,
