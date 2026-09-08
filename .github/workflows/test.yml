@@ -103,12 +103,23 @@ jobs:
         npm test -- --coverage
 
     - name: Upload coverage to Codecov
+      # No CODECOV_TOKEN secret is configured for this repo, so a
+      # tokenless upload is all this step can ever attempt -- and
+      # Codecov now rejects those outright ("Token required - not valid
+      # tokenless upload"), independent of anything the actual test run
+      # does. With fail_ci_if_error: true that turned a passing test
+      # suite into a failed job on every single run. Coverage reporting
+      # failing to upload is not the same signal as a test failing, so
+      # it shouldn't gate CI the same way; flip to false rather than
+      # requiring a secret this job has no way to provision. (Also
+      # renamed the deprecated `file` input to `files` -- codecov-action
+      # v7 warns "Unexpected input(s) 'file'".)
       uses: codecov/codecov-action@v7
       with:
-        file: ./packages/registry/coverage/lcov.info
+        files: ./packages/registry/coverage/lcov.info
         flags: unittests
         name: codecov-umbrella
-        fail_ci_if_error: true
+        fail_ci_if_error: false
 
   build:
     runs-on: ubuntu-latest
