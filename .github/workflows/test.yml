@@ -47,6 +47,20 @@ jobs:
         cd packages/registry
         npm ci
 
+    # @think/types is a `file:../types` dependency of packages/registry
+    # (routes/audits.ts imports AuditReportSchema from it) -- npm ci
+    # above resolves the symlink but never compiles it, so without this
+    # step `tsc`/ts-jest fail with "Cannot find module '@think/types' or
+    # its corresponding type declarations" (dist/index.d.ts doesn't
+    # exist yet). build-all-packages.yml already builds packages/types
+    # before packages/registry; this job just never got the same fix
+    # because it was disabled the whole time that dependency was added.
+    - name: Build packages/types (registry's @think/types dependency)
+      run: |
+        cd packages/types
+        npm ci
+        npm run build
+
     - name: Generate Prisma Client
       run: |
         cd packages/registry
@@ -70,6 +84,12 @@ jobs:
         # used a 32+ char value; this job just never got the same fix.
         JWT_SECRET: test-secret-key-that-is-at-least-32-characters-long
         NODE_ENV: test
+        # analytics.e2e.test.ts, admin-migration-auth.e2e.test.ts, and
+        # monitoring-security.e2e.test.ts each read
+        # process.env.ADMIN_WALLET_ADDRESSES! at module load time (no
+        # fallback) to build their own test wallet -- unset, all three
+        # suites failed to even load, before running a single test.
+        ADMIN_WALLET_ADDRESSES: '0x1111111111111111111111111111111111111111'
       run: |
         cd packages/registry
         npm test -- --coverage
@@ -116,6 +136,14 @@ jobs:
       run: |
         cd packages/registry
         npm ci
+
+    # See the same step in the `test` job above: @think/types must be
+    # compiled before packages/registry's own `tsc` build can resolve it.
+    - name: Build packages/types (registry's @think/types dependency)
+      run: |
+        cd packages/types
+        npm ci
+        npm run build
 
     - name: Generate Prisma Client
       run: |
