@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
 import crypto from 'crypto';
 import fs from 'fs/promises';
+import { mkdirSync } from 'fs';
 import path from 'path';
 import { SkillManifest, Permission, IsnadLink, AuditReport } from '@think/types';
 import { IsnadService } from './IsnadService';
@@ -74,8 +75,14 @@ export class SkillInstaller {
     this.ensureSkillsDirectory();
   }
 
-  private async ensureSkillsDirectory() {
-    await fs.mkdir(this.skillsPath, { recursive: true });
+  // Synchronous by design -- see the matching comment on ensureSigningKey
+  // in TokenService/IsnadService/AuditRegistry/StakingService. Was
+  // `async`, called fire-and-forget from the constructor (a constructor
+  // can't be awaited), so this mkdir could still be in flight when a
+  // caller -- or a test's teardown -- moved on and touched the same
+  // directory tree.
+  private ensureSkillsDirectory() {
+    mkdirSync(this.skillsPath, { recursive: true });
   }
 
   /**

@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs/promises';
+import { accessSync, readFileSync, writeFileSync } from 'fs';
 import { ethers } from 'ethers';
 import { SkillProvenanceSchema, IsnadLink } from '@think/types';
 import { TokenService } from './TokenService';
@@ -56,16 +57,20 @@ export class IsnadService {
     console.log(`   Mode: ${process.env.PUBLISHER_NFT_ADDRESS ? 'Custom Contracts' : 'Genesis Bundle (Beta)'}`);
   }
 
-  private async ensureSigningKey() {
+  // Synchronous by design -- see the matching comment in TokenService's
+  // ensureSigningKey. Was `async`, called fire-and-forget from the
+  // constructor, letting its secret-file write still be in flight when a
+  // caller (or a test's teardown) moved on.
+  private ensureSigningKey() {
     try {
       const secretPath = path.join(path.dirname(this.cachePath), '.isnad_secret');
       try {
-        await fs.access(secretPath);
-        const secretContent = await fs.readFile(secretPath, 'utf-8');
+        accessSync(secretPath);
+        const secretContent = readFileSync(secretPath, 'utf-8');
         this.signingKey = secretContent.trim();
       } catch (accessError) {
         const newSecret = crypto.randomBytes(32).toString('hex');
-        await fs.writeFile(secretPath, newSecret, { mode: 0o600 });
+        writeFileSync(secretPath, newSecret, { mode: 0o600 });
         this.signingKey = newSecret;
       }
     } catch (error) {
