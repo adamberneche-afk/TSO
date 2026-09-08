@@ -48,18 +48,26 @@ jobs:
         npm ci
 
     # @think/types is a `file:../types` dependency of packages/registry
-    # (routes/audits.ts imports AuditReportSchema from it) -- npm ci
-    # above resolves the symlink but never compiles it, so without this
-    # step `tsc`/ts-jest fail with "Cannot find module '@think/types' or
-    # its corresponding type declarations" (dist/index.d.ts doesn't
-    # exist yet). build-all-packages.yml already builds packages/types
-    # before packages/registry; this job just never got the same fix
-    # because it was disabled the whole time that dependency was added.
+    # (routes/audits.ts imports AuditReportSchema from it) -- the "npm
+    # ci" above (run from packages/registry, an npm workspace member)
+    # already hoists a full, correctly-pinned install -- including
+    # typescript -- to the repo root, but never compiles packages/types
+    # itself, so tsc/ts-jest fail with "Cannot find module '@think/
+    # types' or its corresponding type declarations" (dist/index.d.ts
+    # doesn't exist yet) without this step. Deliberately does NOT run
+    # its own `npm ci` here: doing so once regressed this fix by pruning
+    # the already-hoisted root node_modules down to just this one
+    # workspace member's own (typescript-free) dependency list, deleting
+    # the very typescript install the previous step had just hoisted
+    # (reproduced locally: after a scoped `npm ci` in packages/types,
+    # root node_modules/typescript no longer exists). `npx tsc` alone
+    # resolves the already-hoisted, correctly-pinned typescript via
+    # ordinary ancestor node_modules lookup -- verified against a fresh
+    # clone running this exact two-step sequence.
     - name: Build packages/types (registry's @think/types dependency)
       run: |
         cd packages/types
-        npm ci
-        npm run build
+        npx tsc
 
     - name: Generate Prisma Client
       run: |
@@ -138,12 +146,13 @@ jobs:
         npm ci
 
     # See the same step in the `test` job above: @think/types must be
-    # compiled before packages/registry's own `tsc` build can resolve it.
+    # compiled before packages/registry's own `tsc` build can resolve
+    # it, and this deliberately doesn't run its own `npm ci` (that
+    # pruned the already-hoisted typescript install right back out).
     - name: Build packages/types (registry's @think/types dependency)
       run: |
         cd packages/types
-        npm ci
-        npm run build
+        npx tsc
 
     - name: Generate Prisma Client
       run: |
