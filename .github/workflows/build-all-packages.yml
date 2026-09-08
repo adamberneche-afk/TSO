@@ -43,6 +43,9 @@ jobs:
       - name: Build packages/core
         run: npm run build --workspace=packages/core
 
+      - name: Test packages/core
+        run: npm run test --workspace=packages/core
+
       - name: Build packages/rag-sdk
         run: npm run build --workspace=packages/rag-sdk
 
@@ -60,8 +63,14 @@ jobs:
       - name: Build packages/cli
         run: npm run build --workspace=packages/cli
 
+      - name: Test packages/cli
+        run: npm run test --workspace=packages/cli
+
       - name: Build packages/sdk
         run: npm run build --workspace=packages/sdk
+
+      - name: Test packages/sdk
+        run: npm run test --workspace=packages/sdk
 
       - name: Build packages/sdk-assistant
         run: npm run build --workspace=packages/sdk-assistant

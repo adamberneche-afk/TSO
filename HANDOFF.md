@@ -36,7 +36,43 @@ whatever gets decided next — read this before re-reading the whole repo.
 > repo — in particular, the specific claim under "The verdict" that
 > `routes/scan.ts` is a hardcoded fake never imported into `index.ts`,
 > and the "12 of 23 / 6 PARTIAL / 5 not built" capability counts, are
-> both now stale; see `docs/DOCS_VS_CODEBASE.md`'s current 16/3/5 of 24.
+> both now stale; see `docs/DOCS_VS_CODEBASE.md`'s current 18/2/4 of 24.
+>
+> **Update — 2026-09-08:** Follow-up session, scoped specifically to
+> `docs/DOCS_VS_CODEBASE.md`'s remaining **PARTIAL** rows (6/7/9 as they
+> stood then — trust score/audit submission, the standalone SDK, and the
+> CLI's `audit`/`verify`), not a general continuation of the bug audit.
+> `POST /api/v1/audits` now exists for real (it didn't before — only
+> `GET` was ever implemented) with real ECDSA signature verification and
+> a real `Skill.trustScore` computation (`services/trustScore.ts`) that
+> actually changes from community audit history instead of sitting at a
+> static default forever; `tais audit`/`tais verify <hash>` and
+> `packages/sdk`'s non-Electron path (`checkMalicious`/`install`/
+> `submitAudit`) all now call the registry over HTTP instead of
+> simulating success locally or returning a hardcoded value regardless
+> of reachability. Also found and fixed, because it silently blocked
+> every one of this session's own new tests from running in CI: the
+> "test" job in `.github/workflows/test.yml` set a 15-character
+> `JWT_SECRET`, and `AuthService` rejects anything under 32 — so `npm
+> test` never got past importing the app in that job, for *any*
+> registry test, e2e suites included (the "build" job's smoke test
+> already used a long-enough one; "test" just never got the same fix).
+> Also added a real `packages/sdk` test suite (there wasn't one) and
+> wired `packages/core` and `packages/cli`'s existing real test suites
+> into `build-all-packages.yml`, which built them but never ran their
+> tests — `packages/core`'s suite is the one covering the path-traversal
+> and hash-collision regression tests from the 2026-09-07 pass, so those
+> were silently not running in CI either. **Deliberately not touched:**
+> a real multi-party provenance chain (still just the flat audit list),
+> sandbox enforcement on the live server, and the $THINK
+> staking/tier/subscription layer (per the standing recommendation
+> against building that out) — see `docs/DOCS_VS_CODEBASE.md` rows 6, 8,
+> 18-19. Also not touched: the same "build but never test" gap this
+> session fixed for `core`/`cli`/`sdk` still applies to `rag-sdk`,
+> `agent-sdk`, `notion-integration`, `slack-integration`, and
+> `linear-integration` (all have real `test` scripts — jest or vitest —
+> that `build-all-packages.yml` never calls); worth a follow-up pass but
+> out of scope for this one.
 
 ## TL;DR
 

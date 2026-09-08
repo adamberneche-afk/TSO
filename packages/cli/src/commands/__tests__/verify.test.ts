@@ -20,10 +20,18 @@
 
 import { verifyCommand } from '../verify';
 import { TaisServiceManager } from '../../services/TaisServiceManager';
+import { RegistryClient } from '../../services/RegistryClient';
 
 jest.mock('../../services/TaisServiceManager');
+// Automocked to return undefined from every method (including
+// getSkillAudits), so verifySkill's registry-first tier always falls
+// through to the TaisServiceManager-driven checks below that these
+// tests actually exercise -- and, just as importantly, never attempts
+// a real network call during a unit test.
+jest.mock('../../services/RegistryClient');
 
 const MockedTaisServiceManager = TaisServiceManager as jest.MockedClass<typeof TaisServiceManager>;
+const MockedRegistryClient = RegistryClient as jest.MockedClass<typeof RegistryClient>;
 
 const VALID_HASH = 'a'.repeat(64);
 const VALID_ADDRESS = '0x' + '1'.repeat(40);
@@ -36,10 +44,32 @@ describe('verifyCommand', () => {
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'error').mockImplementation(() => {});
     MockedTaisServiceManager.mockReset();
+    MockedRegistryClient.mockReset();
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('uses the real registry trust score when the skill is known there, without needing the local service', async () => {
+    MockedRegistryClient.mockImplementation(() => ({
+      getSkillAudits: jest.fn().mockResolvedValue({
+        trustScore: 0.2, // below threshold -> "Trust Score" check fails
+        isBlocked: false,
+        auditCount: 1,
+        auditors: ['0xauditor'],
+      }),
+    } as any));
+    // If this ever got called instead of the registry, it would report
+    // a passing trust score and the test would (wrongly) still pass --
+    // asserting isValid: false here to keep the two paths distinguishable.
+    MockedTaisServiceManager.mockImplementation(() => ({
+      verifySkill: jest.fn().mockResolvedValue({ trustScore: 0.9, isBlocked: false, provenance: 'x', isValid: true }),
+    } as any));
+
+    await verifyCommand(VALID_HASH, {});
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
   it('fails skill verification when Trust Score / Provenance Chain checks fail, even though the service reports isValid: true', async () => {
