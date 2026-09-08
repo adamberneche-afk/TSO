@@ -73,6 +73,30 @@ whatever gets decided next — read this before re-reading the whole repo.
 > `linear-integration` (all have real `test` scripts — jest or vitest —
 > that `build-all-packages.yml` never calls); worth a follow-up pass but
 > out of scope for this one.
+>
+> **Update — 2026-09-08 (follow-up):** That last gap is now closed —
+> `build-all-packages.yml` runs all five packages' real test suites too.
+> Along the way: `agent-sdk`'s test file had never actually run (two
+> `require('../src/client')` calls that can't resolve under vitest's ESM
+> loader, taking down the whole suite) and, once fixed, exposed three
+> real bugs the never-run suite had been hiding -- `getAuthorizationUrl`
+> awaited incorrectly (masking a wrong assertion elsewhere in the same
+> test), and `TAISAgent` was missing `getAccessToken()`/`clearTokens()`
+> entirely (added, symmetric with the existing `setTokens()`/
+> `getTokens()`). `slack-integration` and `linear-integration` had a
+> `"test": "jest"` script with zero test files and no jest/ts-jest
+> devDependency at all -- `npm test` failed outright with "No tests
+> found" before this pass added a real jest config plus a first,
+> deliberately-minimal (not exhaustive) real test suite for each,
+> covering their pure/deterministic logic (JSON-parse-with-fallback,
+> task-line parsing, priority mapping) with the Slack/Linear SDK clients
+> mocked. **Still not done:** re-enabling `.github/workflows/test.yml`
+> itself (`Test and Build`, which runs `packages/registry`'s own ~142-test
+> suite against a real Postgres service) -- it's disabled at the GitHub
+> Actions level (a repo-admin toggle in Settings → Actions → Workflows),
+> not something a code change can flip; needs a human with repo admin
+> access. No `docs/DOCS_VS_CODEBASE.md` capability changed status this
+> pass -- this was CI/test infrastructure only.
 
 ## TL;DR
 

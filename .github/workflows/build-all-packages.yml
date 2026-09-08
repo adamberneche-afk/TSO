@@ -5,7 +5,16 @@ name: Build All Packages
 # tais_frontend were ever built or tested in CI, so dependency bumps
 # and code changes to every other package went unnoticed for weeks
 # (see docs/BUG_AUDIT_2026-09.md). This workflow builds every one of
-# them, in their actual dependency order, on every push and PR.
+# them, in their actual dependency order, on every push and PR --
+# and, for every package with a real `test` script (core, cli, sdk,
+# rag-sdk, agent-sdk, notion/slack/linear-integration), runs it too.
+# `packages/types` and `packages/sdk-assistant` have no test script;
+# `packages/registry`'s own suite lives in test.yml instead (a separate
+# workflow, since it needs a Postgres service container this one
+# doesn't). slack-integration and linear-integration had a `test: jest`
+# script but zero test files and no jest/ts-jest devDependency at all --
+# `npm test` there failed outright with "No tests found" before this
+# pass added a real jest config and a first real test suite for each.
 
 on:
   push:
@@ -49,8 +58,14 @@ jobs:
       - name: Build packages/rag-sdk
         run: npm run build --workspace=packages/rag-sdk
 
+      - name: Test packages/rag-sdk
+        run: npm run test --workspace=packages/rag-sdk
+
       - name: Build packages/agent-sdk
         run: npm run build --workspace=packages/agent-sdk
+
+      - name: Test packages/agent-sdk
+        run: npm run test --workspace=packages/agent-sdk
 
       - name: Generate Prisma client for registry
         working-directory: packages/registry
@@ -78,11 +93,20 @@ jobs:
       - name: Build packages/notion-integration
         run: npm run build --workspace=packages/notion-integration
 
+      - name: Test packages/notion-integration
+        run: npm run test --workspace=packages/notion-integration
+
       - name: Build packages/slack-integration
         run: npm run build --workspace=packages/slack-integration
 
+      - name: Test packages/slack-integration
+        run: npm run test --workspace=packages/slack-integration
+
       - name: Build packages/linear-integration
         run: npm run build --workspace=packages/linear-integration
+
+      - name: Test packages/linear-integration
+        run: npm run test --workspace=packages/linear-integration
 
       - name: Typecheck integration-example
         run: npm run build --workspace=integration-example
