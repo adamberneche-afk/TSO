@@ -5,6 +5,12 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  # This workflow was disabled at the GitHub Actions level for an
+  # extended period (see HANDOFF.md) with no push/PR-based way to
+  # verify a fix to it without waiting for the next real push. Adding
+  # workflow_dispatch gives it a manual "Run workflow" button for
+  # exactly that case going forward.
+  workflow_dispatch: {}
 
 jobs:
   test:
