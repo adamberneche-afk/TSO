@@ -51,6 +51,11 @@ const VALID_SCOPES = [
   'agent:memory:read',
   'agent:memory:write',
   'agent:config:read',
+  // App RAG (docs/DOCS_VS_CODEBASE.md row 14): read-only access to the
+  // authorizing wallet's own public/community RAG documents, decrypted
+  // server-side the same way the wallet's own browser session already
+  // can via /rag/community/decrypt -- see routes/agent.ts's GET /rag.
+  'rag:read',
 ];
 
 function validateScopes(scopes: string[]): { valid: boolean; invalid: string[] } {

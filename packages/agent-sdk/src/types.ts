@@ -147,6 +147,21 @@ export interface PermissionInfo {
   expiresAt: string;
 }
 
+export interface RagDocumentResult {
+  id: string;
+  title: string | null;
+  content: string;
+  tags: string[];
+  createdAt: string;
+}
+
+export interface RagQueryResult {
+  documents: RagDocumentResult[];
+  /** Count of matching documents the server could not decrypt (a public
+   * document predating the community-crypto scheme) -- not an error. */
+  skipped: number;
+}
+
 export const VALID_SCOPES = [
   'agent:identity:read',
   'agent:identity:soul:read',
@@ -154,6 +169,10 @@ export const VALID_SCOPES = [
   'agent:memory:read',
   'agent:memory:write',
   'agent:config:read',
+  // App RAG: read-only access to the authorizing wallet's own
+  // public/community RAG documents (see routes/agent.ts's GET /rag on
+  // the registry).
+  'rag:read',
 ] as const;
 
 export type ValidScope = typeof VALID_SCOPES[number];

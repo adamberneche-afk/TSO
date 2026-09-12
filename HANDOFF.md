@@ -97,6 +97,83 @@ whatever gets decided next — read this before re-reading the whole repo.
 > not something a code change can flip; needs a human with repo admin
 > access. No `docs/DOCS_VS_CODEBASE.md` capability changed status this
 > pass -- this was CI/test infrastructure only.
+>
+> **Update — 2026-09-12:** `test.yml` got re-enabled (the blocker above
+> was a repo-admin toggle, not code) and a follow-up pass fixed what its
+> first real runs since being disabled exposed: a missing `@think/types`
+> build step (and the regression introduced fixing that -- a scoped
+> `npm ci` inside a workspace member pruning the hoisted root
+> `node_modules`), missing `ADMIN_WALLET_ADDRESSES`, three e2e fixture
+> files (`agent`/`oauth`/`billing`) that never actually completed real
+> auth so their "tests" only ever exercised a 401, a Codecov step failing
+> the whole job over a missing token unrelated to test results, and a
+> flaky `packages/core` test caused by five services firing an unawaited
+> async file write from their constructor. Also fixed two pre-existing
+> `tais_frontend` typecheck errors that had kept `deploy.yml` red since
+> February (a dead `openapi-types` import; a zod `.default({})` typing
+> gap with an existing object schema). Then, asked to work `docs/
+> DOCS_VS_CODEBASE.md` rows 6 and 8: **built the real multi-party
+> provenance chain row 6 was still missing** -- a persisted
+> `ProvenanceLink` table (author/auditor/voucher roles, real per-link
+> ECDSA signatures, a new open-to-any-wallet `POST /api/v1/provenance/
+> :skillHash/vouch`), `Skill.provenanceScore` computed with the same
+> weighted/time-decayed formula `IsnadService` already used locally, and
+> `tais verify --provenance`/a new `tais vouch` command wired to the real
+> chain instead of a hardcoded mock. Row 6 is now **BUILT**. For row 8,
+> **considered and declined** extending sandbox enforcement to the live
+> registry server: the server has no skill-execution endpoint at all
+> today (only static YARA scanning), and `vm2` (`SandboxService`'s
+> engine) has been EOL since 2023 with known, unpatched sandbox-escape
+> CVEs -- an acceptable-ish risk for a CLI sandboxing skills a user chose
+> to install locally, not for a network-reachable code-execution surface
+> on shared production infrastructure. Row 8 stays **local/CLI-only by
+> design** -- add this to the standing recommendation below alongside the
+> $THINK layer: don't build live skill execution on the server without
+> first replacing `vm2` with an actually-maintained isolation mechanism.
+> Also found, not fixed (unrelated, pre-existing, out of scope for the
+> row-6 PR it surfaced in): `schema.prisma`'s `GitHubToken` model has no
+> corresponding migration, so any code path touching it
+> (`services/githubToken.ts` is real, wired-up code) 500s against a
+> database built purely from migration history. `docs/
+> DOCS_VS_CODEBASE.md` now stands at **19 BUILT · 1 PARTIAL · 4 NOT
+> BUILT** of 24 (the 18/2/4 figure a few paragraphs above is stale,
+> preserved as the 2026-09-08 update's own point-in-time record).
+>
+> **Update — 2026-09-12 (follow-up):** Asked to work row 14 (App-level
+> RAG / Enterprise RAG). Split it: **App RAG is now BUILT for real.** A
+> new `rag:read` OAuth scope reuses the exact same app-registration and
+> authorize/approve/token-exchange flow already built for row 10 (Cross-
+> App Agent Portability) -- no new OAuth system needed, and the existing
+> `OAuthAuthorize.tsx` consent screen needed zero changes since it
+> already renders whatever scopes an app requests generically. The
+> harder question -- how does a third-party app decrypt anything, given
+> RAG documents are supposed to be E2EE -- turned out to already be
+> answered by an earlier session's fix: "community" (`isPublic: true`)
+> documents are encrypted with a single server-held key, not a per-
+> wallet one (`services/communityCrypto.ts`, extracted from
+> `routes/rag.ts`'s `/community/encrypt`/`/decrypt`, which already
+> proved this out), so the server can legitimately decrypt on an
+> authorized app's behalf the same way it already does for the owning
+> wallet's own browser session -- no new key-wrapping/sharing crypto
+> required. New `GET /api/v1/agent/rag` (registry) and
+> `TAISAgent.getRagDocuments()` (`@think/agent-sdk`) do exactly that.
+> Deleted `tais_frontend/src/services/rag/appRAGAuth.ts` and its types
+> along the way -- real-looking OAuth2/PKCE code, but backwards: it
+> assumed TAIS connects *out* to each third-party app's own OAuth/RAG
+> server, the wrong direction for "third-party dev SDK," and was never
+> imported anywhere except its own barrel re-export. **Enterprise RAG
+> got a real, migrated data model** (`Organization`/`OrganizationMember`
+> roles, an `organizationId` on `RAGDocument`) and nothing else --
+> deliberately: unlike App RAG, there's no existing multi-tenant/org
+> infrastructure anywhere in this schema to reuse, so building routes,
+> an invitation flow, and a UI against untested product decisions (who
+> can create an org, how org documents get encrypted/access-checked)
+> would have meant guessing at requirements rather than reusing proven
+> plumbing. See `docs/ENTERPRISE_RAG_DATA_MODEL.md` for the full design
+> and the specific open question (org-document encryption/access
+> boundary) a real build-out still needs to answer. `docs/
+> DOCS_VS_CODEBASE.md` now stands at **19 BUILT · 2 PARTIAL · 3 NOT
+> BUILT** of 24.
 
 ## TL;DR
 
@@ -147,7 +224,13 @@ rather than from underneath a pile of noise.
 no fictitious economics attached) and ship it standalone. Drop the
 token/staking/tier vision entirely rather than half-building it further.
 This is a real project-scoping decision for the next session, not
-something this session decided for you.
+something this session decided for you. **Also standing as of
+2026-09-12**: don't wire skill-sandbox enforcement (`docs/
+DOCS_VS_CODEBASE.md` row 8) into the live registry server without first
+replacing `SandboxService`'s `vm2` engine — EOL since 2023, with known,
+unpatched sandbox-escape CVEs — with an actually-maintained isolation
+mechanism; the server has no skill-execution endpoint at all today, so
+there's no existing surface this would even be "just wiring up."
 
 ## What was cleaned up this session
 

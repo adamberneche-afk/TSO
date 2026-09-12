@@ -13,6 +13,7 @@ import type {
   RegisteredApp,
   AppInfo,
   PermissionInfo,
+  RagQueryResult,
 } from './types.js';
 
 const DEFAULT_BASE_URL = 'https://tso.onrender.com';
@@ -170,6 +171,23 @@ export class TAISAgent {
     const response = await this.client.get('/api/v1/agent/memory', {
       headers: this.getAuthHeaders(),
       params: { type, limit },
+    });
+
+    return response.data;
+  }
+
+  /**
+   * App RAG (requires the rag:read scope): the authorizing wallet's own
+   * public/community RAG documents, decrypted server-side and returned
+   * as plaintext -- see routes/agent.ts's GET /agent/rag on the
+   * registry. `skipped` counts documents the server genuinely can't
+   * decrypt (a public document encrypted before the community-crypto
+   * scheme existed), not an error.
+   */
+  async getRagDocuments(query?: string, limit: number = 20): Promise<RagQueryResult> {
+    const response = await this.client.get('/api/v1/agent/rag', {
+      headers: this.getAuthHeaders(),
+      params: { query, limit },
     });
 
     return response.data;

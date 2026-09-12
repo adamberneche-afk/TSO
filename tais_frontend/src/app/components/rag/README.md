@@ -8,15 +8,57 @@ The Multi-RAG system provides contextual knowledge retrieval from four different
 
 1. **Private RAG** - Local-only, 100% private
 2. **Public RAG** - E2EE community knowledge sharing
-3. **App RAG** - Third-party developer SDK (planned)
-4. **Enterprise RAG** - Organization-level with admin controls (planned)
+3. **App RAG** - Third-party developer SDK, via OAuth
+4. **Enterprise RAG** - Organization-level with admin controls (data model designed, not yet built)
 
 ## Current Implementation Status
 
 ✅ **Phase 1: Private RAG** - COMPLETE
-✅ **Phase 2: Public RAG** - COMPLETE  
-🚧 **Phase 3: App RAG** - Planned
-🚧 **Phase 4: Enterprise RAG** - Planned
+✅ **Phase 2: Public RAG** - COMPLETE
+✅ **Phase 3: App RAG** - COMPLETE (2026-09-12) -- see below
+🚧 **Phase 4: Enterprise RAG** - Data model designed (`docs/ENTERPRISE_RAG_DATA_MODEL.md`), routes/UI not yet built
+
+---
+
+## App RAG
+
+A registered, OAuth-authorized third-party app can read a wallet's own
+public/community RAG documents with the user's consent -- reusing the
+exact same app-registration and OAuth authorize/approve/token-exchange
+flow already built for Cross-App Agent Portability
+(`packages/registry/src/routes/oauth.ts`), just with a new scope:
+
+```
+rag:read
+```
+
+An app requests it like any other scope (`GET /oauth/authorize?...&scopes=rag:read`) and the existing `OAuthAuthorize.tsx` consent screen displays and approves it with no changes needed -- it already renders whatever scopes an app requests generically.
+
+Once authorized, the app calls the registry directly (or via `@think/agent-sdk`'s `TAISAgent.getRagDocuments()`):
+
+```typescript
+import { TAISAgent } from '@think/agent-sdk';
+
+const agent = new TAISAgent({ appId: 'my-app', appSecret: '...' });
+// ... after the user completes OAuth with rag:read granted ...
+const { documents, skipped } = await agent.getRagDocuments();
+```
+
+**Why this needed no new encryption scheme:** every "community"
+(`isPublic: true`) document is already encrypted server-side with a
+single server-held key (`packages/registry/src/services/
+communityCrypto.ts`), not a per-wallet or per-recipient one -- the
+server already legitimately decrypts a community document on behalf of
+its owning wallet's own browser session (`POST /rag/community/decrypt`).
+`GET /api/v1/agent/rag` does the same decryption, just on an authorized
+app's behalf instead, gated by the OAuth scope. A user's **private**
+documents (`isPublic: false`) are never included -- those stay encrypted
+with a wallet-derived key the server never has, exactly as designed.
+
+A public document created before the community-crypto scheme existed
+(encrypted client-side with an ordinary wallet-derived key) can't be
+decrypted server-side either -- it's counted in the response's `skipped`
+field rather than returned or erroring the whole request.
 
 ---
 
@@ -398,8 +440,11 @@ VITE_PUBLIC_RAG_API_URL=https://api.taisplatform.com/v1/rag
 All types are exported from:
 - `src/types/rag.ts` - Base RAG types
 - `src/types/rag-public.ts` - Public RAG types
-- `src/types/rag-app.ts` - App RAG types
 - `src/types/rag-enhanced.ts` - Enhanced types with context isolation
+- App RAG's types (`RagDocumentResult`/`RagQueryResult`) live in
+  `packages/agent-sdk/src/types.ts` -- App RAG is a third-party app
+  concern (via `@think/agent-sdk`), not a `tais_frontend` one; see the
+  "App RAG" section above.
 
 ---
 
@@ -414,8 +459,7 @@ src/
 │   ├── publicRAGClient.ts       # E2EE platform client
 │   ├── e2eeEncryption.ts        # Encryption service
 │   ├── ragRouter.ts             # Multi-source router
-│   ├── platformDetection.ts     # Platform detection
-│   └── appRAGAuth.ts            # App authentication
+│   └── platformDetection.ts     # Platform detection
 ├── hooks/
 │   ├── index.ts                 # Hook exports
 │   ├── useRAG.ts                # RAG hooks
@@ -428,9 +472,14 @@ src/
 └── types/
     ├── rag.ts                   # Base types
     ├── rag-public.ts            # Public RAG types
-    ├── rag-app.ts               # App RAG types
     └── rag-enhanced.ts          # Enhanced types
 ```
+
+App RAG has no `tais_frontend` component of its own -- the consuming
+app calls the registry directly (or via `@think/agent-sdk`), and the
+OAuth consent UI it goes through
+(`src/app/components/oauth/OAuthAuthorize.tsx`) is the same one every
+other cross-app scope already uses.
 
 ---
 
