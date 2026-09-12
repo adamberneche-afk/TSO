@@ -432,8 +432,8 @@ try {
 - [ ] Web agent deployment (live chat interface)
 - [ ] Desktop app download
 - [ ] API endpoint generation
-- [ ] Agent marketplace
-- [ ] Skill publishing wizard
+- [ ] Agent marketplace (data model designed/migrated -- see `docs/AGENT_MARKETPLACE_DATA_MODEL.md`; no routes/UI yet)
+- [x] Skill publishing wizard
 - [ ] Agent version control
 - [ ] Collaborative editing
 - [ ] Template library

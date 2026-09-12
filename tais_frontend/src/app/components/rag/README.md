@@ -543,9 +543,9 @@ other cross-app scope already uses.
 
 ## Version
 
-**Current:** 2.4.0  
-**Status:** Phases 1 & 2 Complete  
-**Last Updated:** February 18, 2026
+**Current:** 2.5.0  
+**Status:** Phases 1-3 Complete; Phase 4 data model designed, not built  
+**Last Updated:** September 12, 2026
 
 ---
 

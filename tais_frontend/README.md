@@ -218,8 +218,8 @@ src/
 - [ ] Web agent deployment
 - [ ] Desktop app download
 - [ ] API endpoint generation
-- [ ] Agent marketplace
-- [ ] Skill publishing flow
+- [ ] Agent marketplace (data model designed/migrated -- see `docs/AGENT_MARKETPLACE_DATA_MODEL.md`; no routes/UI yet)
+- [x] Skill publishing flow
 
 ## 📝 License
 

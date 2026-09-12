@@ -201,6 +201,22 @@ List past agent sessions.
 const { sessions } = await tais.getSessions(10);
 ```
 
+### RAG
+
+#### `getRagDocuments(query?, limit?)`
+
+Read the authorizing wallet's own public/community RAG documents (requires
+the `rag:read` scope). Documents are decrypted server-side using the same
+single, server-held community key the RAG UI's `/rag/community/decrypt`
+already uses -- no client-side crypto or key management needed. A public
+document that predates the community-crypto scheme is skipped rather than
+erroring; `skipped` reports how many were.
+
+```typescript
+const { documents, skipped } = await tais.getRagDocuments('quarterly roadmap', 10);
+// documents: { id, title, content, tags, createdAt }[]
+```
+
 ## Available Scopes
 
 | Scope | Description | Sensitivity |
@@ -211,6 +227,7 @@ const { sessions } = await tais.getSessions(10);
 | `agent:memory:read` | Read MEMORY.md | Medium |
 | `agent:memory:write` | Write to MEMORY.md | High |
 | `agent:config:read` | Read agent.json constraints | Low |
+| `rag:read` | Read the wallet's own public/community RAG documents | Medium |
 
 ## Session Handoff
 
