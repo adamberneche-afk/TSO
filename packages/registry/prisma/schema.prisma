@@ -31,6 +31,15 @@ model Skill {
   // Metadata
   permissions   Json     // Stored as JSON
   trustScore    Float    @default(0) @map("trust_score")
+  // Weighted, time-decayed score of this skill's community provenance
+  // chain (ProvenanceLink rows below) -- a distinct signal from
+  // trustScore, which is purely the SAFE/SUSPICIOUS/MALICIOUS audit-
+  // verdict ratio used to gate/block malicious skills. provenanceScore
+  // instead reflects *who has vouched for this skill* (author, auditors,
+  // and any community voucher), weighted by role and recency, mirroring
+  // the isnad-chain formula packages/core/src/services/IsnadService.ts
+  // already computes locally per-installation (see services/provenance.ts).
+  provenanceScore Float  @default(0) @map("provenance_score")
   downloadCount Int      @default(0) @map("download_count")
   
   // Status
@@ -45,13 +54,15 @@ model Skill {
   
   // Relations
   audits    Audit[]
+  provenanceLinks ProvenanceLink[]
   categories SkillCategory[]
   tags      SkillTag[]
-  
+
   @@index([skillHash])
   @@index([author])
   @@index([status])
   @@index([trustScore])
+  @@index([provenanceScore])
   @@map("skills")
 }
 
@@ -77,6 +88,56 @@ model Audit {
   @@index([auditor])
   @@index([status])
   @@map("audits")
+}
+
+// A single link in a skill's community provenance chain -- the real,
+// persisted, multi-party version of what
+// packages/core/src/services/IsnadService.ts's isnad chain already does
+// per-installation in a local, unshared JSON cache (see
+// docs/DOCS_VS_CODEBASE.md row 6). Every skill gets exactly one AUTHOR
+// link at publish time; every accepted Audit produces one AUDITOR link
+// (see services/provenance.ts); any wallet can add its own VOUCHER link
+// via POST /api/v1/provenance/:skillHash/vouch, no NFT required -- this
+// is what makes the chain genuinely multi-party rather than just
+// "auditors with NFTs."
+enum ProvenanceRole {
+  AUTHOR
+  AUDITOR
+  VOUCHER
+}
+
+model ProvenanceLink {
+  id        String         @id @default(uuid())
+  skillId   String         @map("skill_id")
+  skill     Skill          @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  wallet    String         // Wallet address that signed this link
+  role      ProvenanceRole
+
+  // Real ECDSA signature proving `wallet` authorized this specific link
+  // (see routes/provenance.ts, routes/audits.ts). Null only for AUTHOR
+  // links, whose authenticity instead comes from the wallet-JWT session
+  // POST /api/v1/skills already requires (itself obtained by signing a
+  // login nonce) -- not a second, redundant raw signature.
+  signature String?
+
+  // Denormalized reference to the Audit that produced an AUDITOR link,
+  // and a free-form note a VOUCHER link can attach. Nullable/non-FK so a
+  // deleted audit never orphans this row.
+  auditId   String?        @map("audit_id")
+  notes     String?
+
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  // Deliberately no DB-level uniqueness: an AUDITOR link is naturally
+  // one-per-Audit (the same wallet may re-audit a skill over time, each
+  // producing its own link), so only VOUCHER needs "one per wallet per
+  // skill" -- enforced at the application layer in routes/provenance.ts
+  // rather than a partial/conditional constraint Prisma's schema
+  // language can't express directly.
+  @@index([skillId])
+  @@index([wallet])
+  @@map("provenance_links")
 }
 
 model Category {

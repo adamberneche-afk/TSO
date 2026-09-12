@@ -128,6 +128,23 @@ export const AuditReportSchema = z.object({
 export type AuditReport = z.infer<typeof AuditReportSchema>;
 export type YARAFinding = z.infer<typeof YARAFindingSchema>;
 
+// A "voucher" link in a skill's community provenance chain -- a lighter-
+// weight endorsement than a full audit report, open to any wallet (not
+// gated behind an Auditor NFT the way AuditReportSchema submissions are;
+// see packages/registry/src/routes/provenance.ts). The signed payload is
+// `${skill_hash}:${wallet}:voucher:${timestamp}`, mirroring
+// AuditReportSchema's payload convention and the local isnad-chain
+// signature format IsnadService.addLink already uses
+// (packages/core/src/services/IsnadService.ts).
+export const VouchRequestSchema = z.object({
+  wallet: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  signature: z.string(),
+  timestamp: z.string().datetime(),
+  notes: z.string().max(500).optional(),
+});
+
+export type VouchRequest = z.infer<typeof VouchRequestSchema>;
+
 export const IsnadLinkSchema = z.object({
   wallet: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   role: z.enum(['author', 'auditor', 'voucher']),

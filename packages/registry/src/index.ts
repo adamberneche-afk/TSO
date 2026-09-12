@@ -49,6 +49,7 @@ import { requirePublisherNFT, requireAuditorNFT } from './middleware/nftAuth';
 import { skillRoutes } from './routes/skills';
 import { authRoutes } from './routes/auth';
 import { auditRoutes } from './routes/audits';
+import { provenanceRoutes } from './routes/provenance';
 import { searchRoutes } from './routes/search';
 import { adminRoutes } from './routes/admin';
 import { healthRoutes } from './routes/health';
@@ -238,6 +239,22 @@ apiV1Router.use('/audits',
     next();
   },
   auditRoutes
+);
+
+// Provenance routes (community chain) -- POST requires auth only, no
+// NFT gate: unlike /audits, a voucher link is deliberately open to any
+// authenticated wallet (see routes/provenance.ts).
+apiV1Router.use('/provenance',
+  (req: any, res: any, next: any) => {
+    if (req.method === 'POST') {
+      return applyMiddlewareChain([
+        rateLimiters.strict,
+        authMiddleware
+      ])(req, res, next);
+    }
+    next();
+  },
+  provenanceRoutes
 );
 
 // Squad Alpha: Admin routes (protected)
