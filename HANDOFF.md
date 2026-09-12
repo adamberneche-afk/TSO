@@ -174,6 +174,51 @@ whatever gets decided next — read this before re-reading the whole repo.
 > boundary) a real build-out still needs to answer. `docs/
 > DOCS_VS_CODEBASE.md` now stands at **19 BUILT · 2 PARTIAL · 3 NOT
 > BUILT** of 24.
+>
+> **Update — 2026-09-12 (follow-up):** Asked to work row 22 (Agent
+> marketplace / skill publishing wizard / web+desktop deployment) --
+> another row bundling several different-sized asks, so it got the same
+> split treatment as row 14. **Skill publishing is now BUILT for real.**
+> The backend route (`POST /api/v1/skills`) already worked and already
+> scanned every submission (row 5); what didn't exist was any UI calling
+> it. Building that UI surfaced that the one API-client method that
+> already targeted this endpoint (`registryClient.publishSkill`) had
+> never actually been exercised end-to-end: it sent `{ data: skillData }`
+> as the request body when `api.post`'s second argument *is* the body
+> (so the server always received a body with none of the expected top-
+> level fields), and its `CreateSkillDTO` type was missing two fields
+> (`author`, `manifestCid`) the server's Zod schema requires while
+> misnaming a third (`categories` instead of `categoryIds`) -- meaning
+> every real call would have 400'd regardless of whether a UI existed.
+> Both bugs are fixed alongside the new `PublishSkillForm.tsx`, which
+> gates on a connected, NFT-verified wallet and surfaces the server's
+> real error (e.g. "Publishing skills requires a THINK Genesis NFT or
+> Publisher NFT") instead of the old toast-only stub that claimed the
+> feature "requires $THINK token staking" (it doesn't -- that was stale
+> copy; the actual gate is a Publisher/Genesis NFT, per
+> `middleware/nftAuth.ts`). **Agent Marketplace got a real, migrated data
+> model** (`AgentListing` -- one curated public listing per
+> `AgentConfiguration`, status mirroring `Skill`'s own moderation states)
+> and nothing else, deliberately, for the same reason Enterprise RAG
+> stopped at its data model: no existing browsable/listed "Agent" concept
+> exists anywhere in this schema to build routes/UI against, so this
+> designed and tested the foundation rather than guessing at moderation
+> and browse-UI requirements. See `docs/AGENT_MARKETPLACE_DATA_MODEL.md`.
+> **Web agent deployment and desktop app packaging were left NOT BUILT,
+> deliberately** -- the wizard's "Web Agent"/"Desktop App" cards
+> (`InterviewWizard.tsx`) are still disabled "Coming soon" placeholders.
+> Making either real means committing to actual infrastructure (live
+> hosting compute for the former, code-signing certificates and a release
+> pipeline for the latter) that this pass correctly declined to
+> unilaterally commit this codebase to -- add this to the standing
+> recommendation below alongside the $THINK layer and row 8's vm2
+> decision: don't build live agent hosting or ship desktop installers
+> without a real infrastructure/ops decision behind it first. API
+> endpoint generation (a per-agent invocable HTTP API) also remains NOT
+> BUILT and undesigned -- genuinely small on its own (it could reuse the
+> existing `/agent/chat` logic scoped to one `AgentConfiguration`), just
+> not in scope for this pass. `docs/DOCS_VS_CODEBASE.md` now stands at
+> **19 BUILT · 3 PARTIAL · 2 NOT BUILT** of 24.
 
 ## TL;DR
 
@@ -230,7 +275,14 @@ DOCS_VS_CODEBASE.md` row 8) into the live registry server without first
 replacing `SandboxService`'s `vm2` engine — EOL since 2023, with known,
 unpatched sandbox-escape CVEs — with an actually-maintained isolation
 mechanism; the server has no skill-execution endpoint at all today, so
-there's no existing surface this would even be "just wiring up."
+there's no existing surface this would even be "just wiring up." **Also
+standing as of 2026-09-12 (follow-up)**: don't build live web-hosted
+agent deployment or ship desktop-app installers (`docs/
+DOCS_VS_CODEBASE.md` row 22) without a real infrastructure/ops decision
+behind them first — both need genuine new commitments (hosting compute
+and isolation for the former, code-signing certificates and a release
+pipeline for the latter) that no session should make unilaterally while
+scoping a documentation-vs-codebase pass.
 
 ## What was cleaned up this session
 

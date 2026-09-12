@@ -20,6 +20,7 @@ const PrivateRAGManager = lazy(() => import('./components/rag/PrivateRAGManager'
 const DynamicConversationContainer = lazy(() => import('./components/conversation/DynamicConversationContainer').then(m => ({ default: m.DynamicConversationContainer })));
 const MemoryArchivePage = lazy(() => import('./components/memory/MemoryArchivePage').then(m => ({ default: m.MemoryArchivePage })));
 const DeveloperPortal = lazy(() => import('./components/DeveloperPortal').then(m => ({ default: m.DeveloperPortal })));
+const PublishSkillForm = lazy(() => import('./components/skills/PublishSkillForm').then(m => ({ default: m.PublishSkillForm })));
 
 function LoadingFallback() {
   return (
@@ -29,7 +30,7 @@ function LoadingFallback() {
   );
 }
 
-type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier' | 'memory' | 'developer' | 'oauth-authorize' | 'settings' | 'github-callback';
+type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier' | 'memory' | 'developer' | 'oauth-authorize' | 'settings' | 'github-callback' | 'publishSkill';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>(() => {
@@ -63,10 +64,7 @@ export default function App() {
    }, []); // Empty deps - only run once on mount
 
   const handlePublishSkill = () => {
-    toast.info('Skill Publishing', {
-      description: 'Connect your wallet to publish skills. Feature requires $THINK token staking.',
-      duration: 5000,
-    });
+    setCurrentView('publishSkill');
   };
 
   const handleAuditSkill = () => {
@@ -161,6 +159,25 @@ export default function App() {
               </div>
             </header>
             <PrivateRAGManager />
+          </div>
+          <Toaster position="top-right" />
+        </>
+      )}
+      {currentView === 'publishSkill' && (
+        <>
+          <div className="min-h-screen bg-black text-white">
+            <header className="border-b border-[#333333] bg-[#111111] p-4">
+              <div className="max-w-7xl mx-auto flex items-center justify-between">
+                <h1 className="text-2xl font-bold">Publish Skill</h1>
+                <button
+                  onClick={() => setCurrentView('landing')}
+                  className="text-[#888888] hover:text-white"
+                >
+                  Back
+                </button>
+              </div>
+            </header>
+            <PublishSkillForm />
           </div>
           <Toaster position="top-right" />
         </>

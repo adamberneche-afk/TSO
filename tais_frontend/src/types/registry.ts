@@ -22,12 +22,22 @@ export interface SearchResults {
   limit: number;
 }
 
+// Mirrors packages/registry/src/validation's `skillSchema` (the real
+// server-side Zod schema `POST /api/v1/skills` validates the raw request
+// body against) -- `author` and `manifestCid` are required there but were
+// missing from this DTO entirely, and `categoryIds` was misnamed
+// `categories`, so a real call built from this type would always fail
+// server-side validation with a 400 before this fix (see
+// docs/DOCS_VS_CODEBASE.md row 22).
 export interface CreateSkillDTO {
   name: string;
   version: string;
   description?: string;
   skillHash: string;
-  categories?: string[];
+  author: string;
+  manifestCid: string;
+  packageCid?: string;
+  categoryIds?: string[];
   permissions?: Record<string, boolean>;
 }
 
