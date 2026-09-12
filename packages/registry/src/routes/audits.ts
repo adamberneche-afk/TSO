@@ -4,6 +4,7 @@ import { AuditReportSchema } from '@think/types';
 import { validateInput, sanitizeValidationErrors } from '../validation/schemas';
 import { verifySignature } from '../utils/signature';
 import { recomputeTrustScore } from '../services/trustScore';
+import { addProvenanceLink } from '../services/provenance';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -93,12 +94,25 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
 
     const { trustScore, isBlocked } = await recomputeTrustScore(req.prisma as PrismaClient, skill.id);
 
+    // Every accepted audit is also a link in the skill's provenance
+    // chain (see docs/DOCS_VS_CODEBASE.md row 6) -- reuses the same
+    // signature already verified above, since it's the same wallet
+    // asserting the same claim (this is the report it audited).
+    const { provenanceScore } = await addProvenanceLink(req.prisma as PrismaClient, {
+      skillId: skill.id,
+      wallet: auditorWallet,
+      role: 'AUDITOR',
+      signature: report.signature,
+      auditId: audit.id,
+    });
+
     res.status(201).json({
       success: true,
       auditId: audit.id,
       skillHash: report.skill_hash,
       trustScore,
       isBlocked,
+      provenanceScore,
     });
   } catch (error) {
     req.log?.error({ error }, 'Failed to submit audit');
@@ -172,6 +186,7 @@ router.get('/:skillHash', async (req: AuthenticatedRequest, res: Response) => {
         author: true,
         trustScore: true,
         isBlocked: true,
+        provenanceScore: true,
         audits: {
           orderBy: { createdAt: 'desc' },
           take: 100,
@@ -181,6 +196,16 @@ router.get('/:skillHash', async (req: AuthenticatedRequest, res: Response) => {
             auditor: true,
             createdAt: true,
             findings: true,
+          }
+        },
+        provenanceLinks: {
+          orderBy: { createdAt: 'asc' },
+          take: 200,
+          select: {
+            wallet: true,
+            role: true,
+            createdAt: true,
+            notes: true,
           }
         }
       }
@@ -198,6 +223,7 @@ router.get('/:skillHash', async (req: AuthenticatedRequest, res: Response) => {
         author: skill.author,
         trustScore: skill.trustScore,
         isBlocked: skill.isBlocked,
+        provenanceScore: skill.provenanceScore,
       },
       audits: skill.audits.map(audit => ({
         id: audit.id,
@@ -206,6 +232,16 @@ router.get('/:skillHash', async (req: AuthenticatedRequest, res: Response) => {
         reporter: audit.auditor,
         timestamp: audit.createdAt,
         details: audit.findings,
+      })),
+      // The real, multi-party provenance chain (docs/DOCS_VS_CODEBASE.md
+      // row 6) -- author link at publish, one auditor link per accepted
+      // audit above, plus any community voucher links
+      // (POST /api/v1/provenance/:skillHash/vouch).
+      provenanceChain: skill.provenanceLinks.map(link => ({
+        wallet: link.wallet,
+        role: link.role.toLowerCase(),
+        timestamp: link.createdAt,
+        notes: link.notes ?? undefined,
       })),
     });
   } catch (error) {

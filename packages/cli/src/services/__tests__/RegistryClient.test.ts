@@ -135,8 +135,9 @@ describe('RegistryClient', () => {
       const client = new RegistryClient(BASE_URL);
       fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(
         mockFetchOnce(200, {
-          skill: { id: 's1', name: 'x', skillHash: 'a'.repeat(64), author: '0x1', trustScore: 0.9, isBlocked: false },
+          skill: { id: 's1', name: 'x', skillHash: 'a'.repeat(64), author: '0x1', trustScore: 0.9, isBlocked: false, provenanceScore: 0.5 },
           audits: [{ reporter: '0xAAA' }, { reporter: '0xBBB' }],
+          provenanceChain: [{ wallet: '0x1', role: 'author', timestamp: '2026-01-01T00:00:00.000Z' }],
         }) as any
       );
 
@@ -146,7 +147,53 @@ describe('RegistryClient', () => {
         isBlocked: false,
         auditCount: 2,
         auditors: ['0xAAA', '0xBBB'],
+        provenanceScore: 0.5,
+        provenanceChain: [{ wallet: '0x1', role: 'author', timestamp: '2026-01-01T00:00:00.000Z' }],
       });
+    });
+  });
+
+  describe('submitVouch', () => {
+    it('returns success with the server-computed provenance score', async () => {
+      const client = new RegistryClient(BASE_URL);
+      fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(
+        mockFetchOnce(201, { success: true, skillHash: 'a'.repeat(64), provenanceScore: 0.2 }) as any
+      );
+
+      const result = await client.submitVouch(
+        'a'.repeat(64),
+        {
+          wallet: '0x' + '1'.repeat(40),
+          signature: '0x' + '0'.repeat(130),
+          timestamp: new Date().toISOString(),
+        },
+        'jwt-token-value'
+      );
+
+      expect(result).toEqual({ success: true, provenanceScore: 0.2 });
+      const [url, init] = (fetchSpy.mock.calls[0] as any[]);
+      expect(url).toBe(`${BASE_URL}/api/v1/provenance/${'a'.repeat(64)}/vouch`);
+      expect(init.headers.Authorization).toBe('Bearer jwt-token-value');
+    });
+
+    it('surfaces the server error message on rejection', async () => {
+      const client = new RegistryClient(BASE_URL);
+      fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(
+        mockFetchOnce(409, { error: 'Already vouched', message: 'This wallet has already vouched for this skill' }) as any
+      );
+
+      const result = await client.submitVouch(
+        'a'.repeat(64),
+        {
+          wallet: '0x' + '1'.repeat(40),
+          signature: '0x' + '0'.repeat(130),
+          timestamp: new Date().toISOString(),
+        },
+        'jwt-token-value'
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('This wallet has already vouched for this skill');
     });
   });
 });

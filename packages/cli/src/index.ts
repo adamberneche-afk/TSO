@@ -7,6 +7,7 @@ import { auditCommand } from './commands/audit';
 import { listCommand } from './commands/list';
 import { removeCommand } from './commands/remove';
 import { verifyCommand } from './commands/verify';
+import { vouchCommand } from './commands/vouch';
 import { configCommand } from './commands/config';
 
 const program = new Command();
@@ -58,6 +59,15 @@ program
   .option('-a, --author', 'Verify author NFT ownership')
   .option('-p, --provenance', 'Verify skill provenance chain')
   .action(verifyCommand);
+
+// Vouch command
+program
+  .command('vouch')
+  .description('Vouch for a skill on the community provenance chain (no Auditor NFT required)')
+  .argument('<skill>', 'Skill hash')
+  .option('-n, --notes <text>', 'Optional note explaining why you vouch for this skill')
+  .option('-y, --yes', 'Skip confirmation prompts')
+  .action(vouchCommand);
 
 // Config command
 program

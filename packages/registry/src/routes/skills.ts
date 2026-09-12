@@ -4,6 +4,7 @@ import { NFTService } from '../services/nftVerification';
 import { skillSchema, validateInput, sanitizeValidationErrors } from '../validation/schemas';
 import { createIPFSClient } from '../services/ipfs';
 import { skillScanner } from './scan';
+import { addProvenanceLink } from '../services/provenance';
 
 /**
  * Skill Routes - Squad Delta
@@ -265,13 +266,25 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunc
             }
          }
        });
-    
+
+    // First link in this skill's provenance chain (see
+    // docs/DOCS_VS_CODEBASE.md row 6). Authenticity here comes from the
+    // wallet-JWT session this route already requires (authMiddleware,
+    // itself obtained by signing a login nonce) -- not a second, raw
+    // signature the way AUDITOR/VOUCHER links need, since there's no
+    // separate "author submission" payload to sign against.
+    await addProvenanceLink(req.prisma, {
+      skillId: skill.id,
+      wallet: req.user.walletAddress,
+      role: 'AUTHOR',
+    });
+
     req.log?.info({
       wallet: req.user.walletAddress,
       skillId: skill.id,
       skillName: skill.name
     }, 'Skill published successfully');
-    
+
     res.status(201).json(skill);
   } catch (error) {
     req.log?.error({ error }, 'Skill creation failed');

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { ethers } from 'ethers';
-import { AuditReport } from '@think/types';
+import { AuditReport, VouchRequest } from '@think/types';
 
 interface TaisConfig {
   registry_url?: string;
@@ -51,6 +51,19 @@ export interface SkillTrustInfo {
   trustScore: number;
   isBlocked: boolean;
   auditCount: number;
+}
+
+export interface ProvenanceLinkInfo {
+  wallet: string;
+  role: 'author' | 'auditor' | 'voucher';
+  timestamp: string;
+  notes?: string;
+}
+
+export interface VouchResult {
+  success: boolean;
+  provenanceScore?: number;
+  error?: string;
 }
 
 /**
@@ -130,27 +143,54 @@ export class RegistryClient {
   }
 
   /**
-   * Reads back a skill's real audit history and trust score from
-   * GET /api/v1/audits/:skillHash. Returns null (rather than throwing)
-   * when the registry has never heard of this skill, so callers can
-   * fall back to a local-only check instead of treating "not yet
-   * published" as a hard error.
+   * Reads back a skill's real audit history, trust score, and provenance
+   * chain from GET /api/v1/audits/:skillHash. Returns null (rather than
+   * throwing) when the registry has never heard of this skill, so
+   * callers can fall back to a local-only check instead of treating
+   * "not yet published" as a hard error.
    */
-  async getSkillAudits(skillHash: string): Promise<(SkillTrustInfo & { auditors: string[] }) | null> {
+  async getSkillAudits(
+    skillHash: string
+  ): Promise<(SkillTrustInfo & { auditors: string[]; provenanceScore: number; provenanceChain: ProvenanceLinkInfo[] }) | null> {
     const res = await fetch(`${this.baseUrl}/api/v1/audits/${skillHash}`);
     if (res.status === 404) return null;
     if (!res.ok) {
       throw new Error(`Registry returned ${res.status} fetching audits for ${skillHash}`);
     }
     const body = (await res.json()) as {
-      skill: { trustScore: number; isBlocked: boolean };
+      skill: { trustScore: number; isBlocked: boolean; provenanceScore: number };
       audits: Array<{ reporter: string }>;
+      provenanceChain: ProvenanceLinkInfo[];
     };
     return {
       trustScore: body.skill.trustScore,
       isBlocked: body.skill.isBlocked,
       auditCount: body.audits.length,
       auditors: body.audits.map((a) => a.reporter),
+      provenanceScore: body.skill.provenanceScore,
+      provenanceChain: body.provenanceChain ?? [],
     };
+  }
+
+  /**
+   * POSTs a signed VouchRequest to POST /api/v1/provenance/:skillHash/vouch
+   * -- the write side of the community provenance chain that's open to
+   * any wallet, not just Auditor-NFT holders (see routes/provenance.ts).
+   */
+  async submitVouch(skillHash: string, vouch: VouchRequest, token: string): Promise<VouchResult> {
+    const res = await fetch(`${this.baseUrl}/api/v1/provenance/${skillHash}/vouch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(vouch),
+    });
+
+    const body: any = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { success: false, error: body.message || body.error || `Registry returned ${res.status}` };
+    }
+    return { success: true, provenanceScore: body.provenanceScore };
   }
 }

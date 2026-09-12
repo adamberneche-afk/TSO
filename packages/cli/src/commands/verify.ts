@@ -262,10 +262,62 @@ async function verifyAuthor(walletAddress: string): Promise<VerificationResult> 
 }
 
 async function verifyProvenance(skillHash: string): Promise<VerificationResult> {
+  // Real tier: the community registry's actual, persisted provenance
+  // chain (docs/DOCS_VS_CODEBASE.md row 6 -- this used to not exist at
+  // all server-side, so every check below either came from
+  // TaisServiceManager.verifyProvenance, which hardcodes isValid: true
+  // unconditionally regardless of what it found, or the fully-mocked
+  // fallback tier). Falls through to those local/mock tiers only for a
+  // skill the registry has never heard of, or if it can't be reached.
+  try {
+    const registryClient = new RegistryClient();
+    const remote = await registryClient.getSkillAudits(skillHash);
+    if (remote) {
+      const authorLinks = remote.provenanceChain.filter(link => link.role === 'author');
+      const auditorLinks = remote.provenanceChain.filter(link => link.role === 'auditor');
+      const voucherLinks = remote.provenanceChain.filter(link => link.role === 'voucher');
+
+      const checks: VerificationCheck[] = [
+        {
+          name: 'Chain Exists',
+          passed: remote.provenanceChain.length > 0,
+          message: remote.provenanceChain.length > 0
+            ? `Provenance chain found (${remote.provenanceChain.length} link(s))`
+            : 'No provenance chain available'
+        },
+        {
+          name: 'Author Link',
+          passed: authorLinks.length > 0,
+          message: authorLinks.length > 0 ? `Author: ${authorLinks[0].wallet}` : 'No author link on record'
+        },
+        {
+          name: 'Auditor Links',
+          passed: auditorLinks.length > 0,
+          message: `${auditorLinks.length} auditor link(s)`,
+          details: auditorLinks.length > 0 ? auditorLinks.map(l => l.wallet).slice(0, 3).join(', ') : undefined
+        },
+        {
+          name: 'Provenance Score',
+          passed: remote.provenanceScore > 0,
+          message: `Provenance score: ${(remote.provenanceScore * 100).toFixed(1)}%`,
+          details: voucherLinks.length > 0 ? `${voucherLinks.length} community voucher(s)` : undefined
+        }
+      ];
+
+      return {
+        valid: checks.every(check => check.passed),
+        type: 'provenance',
+        checks
+      };
+    }
+  } catch {
+    // Registry unreachable -- fall through to the local/mock tiers below.
+  }
+
   try {
     const serviceManager = new TaisServiceManager();
     const result = await serviceManager.verifyProvenance(skillHash);
-    
+
     const checks: VerificationCheck[] = [
       {
         name: 'Chain Exists',
