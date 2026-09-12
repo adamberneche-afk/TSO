@@ -144,6 +144,10 @@ describe('Scope Validation', () => {
   it('should include config scope', () => {
     expect(VALID_SCOPES).toContain('agent:config:read');
   });
+
+  it('should include the App RAG scope', () => {
+    expect(VALID_SCOPES).toContain('rag:read');
+  });
 });
 
 describe('OAuth Flow', () => {

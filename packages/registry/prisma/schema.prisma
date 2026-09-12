@@ -360,24 +360,88 @@ model RAGDocument {
   
   // Access control
   allowedViewers  String[] @map("allowed_viewers") // Array of public keys
-  
+
+  // Enterprise RAG (docs/DOCS_VS_CODEBASE.md row 14, data model only --
+  // see docs/ENTERPRISE_RAG_DATA_MODEL.md): when set, this document is
+  // shared with every member of the organization, governed by
+  // OrganizationMember roles rather than isPublic/allowedViewers.
+  // walletAddress above still records who actually uploaded it.
+  // SetNull rather than Cascade: deleting an org shouldn't destroy a
+  // member's document content, just its org-shared status.
+  organizationId  String?  @map("organization_id")
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
   // Engagement metrics
   downloadCount   Int      @default(0) @map("download_count")
   popularityScore Float    @default(0) @map("popularity_score")
-  
+
   // Timestamps
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
-  
+
   // Relations
   chunks          RAGChunk[]
-  
+
   @@index([walletAddress])
   @@index([isPublic])
   @@index([tags])
   @@index([createdAt])
   @@index([popularityScore])
+  @@index([organizationId])
   @@map("rag_documents")
+}
+
+// ============================================
+// Enterprise RAG -- data model only
+// (docs/DOCS_VS_CODEBASE.md row 14; see
+// docs/ENTERPRISE_RAG_DATA_MODEL.md for the full design writeup,
+// including what's deliberately NOT built yet: no routes, no org
+// creation/invitation flow, no UI, no billing implications worked out.)
+// ============================================
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique // URL-safe identifier, e.g. for org-scoped routes
+  description String?
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  members     OrganizationMember[]
+  documents   RAGDocument[]
+
+  @@index([slug])
+  @@map("organizations")
+}
+
+// Wallet <-> Organization membership with an admin-controlled role.
+// OWNER: full control, including deleting the org itself.
+// ADMIN: manage members (invite/remove/change role, except OWNER) and
+//        moderate (delete) any org document, not just their own.
+// MEMBER: upload documents to the org and read every org document;
+//         cannot manage membership or moderate others' documents.
+model OrganizationMember {
+  id             String           @id @default(uuid())
+  organizationId String           @map("organization_id")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  walletAddress  String           @map("wallet_address")
+  role           OrganizationRole @default(MEMBER)
+
+  invitedBy      String?          @map("invited_by") // wallet address of the inviting admin/owner
+  joinedAt       DateTime         @default(now()) @map("joined_at")
+
+  @@unique([organizationId, walletAddress])
+  @@index([organizationId])
+  @@index([walletAddress])
+  @@map("organization_members")
 }
 
 // RAG Chunk - Individual chunks of documents with embedding hashes

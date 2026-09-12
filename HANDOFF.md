@@ -138,6 +138,42 @@ whatever gets decided next — read this before re-reading the whole repo.
 > DOCS_VS_CODEBASE.md` now stands at **19 BUILT · 1 PARTIAL · 4 NOT
 > BUILT** of 24 (the 18/2/4 figure a few paragraphs above is stale,
 > preserved as the 2026-09-08 update's own point-in-time record).
+>
+> **Update — 2026-09-12 (follow-up):** Asked to work row 14 (App-level
+> RAG / Enterprise RAG). Split it: **App RAG is now BUILT for real.** A
+> new `rag:read` OAuth scope reuses the exact same app-registration and
+> authorize/approve/token-exchange flow already built for row 10 (Cross-
+> App Agent Portability) -- no new OAuth system needed, and the existing
+> `OAuthAuthorize.tsx` consent screen needed zero changes since it
+> already renders whatever scopes an app requests generically. The
+> harder question -- how does a third-party app decrypt anything, given
+> RAG documents are supposed to be E2EE -- turned out to already be
+> answered by an earlier session's fix: "community" (`isPublic: true`)
+> documents are encrypted with a single server-held key, not a per-
+> wallet one (`services/communityCrypto.ts`, extracted from
+> `routes/rag.ts`'s `/community/encrypt`/`/decrypt`, which already
+> proved this out), so the server can legitimately decrypt on an
+> authorized app's behalf the same way it already does for the owning
+> wallet's own browser session -- no new key-wrapping/sharing crypto
+> required. New `GET /api/v1/agent/rag` (registry) and
+> `TAISAgent.getRagDocuments()` (`@think/agent-sdk`) do exactly that.
+> Deleted `tais_frontend/src/services/rag/appRAGAuth.ts` and its types
+> along the way -- real-looking OAuth2/PKCE code, but backwards: it
+> assumed TAIS connects *out* to each third-party app's own OAuth/RAG
+> server, the wrong direction for "third-party dev SDK," and was never
+> imported anywhere except its own barrel re-export. **Enterprise RAG
+> got a real, migrated data model** (`Organization`/`OrganizationMember`
+> roles, an `organizationId` on `RAGDocument`) and nothing else --
+> deliberately: unlike App RAG, there's no existing multi-tenant/org
+> infrastructure anywhere in this schema to reuse, so building routes,
+> an invitation flow, and a UI against untested product decisions (who
+> can create an org, how org documents get encrypted/access-checked)
+> would have meant guessing at requirements rather than reusing proven
+> plumbing. See `docs/ENTERPRISE_RAG_DATA_MODEL.md` for the full design
+> and the specific open question (org-document encryption/access
+> boundary) a real build-out still needs to answer. `docs/
+> DOCS_VS_CODEBASE.md` now stands at **19 BUILT · 2 PARTIAL · 3 NOT
+> BUILT** of 24.
 
 ## TL;DR
 

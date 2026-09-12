@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { verifySignature } from '../utils/signature';
 import { verifyNFTOwnership } from '../services/genesisConfigLimits';
 import { normalizeWalletAddress, walletAddressesEqual } from '../utils/wallet';
+import { decryptCommunityData, isCommunityEncrypted } from '../services/communityCrypto';
 
 // See the matching comment in routes/oauth.ts: the access token is only
 // ever compared for an exact match against the stored value, never read
@@ -237,6 +238,87 @@ export function createAgentRoutes(prisma: any, logger: any): Router {
     } catch (error) {
       logger.error('Agent memory write error:', error);
       res.status(500).json({ error: 'Failed to write to memory' });
+    }
+  });
+
+  // GET /agent/rag -- App RAG (docs/DOCS_VS_CODEBASE.md row 14): lets an
+  // OAuth-authorized third-party app read the authorizing wallet's own
+  // public/community RAG documents. Every community document is
+  // encrypted with a single server-side key (see
+  // services/communityCrypto.ts) rather than a per-wallet or
+  // per-recipient one, so the server can legitimately decrypt on this
+  // app's behalf -- the same way it already does for the wallet's own
+  // browser session via POST /rag/community/decrypt -- without any new
+  // key-sharing/wrapping scheme. A public document predating that
+  // community-crypto scheme (encrypted client-side with an ordinary
+  // wallet-derived key the server never has) is skipped rather than
+  // errored on, since the server genuinely cannot decrypt those.
+  router.get('/rag', async (req: AuthenticatedRequest, res: Response) => {
+    const startedAt = Date.now();
+    try {
+      const auth = await authenticateRequest(prisma, req);
+      if (!auth) {
+        return res.status(401).json({ error: 'Invalid or expired access token' });
+      }
+
+      if (!auth.scopes.includes('rag:read')) {
+        return res.status(403).json({ error: 'Insufficient permissions: rag:read required' });
+      }
+
+      const walletAddress = auth.walletAddress.toLowerCase();
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const query = typeof req.query.query === 'string' ? req.query.query : undefined;
+
+      const where: any = { walletAddress, isPublic: true };
+      if (query) {
+        where.OR = [
+          { title: { contains: query, mode: 'insensitive' } },
+          { tags: { hasSome: [query] } },
+        ];
+      }
+
+      const candidates = await prisma.rAGDocument.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      });
+
+      const documents: Array<{ id: string; title: string | null; content: string; tags: string[]; createdAt: Date }> = [];
+      let skipped = 0;
+
+      for (const doc of candidates) {
+        if (!isCommunityEncrypted(doc.salt)) {
+          skipped++;
+          continue;
+        }
+        try {
+          const content = decryptCommunityData(doc.encryptedData, doc.iv, doc.salt);
+          documents.push({
+            id: doc.id,
+            title: doc.title,
+            content,
+            tags: doc.tags,
+            createdAt: doc.createdAt,
+          });
+        } catch {
+          skipped++;
+        }
+      }
+
+      await prisma.rAGAuditLog.create({
+        data: {
+          walletAddress,
+          action: 'app_query',
+          queryHash: query ? crypto.createHash('sha256').update(query).digest('hex') : null,
+          resultCount: documents.length,
+          duration: Date.now() - startedAt,
+        },
+      }).catch((error: any) => logger.warn('Failed to write RAG audit log entry:', error));
+
+      res.json({ documents, skipped });
+    } catch (error) {
+      logger.error('Agent RAG error:', error);
+      res.status(500).json({ error: 'Failed to retrieve RAG documents' });
     }
   });
 
