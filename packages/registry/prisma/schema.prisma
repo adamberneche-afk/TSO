@@ -293,10 +293,74 @@ model AgentConfiguration {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   
+  // Data-model-only Agent Marketplace listing (docs/DOCS_VS_CODEBASE.md row
+  // 22) -- see AgentListing below. Optional: most configurations are never
+  // published.
+  listing     AgentListing?
+
   @@index([walletAddress])
   @@index([nftTokenId])
   @@index([isActive])
   @@map("agent_configurations")
+}
+
+// ============================================
+// Agent Marketplace: data model only (2026-09-12)
+// ============================================
+// docs/DOCS_VS_CODEBASE.md row 22 ("Agent marketplace / skill publishing
+// wizard / web+desktop deployment"). Unlike skill publishing (the other
+// half of row 22, now genuinely built -- see routes/skills.ts, row 5's
+// scanning), there is no existing browsable/listed "Agent" concept
+// anywhere in this schema to build a marketplace UI on top of, so -- the
+// same treatment Enterprise RAG (row 14) got -- this pass designed,
+// migrated, and tested the data model a real marketplace would sit on,
+// without building routes, moderation, or UI against untested product
+// decisions. See docs/AGENT_MARKETPLACE_DATA_MODEL.md.
+
+enum AgentListingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+model AgentListing {
+  id              String   @id @default(uuid())
+  configurationId String   @unique @map("configuration_id")
+  configuration   AgentConfiguration @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+
+  // Denormalized from AgentConfiguration.walletAddress for query/index
+  // convenience -- mirrors Skill.author, which is likewise a plain wallet
+  // string rather than a join through a separate user-account table.
+  walletAddress String @map("wallet_address")
+
+  // A curated public-facing summary, deliberately NOT a read-through to
+  // AgentConfiguration.configData: the full config JSON can carry a
+  // wallet's private skill selections/personality details, and listing an
+  // agent shouldn't leak them just because the config is technically
+  // reachable (see docs/AGENT_MARKETPLACE_DATA_MODEL.md's design notes).
+  name        String
+  description String?
+  category    String?
+
+  // Mirrors Skill's own PENDING/APPROVED/REJECTED/SUSPENDED moderation
+  // states (a distinct enum, not a reuse of SkillStatus -- listings and
+  // skills are different domains that only coincidentally share states).
+  // What moderating an *agent* listing should even check is an open
+  // question this data model does not answer.
+  status AgentListingStatus @default(PENDING)
+
+  // Placeholder for a future "N people are using this agent" signal --
+  // not incremented by anything yet, since no install/invoke flow exists
+  // (row 22's still-undecided web-deployment/API-generation pieces).
+  installCount Int @default(0) @map("install_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([walletAddress])
+  @@index([status])
+  @@map("agent_listings")
 }
 
 // ============================================
