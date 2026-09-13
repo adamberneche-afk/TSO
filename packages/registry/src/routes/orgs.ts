@@ -80,6 +80,36 @@ export function createOrgRoutes(prisma: PrismaClient, authService: AuthService, 
   const adminWallets = process.env.ADMIN_WALLET_ADDRESSES?.split(',').map((w) => w.trim()) || [];
   const adminOnly = requireAdmin(adminWallets);
 
+  // GET /api/v1/orgs -- "my organizations": every org the caller belongs
+  // to, with their role in each. The only way for a client to discover
+  // which org(s) to show after a plain login (as opposed to a fresh
+  // invitation-accept response, which already hands back one orgId).
+  router.get('/', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const walletAddress = req.user?.walletAddress;
+      if (!walletAddress) return res.status(401).json({ error: 'Authentication required' });
+
+      const memberships = await prisma.organizationMember.findMany({
+        where: { walletAddress: walletAddress.toLowerCase() },
+        include: { organization: { select: { id: true, name: true, slug: true, description: true } } },
+        orderBy: { joinedAt: 'asc' },
+      });
+
+      res.json(
+        memberships.map((m) => ({
+          id: m.organization.id,
+          name: m.organization.name,
+          slug: m.organization.slug,
+          description: m.organization.description,
+          yourRole: m.role,
+        }))
+      );
+    } catch (error) {
+      logger?.error?.({ error }, 'Failed to list organizations');
+      res.status(500).json({ error: 'Failed to list organizations' });
+    }
+  });
+
   // POST /api/v1/orgs
   // Admin-only: creates the org and sends its first (OWNER) invitation --
   // there is no other way for an org to end up with an initial member.
@@ -380,6 +410,12 @@ export function createOrgRoutes(prisma: PrismaClient, authService: AuthService, 
       const membership = await getMembership(prisma, orgId, walletAddress);
       if (!membership) return res.status(403).json({ error: 'Not a member of this organization' });
 
+      // Includes the raw ciphertext/iv/salt (not just metadata) so a
+      // member's client can decrypt-on-view via the existing
+      // POST /rag/community/decrypt -- safe to return to any member,
+      // since community-key encryption already assumes any authenticated
+      // caller who can reach that decrypt endpoint can decrypt these
+      // bytes, and this listing is already gated to org members only.
       const documents = await prisma.rAGDocument.findMany({
         where: { organizationId: orgId },
         orderBy: { createdAt: 'desc' },
@@ -391,6 +427,9 @@ export function createOrgRoutes(prisma: PrismaClient, authService: AuthService, 
           size: true,
           chunkCount: true,
           createdAt: true,
+          encryptedData: true,
+          iv: true,
+          salt: true,
         },
       });
       res.json(documents);

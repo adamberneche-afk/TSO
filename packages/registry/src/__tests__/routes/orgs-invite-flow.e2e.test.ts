@@ -138,6 +138,16 @@ describe('Enterprise RAG: invite-only orgs with email/password identity', () => 
       .set('Authorization', `Bearer ${walletToken(NON_ADMIN_WALLET)}`)
       .expect(403);
 
+    // "My organizations" -- how a client discovers which org(s) to show
+    // after a plain login, not just right after accepting an invitation.
+    const myOrgsResponse = await request(app)
+      .get('/api/v1/orgs')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
+    expect(myOrgsResponse.body).toContainEqual(
+      expect.objectContaining({ id: orgId, name: 'Acme Corp', yourRole: 'OWNER' })
+    );
+
     // 5. Owner invites a MEMBER by email.
     const inviteMemberResponse = await request(app)
       .post(`/api/v1/orgs/${orgId}/invitations`)
@@ -250,12 +260,16 @@ describe('Enterprise RAG: invite-only orgs with email/password identity', () => 
     expect(uploadResponse.body.organizationId).toBe(orgId);
     const documentId = uploadResponse.body.id;
 
-    // Both the owner and the member can see it listed for the org.
+    // Both the owner and the member can see it listed for the org, with
+    // enough (ciphertext + iv + salt) for a member's client to decrypt
+    // it on view via the existing community/decrypt endpoint.
     const orgDocsAsOwner = await request(app)
       .get(`/api/v1/orgs/${orgId}/rag/documents`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .expect(200);
     expect(orgDocsAsOwner.body.map((d: any) => d.id)).toContain(documentId);
+    const listedDoc = orgDocsAsOwner.body.find((d: any) => d.id === documentId);
+    expect(listedDoc).toMatchObject({ encryptedData: 'ciphertext', iv: 'iv', salt: 'salt' });
 
     // A non-member cannot upload into this org.
     const outsiderResponse = await request(app)

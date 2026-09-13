@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { ArrowRight, Zap, Shield, Code, Users, CheckCircle, Upload, ClipboardCheck, ExternalLink, Sparkles, Lock } from 'lucide-react';
+import { ArrowRight, Zap, Shield, Code, Users, CheckCircle, Upload, ClipboardCheck, ExternalLink, Sparkles, Lock, Building2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { authApi } from '../../services/authApi';
 
@@ -20,12 +20,13 @@ interface LandingPageProps {
   onViewDoc?: (doc: string) => void;
   onViewDeveloper?: () => void;
   onViewSettings?: () => void;
+  onViewEnterprise?: () => void;
 }
 
-export function LandingPage({ 
-  onStartInterview, 
-  onViewDashboard, 
-  onPublishSkill, 
+export function LandingPage({
+  onStartInterview,
+  onViewDashboard,
+  onPublishSkill,
   onAuditSkill,
   onViewPublicRAG,
   onViewPrivateRAG,
@@ -34,7 +35,8 @@ export function LandingPage({
   onViewGoldTier,
   onViewDoc,
   onViewDeveloper,
-  onViewSettings
+  onViewSettings,
+  onViewEnterprise
 }: LandingPageProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -205,12 +207,19 @@ export function LandingPage({
                 description="Real-time chat with your configured agent. See model, skills, and config in real-time."
                 tag="Conversational"
               />
-              <RAGCard 
+              <RAGCard
                 onClick={onViewLLMSettings}
                 icon={<Zap className="w-5 h-5 text-[#F59E0B]" />}
                 title="LLM Settings"
                 description="Encrypted API key management for any provider."
                 tag="System"
+              />
+              <RAGCard
+                onClick={onViewEnterprise}
+                icon={<Building2 className="w-5 h-5 text-[#3B82F6]" />}
+                title="Enterprise RAG"
+                description="Shared team knowledge base. No wallet required -- sign in with email."
+                tag="Enterprise"
               />
             </div>
           </div>

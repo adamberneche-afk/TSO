@@ -1,10 +1,17 @@
 # Enterprise RAG: Identity, Without Blockchain Infrastructure
 
-**Status: built.** This documents the identity system and invite-only
-membership flow built on top of `docs/ENTERPRISE_RAG_DATA_MODEL.md`'s
-`Organization`/`OrganizationMember` schema -- routes, an invitation flow,
-and a password-based login now exist. What's still not built (a frontend
-UI) is listed at the bottom.
+> **Update — 2026-09-13 (follow-up):** The `tais_frontend` UI this
+> document originally listed as the one remaining gap is now built --
+> see "What's built" below for the full list of screens. What's left is
+> genuinely just SSO/SAML/OIDC and domain-based auto-join, both
+> deliberately out of scope, not gaps.
+
+**Status: built**, backend and frontend. This documents the identity
+system and invite-only membership flow built on top of
+`docs/ENTERPRISE_RAG_DATA_MODEL.md`'s `Organization`/`OrganizationMember`
+schema -- routes, an invitation flow, a password-based login, and a
+`tais_frontend` UI for all of it now exist. What's genuinely still not
+built (SSO/SAML/OIDC, domain-based auto-join) is listed at the bottom.
 
 ## The problem this solves
 
@@ -129,14 +136,74 @@ There is no self-serve "sign up" or "create your own org" flow:
   lifecycle (`__tests__/routes/orgs-invite-flow.e2e.test.ts`) and unit
   coverage of the pseudo-address derivation and password flow
   (`__tests__/services/emailIdentity.test.ts`).
+- `GET /api/v1/orgs` ("my organizations" -- every org the caller belongs
+  to, with their role in each) and `GET /:orgId/rag/documents` extended
+  to include `encryptedData`/`iv`/`salt`, added alongside the frontend
+  work below once it became clear the UI needed both: there was
+  otherwise no way for a client to discover which org(s) to show after a
+  plain login, or to let a member view a document's content.
+
+### Frontend (`tais_frontend/src/app/components/enterprise/`)
+
+- `EnterpriseLogin.tsx` / `ForgotPasswordForm.tsx` / `ResetPasswordForm.tsx`
+  -- email/password sign-in and account recovery, no wallet-connect
+  button anywhere.
+- `InvitationAccept.tsx` -- the landing page an invite email's link
+  points at (`/orgs/invitations/:token`): previews the org/role, then
+  either sets a password (new email) or just confirms (already
+  registered), matching `routes/orgs.ts`'s preview/accept split.
+- `OrgDashboard.tsx` -- member list with role change/removal and an
+  invite-by-email form (both gated to `OWNER`/`ADMIN`), and a document
+  panel (list, share, view/decrypt, delete) scoped to the selected org.
+  Works for whichever org(s) `GET /api/v1/orgs` says the current session
+  belongs to.
+- `CreateOrganizationForm.tsx` -- the one screen that legitimately uses
+  the existing wallet-connect flow (`useWallet`), since provisioning a
+  new org is a platform-admin action, not something an org's own
+  email-identity members do.
+- `useEnterpriseAuth.ts` / `enterpriseAuthApi.ts` -- a session hook and
+  client deliberately parallel to `useWallet.ts`/`authApi.ts` rather than
+  reusing them: restoring a session here is just "is there a
+  non-expired token," never a `window.ethereum` check. A successful
+  login stores the JWT under the exact same `localStorage` keys
+  (`auth_token`/`wallet_address`) the wallet flow uses, so every existing
+  `api.*` call in the app already attaches it with zero changes.
+- `orgsApi.ts` -- deliberately does not go through
+  `services/rag/publicRAGClient.ts` for document upload/view: that
+  client requires a connected wallet just to initialize (it derives its
+  encryption key and API key from a wallet signature). Org documents
+  instead call the existing `POST /rag/community/encrypt`/`/decrypt`
+  endpoints directly, matching the community-key design
+  `docs/ENTERPRISE_RAG_DATA_MODEL.md` already resolved on -- no wallet,
+  no client-side key derivation. One document upload is one single
+  `community/encrypt` call over `{title, content}` combined; the result
+  is reused byte-for-byte as both `encryptedData` and `encryptedMetadata`
+  (the schema has only one `iv`/`salt` column shared by both fields, so
+  encrypting them separately under those same values would reuse an
+  AES-GCM nonce across two different plaintexts).
+- 16 new frontend unit tests (`__tests__/enterpriseAuthApi.test.ts`,
+  `__tests__/orgsApi.test.ts`) proving every call sends its body
+  directly, not double-wrapped -- see the note on `authApi.ts` below.
+
+## Found, not fixed (out of scope here)
+
+- **`authApi.ts`'s `getNonce`/`login`, and most of `oauthApi.ts`, pass
+  their request body as `{ data: {...} }` to `api.post`, whose second
+  argument *is* the body** -- double-wrapping it, so the server receives
+  `{"data": {...}}` instead of the flat fields it expects
+  (`routes/auth.ts`'s nonce/login handlers read `req.body.walletAddress`
+  directly). This is the same class of bug `registry-client.ts`'s
+  `publishSkill` had (docs/DOCS_VS_CODEBASE.md row 22) before it was
+  fixed there -- it looks like that fix was never generalized to the
+  rest of the API client. Left alone here: fixing wallet-signature login
+  and every OAuth flow without a real browser/MetaMask to verify against
+  is a materially riskier, separate change than this pass's scope
+  (Enterprise RAG's email flow deliberately does not repeat the
+  mistake). Worth a dedicated follow-up given wallet login is the
+  platform's primary auth path.
 
 ## What's still not built
 
-- **Frontend UI.** No `tais_frontend` screens exist yet: email login/
-  signup(-via-invite)/forgot-password pages, an org management view
-  (members, roles, invite form), an invitation-accept landing page, or
-  an org document library. Every route above is real and tested at the
-  API level; there is nothing to click yet.
 - **SSO/SAML/OIDC.** Deliberately out of scope for this pass -- a
   distinct, materially larger effort (per-org identity-provider config,
   metadata exchange) layered on top of the same `OrganizationMember`

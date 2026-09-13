@@ -261,6 +261,51 @@ whatever gets decided next — read this before re-reading the whole repo.
 > DOCS_VS_CODEBASE.md`'s BUILT/PARTIAL/NOT BUILT counts are unchanged (row
 > 14 stays PARTIAL, now solely for the missing UI) -- see its row 14 and
 > the updated narrative paragraph for the detail.
+>
+> **Update — 2026-09-13 (same-day follow-up):** Asked to build the
+> frontend UI for the Enterprise RAG work above. Built, under
+> `tais_frontend/src/app/components/enterprise/`: email sign-in/forgot/
+> reset-password screens with no wallet-connect button anywhere; the
+> invitation-accept landing page an invite email's link points at; an
+> org dashboard (member list with role change/removal and an
+> invite-by-email form, both gated to owner/admin, plus a document
+> panel: list, share, view/decrypt, delete); and an admin-only
+> org-provisioning screen -- the one part of this feature that
+> legitimately still uses the existing wallet-connect flow, since
+> creating an org is a platform-admin action. `useEnterpriseAuth.ts`/
+> `enterpriseAuthApi.ts` deliberately parallel `useWallet.ts`/`authApi.ts`
+> rather than reusing them (restoring a session here never checks
+> `window.ethereum`), but store the JWT under the exact same
+> `localStorage` keys the wallet flow uses, so every existing API call
+> in the app already attaches it unchanged. Document upload/view
+> deliberately bypasses `services/rag/publicRAGClient.ts` (which
+> requires a connected wallet just to derive its encryption key) for the
+> existing `POST /rag/community/encrypt`/`/decrypt` endpoints instead --
+> the community-key design the data model doc already settled on needs
+> no wallet at all. Needed one small backend addition once the UI
+> exposed the gap: `GET /api/v1/orgs` ("which org(s) is the caller a
+> member of" -- there was no way to answer that after a plain login,
+> only right after accepting an invitation), plus extending
+> `GET /:orgId/rag/documents` to include the ciphertext/iv/salt a
+> member's client needs to decrypt-on-view. All of it e2e/unit-tested (5
+> new backend assertions, 16 new frontend tests) and verified against a
+> real build (`tsc --noEmit`, `vite build`, both clean) -- not just typed
+> and hoped for. **Row 14 is now fully BUILT**; `docs/DOCS_VS_CODEBASE.md`
+> now stands at **20 BUILT · 2 PARTIAL · 2 NOT BUILT** of 24. **Found,
+> not fixed:** while building this, `authApi.ts`'s wallet-signature
+> login and most of `oauthApi.ts` turned out to double-wrap their
+> request bodies as `{ data: {...} }` when `api.post`'s second argument
+> *is* the body -- the exact bug row 22's `registryClient.publishSkill`
+> fix (above) already found and fixed once, apparently never
+> generalized to the rest of the API client. This session's own new
+> code deliberately doesn't repeat it, but did not fix the pre-existing
+> instances: doing so blind, with no real browser/MetaMask available in
+> this environment to verify a wallet-login fix against, is a
+> materially riskier change than this pass's scope -- and wallet login
+> is the platform's *primary* auth path, so a blind fix that's subtly
+> wrong would be worse than leaving it flagged. See `docs/
+> ENTERPRISE_RAG_IDENTITY.md`'s "Found, not fixed" section; this is
+> worth a dedicated follow-up session with real end-to-end verification.
 
 ## TL;DR
 
