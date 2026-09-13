@@ -219,6 +219,48 @@ whatever gets decided next — read this before re-reading the whole repo.
 > existing `/agent/chat` logic scoped to one `AgentConfiguration`), just
 > not in scope for this pass. `docs/DOCS_VS_CODEBASE.md` now stands at
 > **19 BUILT · 3 PARTIAL · 2 NOT BUILT** of 24.
+>
+> **Update — 2026-09-13:** Asked to build out row 14's remaining
+> Enterprise RAG half (org CRUD, invite-only membership, role-gated
+> management, org-scoped RAG document routes), with one explicit
+> constraint: no blockchain infrastructure -- an enterprise member should
+> never need to install or manage a crypto wallet. Three ways to remove
+> that requirement were weighed (a real server-custodied wallet keypair;
+> an outsourced embedded-wallet vendor like Privy/Web3Auth; a fully
+> parallel non-wallet identity system touching every `walletAddress`-keyed
+> table and auth middleware) before landing on the one actually built: a
+> deterministic, non-signable pseudo-address derived from an email/
+> password account (`services/emailIdentity.ts`), satisfying every
+> existing `walletAddress` column and the JWT pipeline with zero changes
+> anywhere else -- no private key ever exists, nothing is custodied,
+> nothing touches a chain. See `docs/ENTERPRISE_RAG_IDENTITY.md` for the
+> full design writeup and the reasoning against the other two options.
+> Built: `EmailIdentity`/`PasswordResetToken`/`OrganizationInvitation`
+> Prisma models (their own migration, `20260913225431_enterprise_rag_
+> email_identity`); org CRUD, invitation create/preview/accept, member
+> list/role-change/remove (`routes/orgs.ts`); email login/forgot/reset-
+> password (`routes/emailAuth.ts`); `routes/rag.ts`'s document upload and
+> delete extended to accept/moderate org-scoped documents, resolving the
+> org-document encryption/access-boundary question `docs/
+> ENTERPRISE_RAG_DATA_MODEL.md` had deliberately left open, as its own
+> option (a) -- app-layer `OrganizationMember` checks over the existing
+> community-key encryption, no new crypto needed. Full e2e coverage of
+> the invite -> accept -> login -> role-gated-action lifecycle. Also
+> fixed, because it was blocking a clean migration for this work: a
+> pre-existing, unrelated schema-drift bug flagged in the 2026-09-12
+> update above but not fixed there -- `GitHubToken` was a real, migrated-
+> looking model in `schema.prisma` with no actual migration ever
+> generated for it -- given its own dedicated migration
+> (`20260913220000_add_github_tokens`) rather than folded into this
+> feature's. **Deliberately not built:** a `tais_frontend` UI -- every
+> route above is real and tested at the API level, but nothing is
+> clickable yet; this is genuinely the one remaining gap for row 14.
+> SSO/SAML/OIDC was also deliberately left out of scope, as a distinct,
+> materially larger effort layered on top of the same
+> `OrganizationMember` model rather than a prerequisite for it. `docs/
+> DOCS_VS_CODEBASE.md`'s BUILT/PARTIAL/NOT BUILT counts are unchanged (row
+> 14 stays PARTIAL, now solely for the missing UI) -- see its row 14 and
+> the updated narrative paragraph for the detail.
 
 ## TL;DR
 

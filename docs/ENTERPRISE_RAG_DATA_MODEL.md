@@ -1,15 +1,24 @@
 # Enterprise RAG: Data Model Design
 
-**Status: data model designed and migrated, not built.** This document
-records the schema design for `docs/DOCS_VS_CODEBASE.md` row 14's
-Enterprise RAG half ("Organization-level with admin controls"). The
-Prisma models below are real, migrated, and covered by a test proving
-they're mechanically sound (`src/__tests__/services/
-organizationDataModel.test.ts`) — but there are **no routes, no
-invitation flow, no UI, and no billing/tier implications worked out**.
-Treat this the same way the codebase already treats "designed but not
-built": a real foundation a future session can build directly on top
-of, not a claim that Enterprise RAG works today.
+> **Update — 2026-09-13:** Routes, an invitation flow, and a
+> password-based (no-blockchain) identity system were built on top of
+> this data model — see `docs/ENTERPRISE_RAG_IDENTITY.md` for the design
+> and what's built vs. still not (a frontend UI, chiefly). The
+> **encryption/access-boundary question** this document originally
+> flagged as open (below) has been resolved as its own option (a):
+> app-layer `OrganizationMember` checks, reusing the existing
+> community-key encryption, no new crypto. Read the identity doc first;
+> treat everything below this note as the original design record, not
+> current status.
+
+**Status: built** (data model + routes + invite-only identity; no
+frontend UI yet — see `docs/ENTERPRISE_RAG_IDENTITY.md`). This document
+originally recorded the schema design for `docs/DOCS_VS_CODEBASE.md` row
+14's Enterprise RAG half ("Organization-level with admin controls") back
+when the Prisma models below were real and migrated but nothing was
+built on top of them — no routes, no invitation flow, no UI, no billing/
+tier implications worked out. That gap is now closed except for the UI;
+this section is kept as the original design rationale.
 
 ## Why this is scoped as design-only
 
@@ -85,10 +94,10 @@ This mirrors the pattern already established for the (separately real, already-b
 
 **`onDelete: SetNull` on `RAGDocument.organizationId`, `onDelete: Cascade` on `OrganizationMember`** — both verified by `organizationDataModel.test.ts`. Deleting an organization removes its memberships outright (they have no meaning without the org) but only *un-shares* its documents rather than deleting their content — a member's uploaded document is theirs first, org-shared second.
 
-## What a real build-out still needs (not started)
+## What a real build-out still needs (status as of 2026-09-13)
 
-- Routes: create org, invite/accept/remove member, change role, list org documents, upload/moderate an org document, delete org.
-- An invitation flow (the schema has `invitedBy` for audit purposes but no pending-invitation state — right now `OrganizationMember` rows are created directly, implying an admin action, not a two-sided accept).
-- A UI (no `tais_frontend` component exists for any of this).
-- The encryption/access-boundary decision above.
-- Product decisions: who can create an organization (any wallet? gated somehow?), whether there's a member cap or any relationship to the (separately not-built) `$THINK` tier system, and what "admin controls" should include beyond membership/document moderation (audit log of org actions? something more).
+- ~~Routes: create org, invite/accept/remove member, change role, list org documents, upload/moderate an org document, delete org.~~ **Built** — see `docs/ENTERPRISE_RAG_IDENTITY.md`.
+- ~~An invitation flow~~ — **Built**: `OrganizationInvitation` (hashed, one-time, expiring token) plus accept/preview routes. Org creation is admin-provisioned (not any wallet), resolving that part of the "product decisions" question below.
+- **A UI is still not built** (no `tais_frontend` component exists for any of this) — the one item on this list still genuinely open.
+- ~~The encryption/access-boundary decision above~~ — **Resolved** as option (a): app-layer `OrganizationMember` checks, community-key encryption, no new crypto.
+- Remaining product decisions: whether there's a member cap or any relationship to the (separately not-built) `$THINK` tier system, and what "admin controls" should include beyond membership/document moderation (audit log of org actions? something more) — genuinely still open, unrelated to the identity/invite work above.

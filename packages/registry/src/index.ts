@@ -335,6 +335,23 @@ apiV1Router.use('/oauth', createOAuthRoutes(skillsPrisma, logger));
 apiV1Router.use('/agent', createAgentRoutes(skillsPrisma, logger));
 apiV1Router.use('/billing', rateLimiters.authenticated, authMiddleware, createBillingRoutes(skillsPrisma, logger));
 apiV1Router.use('/enterprise', rateLimiters.authenticated, authMiddleware, createEnterpriseRoutes(skillsPrisma, logger));
+
+// ============================================
+// Enterprise RAG: email/password identity + orgs
+// (docs/ENTERPRISE_RAG_DATA_MODEL.md, docs/ENTERPRISE_RAG_IDENTITY.md)
+// Not the same "enterprise" as the /enterprise mount above -- that one
+// is Cross-App Agent Portability's AgentAppPermission management; this
+// is Organization/OrganizationMember for shared RAG documents.
+// ============================================
+import { createEmailAuthRoutes } from './routes/emailAuth';
+import { createOrgRoutes } from './routes/orgs';
+
+// Login/password-reset only -- no self-serve registration, see emailAuth.ts.
+apiV1Router.use('/auth/email', rateLimiters.auth, createEmailAuthRoutes(skillsPrisma, authService, logger));
+// optionalAuthMiddleware, not authMiddleware: the invitation preview/accept
+// routes are deliberately public (a brand-new invitee has no token yet);
+// every other handler in orgs.ts checks req.user itself and 401s if unset.
+apiV1Router.use('/orgs', rateLimiters.authenticated, optionalAuthMiddleware, createOrgRoutes(skillsPrisma, authService, logger));
 // P0.4 fix: mounted with zero auth -- any wallet's private agent
 // memories were readable/writable by anyone who knew or guessed the
 // wallet address. memoryBackup.ts's own handlers now source the wallet
