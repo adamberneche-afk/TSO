@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { ArrowRight, Zap, Shield, Code, Users, CheckCircle, Upload, ClipboardCheck, ExternalLink, Sparkles, Lock, Building2 } from 'lucide-react';
+import { ArrowRight, Zap, Shield, Code, Users, CheckCircle, Upload, ClipboardCheck, ExternalLink, Sparkles, Lock, Building2, Store } from 'lucide-react';
 import { motion } from 'motion/react';
 import { authApi } from '../../services/authApi';
 
@@ -21,6 +21,7 @@ interface LandingPageProps {
   onViewDeveloper?: () => void;
   onViewSettings?: () => void;
   onViewEnterprise?: () => void;
+  onViewMarketplace?: () => void;
 }
 
 export function LandingPage({
@@ -36,7 +37,8 @@ export function LandingPage({
   onViewDoc,
   onViewDeveloper,
   onViewSettings,
-  onViewEnterprise
+  onViewEnterprise,
+  onViewMarketplace
 }: LandingPageProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -220,6 +222,13 @@ export function LandingPage({
                 title="Enterprise RAG"
                 description="Shared team knowledge base. No wallet required -- sign in with email."
                 tag="Enterprise"
+              />
+              <RAGCard
+                onClick={onViewMarketplace}
+                icon={<Store className="w-5 h-5 text-[#10B981]" />}
+                title="Agent Marketplace"
+                description="Browse and install community-published agents, or list your own."
+                tag="Marketplace"
               />
             </div>
           </div>

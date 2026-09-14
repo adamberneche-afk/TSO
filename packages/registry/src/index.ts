@@ -352,6 +352,17 @@ apiV1Router.use('/auth/email', rateLimiters.auth, createEmailAuthRoutes(skillsPr
 // routes are deliberately public (a brand-new invitee has no token yet);
 // every other handler in orgs.ts checks req.user itself and 401s if unset.
 apiV1Router.use('/orgs', rateLimiters.authenticated, optionalAuthMiddleware, createOrgRoutes(skillsPrisma, authService, logger));
+
+// ============================================
+// Agent Marketplace (docs/DOCS_VS_CODEBASE.md row 22,
+// docs/AGENT_MARKETPLACE_DATA_MODEL.md)
+// ============================================
+import { createAgentListingRoutes } from './routes/agentListings';
+
+// optionalAuthMiddleware: browsing (GET /, GET /:id) is public; every
+// other handler in agentListings.ts checks req.user itself and 401s if
+// unset, same convention as orgs.ts.
+apiV1Router.use('/agent-listings', rateLimiters.standard, optionalAuthMiddleware, createAgentListingRoutes(skillsPrisma, logger));
 // P0.4 fix: mounted with zero auth -- any wallet's private agent
 // memories were readable/writable by anyone who knew or guessed the
 // wallet address. memoryBackup.ts's own handlers now source the wallet

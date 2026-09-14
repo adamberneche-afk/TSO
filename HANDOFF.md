@@ -306,6 +306,46 @@ whatever gets decided next — read this before re-reading the whole repo.
 > wrong would be worse than leaving it flagged. See `docs/
 > ENTERPRISE_RAG_IDENTITY.md`'s "Found, not fixed" section; this is
 > worth a dedicated follow-up session with real end-to-end verification.
+>
+> **Update — 2026-09-14:** Asked to "put the skills marketplace
+> together" -- interpreted as row 22's Agent Marketplace half (the
+> actual named PARTIAL capability; there's no separately-tracked "skill
+> marketplace" concept, and skill publishing itself was already BUILT).
+> Built on top of the existing, migrated `AgentListing` data model:
+> `routes/agentListings.ts` (public browse/search, create/update/
+> withdraw a listing, an install flow), moderation added to
+> `routes/admin.ts` mirroring the existing Skill block/unblock/verify
+> pattern exactly (approve/reject/suspend, each requiring a reason), and
+> a `tais_frontend/src/app/components/marketplace/` UI (browse grid with
+> an Install button, a "My Listings" publish/edit/withdraw panel, an
+> admin moderation queue). Resolved the three open questions
+> `docs/AGENT_MARKETPLACE_DATA_MODEL.md` had left open: who can list an
+> agent (whoever already owns the configuration -- no new gating needed,
+> since creating an `AgentConfiguration` at all already requires THINK
+> NFT ownership); what "installing" means (copying the configuration
+> into the installer's own, reusing the existing, already-tested
+> `saveConfiguration()` rather than any live-hosting concept, which
+> stays properly out of scope alongside row 22's other undecided
+> infrastructure pieces); what moderating a listing checks (an
+> application-layer human judgment call, not a scanning engine -- a
+> listing has no executable content the way a Skill package does).
+> Added one small endpoint neither this nor the pre-existing Skill
+> moderation flow had before: `GET /admin/agent-listings?status=`, a
+> real moderation queue -- both `GET /skills` and `GET /agent-listings`
+> had only ever hardcoded `status: 'APPROVED'` for public browsing, with
+> no way for an admin to discover what's waiting on a decision except
+> already knowing an id. Editing an approved listing now resets it to
+> `PENDING` for re-review. Verified against a real Postgres instance and
+> a real frontend build, not just typed: `tsc --noEmit` and `vite build`
+> both clean on both packages, 34/34 backend test suites (205/205
+> tests, 6 new for this pass) and 12/12 frontend test files (48/48
+> tests, 7 new) all passing. `docs/DOCS_VS_CODEBASE.md`'s counts are
+> unchanged (20 BUILT · 2 PARTIAL · 2 NOT BUILT) -- row 22 stays PARTIAL,
+> now solely for its still-undecided web-deployment/desktop-packaging/
+> API-generation pieces, which this pass deliberately left alone for the
+> same reason row 8's `vm2` decision did: no infrastructure commitment
+> (hosting compute, code-signing certificates) should be made
+> unilaterally.
 
 ## TL;DR
 

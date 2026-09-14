@@ -24,6 +24,7 @@ const PublishSkillForm = lazy(() => import('./components/skills/PublishSkillForm
 const EnterprisePage = lazy(() => import('./components/enterprise/EnterprisePage').then(m => ({ default: m.EnterprisePage })));
 const InvitationAccept = lazy(() => import('./components/enterprise/InvitationAccept').then(m => ({ default: m.InvitationAccept })));
 const ResetPasswordForm = lazy(() => import('./components/enterprise/ResetPasswordForm').then(m => ({ default: m.ResetPasswordForm })));
+const AgentMarketplacePage = lazy(() => import('./components/marketplace/AgentMarketplacePage').then(m => ({ default: m.AgentMarketplacePage })));
 
 function LoadingFallback() {
   return (
@@ -33,7 +34,7 @@ function LoadingFallback() {
   );
 }
 
-type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier' | 'memory' | 'developer' | 'oauth-authorize' | 'settings' | 'github-callback' | 'publishSkill' | 'enterprise' | 'enterprise-invitation-accept' | 'enterprise-reset-password';
+type View = 'landing' | 'interview' | 'dashboard' | 'publicRAG' | 'privateRAG' | 'conversation' | 'llmSettings' | 'doc-guided-discovery' | 'doc-nft-integration' | 'doc-configuration' | 'doc-skills-registry' | 'goldTier' | 'memory' | 'developer' | 'oauth-authorize' | 'settings' | 'github-callback' | 'publishSkill' | 'enterprise' | 'enterprise-invitation-accept' | 'enterprise-reset-password' | 'marketplace';
 
 // Enterprise RAG (docs/ENTERPRISE_RAG_IDENTITY.md) routes carry a token as
 // their last path segment -- an invitation-accept link (from an org
@@ -140,6 +141,7 @@ export default function App() {
             onViewDeveloper={() => setCurrentView('developer')}
             onViewSettings={() => setCurrentView('settings')}
             onViewEnterprise={() => setCurrentView('enterprise')}
+            onViewMarketplace={() => setCurrentView('marketplace')}
           />
           <Toaster position="top-right" />
         </>
@@ -265,6 +267,20 @@ export default function App() {
               }}
             />
           </div>
+          <Toaster position="top-right" />
+        </>
+      )}
+      {currentView === 'marketplace' && (
+        <>
+          <div className="border-b border-[#333333] bg-[#111111] p-4">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <h1 className="text-2xl font-bold text-white">Agent Marketplace</h1>
+              <button onClick={() => setCurrentView('landing')} className="text-[#888888] hover:text-white">
+                Back
+              </button>
+            </div>
+          </div>
+          <AgentMarketplacePage />
           <Toaster position="top-right" />
         </>
       )}

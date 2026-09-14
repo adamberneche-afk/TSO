@@ -1,14 +1,22 @@
 # Agent Marketplace: Data Model Design
 
-**Status: data model designed and migrated, not built.** This document
-records the schema design for `docs/DOCS_VS_CODEBASE.md` row 22's Agent
-Marketplace half ("Agent marketplace / skill publishing wizard /
-web+desktop deployment"). The Prisma model below is real, migrated, and
-covered by a test proving it's mechanically sound
-(`src/__tests__/services/agentListingDataModel.test.ts`) -- but there are
-**no routes, no moderation flow, no browse/discover page, and no
-install/deployment mechanism**. Treat this the same way the codebase
-already treats "designed but not built" (see `docs/ENTERPRISE_RAG_DATA_MODEL.md`
+> **Update — 2026-09-14:** Routes, moderation, a browse/discover UI, and
+> an install flow were built on top of this data model -- see
+> `docs/DOCS_VS_CODEBASE.md` row 22 for the current summary. The open
+> questions this document originally raised (who can list an agent, what
+> "installing" means, what moderating a listing checks) are resolved
+> below in "Open questions, resolved". Read that first; treat the rest
+> of this document as the original design record.
+
+**Status: built** (data model + routes + moderation + browse/install UI;
+see the update above). This document originally recorded the schema
+design for `docs/DOCS_VS_CODEBASE.md` row 22's Agent Marketplace half
+("Agent marketplace / skill publishing wizard / web+desktop
+deployment") back when the Prisma model below was real and migrated but
+nothing was built on top of it -- no routes, no moderation flow, no
+browse/discover page, no install mechanism. That gap is now closed.
+Treat this the same way the codebase already treats "designed but not
+built" (see `docs/ENTERPRISE_RAG_DATA_MODEL.md`
 for the precedent this follows): a real foundation a future session can
 build directly on top of, not a claim that an agent marketplace works
 today.
@@ -113,26 +121,66 @@ content of its own at all -- it is nothing but a public façade for one
 `AgentConfiguration`. If the configuration is deleted, the façade has
 nothing left to front, so it goes with it.
 
-## What a real build-out still needs (not started)
+## What was built (2026-09-14)
 
-- Routes: create/update/withdraw a listing, browse/search listings
-  (public), an admin moderation endpoint to move a listing between
-  statuses.
-- A real definition of what moderating an agent listing means (the open
-  question above) -- likely starting the same way `GET /agent/rag`
-  extended App RAG's wallet check rather than inventing new crypto: an
-  application-layer check, not a new scanning engine, unless a future
-  session decides agent configs need content scanning too.
-- A browse/discover UI (no `tais_frontend` component exists for any of
-  this -- distinct from `SkillSelector.tsx`, which browses *skills*, not
-  agents).
-- Whatever "installing" a marketplace agent means for a viewer who isn't
-  its owner (copying the configuration into their own
-  `AgentConfiguration`? A live, hosted instance? That decision is
-  entangled with row 22's still-undecided web-deployment question).
-- Product decisions: who can list an agent (any wallet? NFT-gated like
-  skill publishing?), whether a wallet can list the same configuration
-  after editing it (a new configuration version, or does the listing
-  track the current version implicitly?), and whether `$THINK`
-  tier/staking (row 18, itself not built) should gate marketplace
-  visibility the way it's aspirationally described gating other features.
+- **Routes** (`packages/registry/src/routes/agentListings.ts`):
+  `GET /api/v1/agent-listings` (public browse, APPROVED only, filterable
+  by category/name, paginated), `GET /mine` (the caller's own listings,
+  any status), `GET /:id` (public if APPROVED, or the owner regardless
+  of status), `POST /` (create), `PUT /:id` (update, owner-only),
+  `DELETE /:id` (withdraw, owner-only), `POST /:id/install`.
+- **Moderation** (`packages/registry/src/routes/admin.ts`, mirroring the
+  existing Skill block/unblock/verify pattern exactly): `POST
+  /admin/agent-listings/:id/{approve,reject,suspend}`, each requiring a
+  `reason` like every other admin action here does. Also added
+  `GET /admin/agent-listings?status=` -- the moderation queue -- once
+  building the moderation UI made concrete that neither this nor the
+  Skill flow had ever had a "browse pending items for review" endpoint;
+  before this, an admin needed to already know a listing's id.
+- **Browse/discover and management UI**
+  (`tais_frontend/src/app/components/marketplace/`): a public browse
+  grid with search/category filtering and an Install button; a "My
+  Listings" panel (publish an existing `AgentConfiguration`, edit,
+  withdraw); and an admin moderation panel (approve/reject/suspend with
+  a required reason, a per-status queue) -- the same
+  connect-wallet-and-let-the-server-403 pattern `PublishSkillForm.tsx`
+  and Enterprise RAG's `CreateOrganizationForm.tsx` already established
+  for admin/gated actions, rather than trying to pre-check permissions
+  client-side.
+- e2e coverage of the full create -> moderate -> browse -> install
+  lifecycle, plus unit coverage of the frontend API client
+  (`agentListingDataModel.test.ts`'s original data-model tests untouched
+  and still passing).
+
+### Open questions, resolved
+
+- **Who can list an agent?** Whoever already owns the underlying
+  `AgentConfiguration` -- no separate gating was added, because creating
+  an `AgentConfiguration` at all already requires THINK NFT ownership
+  (`services/genesisConfigLimits.ts`). Whoever cleared that bar to create
+  the configuration has cleared it to list it.
+- **What does "installing" a marketplace agent mean?** Copying the
+  listing's underlying configuration into a brand-new
+  `AgentConfiguration` owned by the installer, reusing the existing,
+  already-tested `saveConfiguration()` (same NFT/tier-limit enforcement
+  as creating any configuration from scratch). Deliberately *not* a
+  live/hosted instance -- that's the half of this question genuinely
+  entangled with row 22's still-undecided web-deployment piece; a data
+  copy isn't.
+- **What does moderating an agent listing check?** An application-layer
+  decision only (does this listing's public summary belong on the
+  browse page), made by a human admin reading the name/description/
+  wallet and typing a reason -- no automated scanning engine, since a
+  listing has no executable content the way a `Skill` package does.
+- **Does editing a listing after approval need re-review?** Yes -- `PUT
+  /:id` always resets `status` to `PENDING`. An approved public summary
+  shouldn't be silently swappable for different text without a fresh
+  look.
+- **Does a wallet re-listing after editing its configuration need a new
+  listing?** No -- the listing's `configurationId` link is unaffected by
+  editing the configuration's own `configData`; the existing
+  one-listing-per-configuration uniqueness constraint was never in
+  tension with this.
+- **`$THINK` tier/staking gating marketplace visibility?** Not
+  built, consistent with the standing recommendation against building
+  that layer out further (see `HANDOFF.md`).
