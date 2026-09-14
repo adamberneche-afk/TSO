@@ -9,14 +9,14 @@ The Multi-RAG system provides contextual knowledge retrieval from four different
 1. **Private RAG** - Local-only, 100% private
 2. **Public RAG** - E2EE community knowledge sharing
 3. **App RAG** - Third-party developer SDK, via OAuth
-4. **Enterprise RAG** - Organization-level with admin controls (data model designed, not yet built)
+4. **Enterprise RAG** - Organization-level with admin controls, invite-only, no wallet required
 
 ## Current Implementation Status
 
 ✅ **Phase 1: Private RAG** - COMPLETE
 ✅ **Phase 2: Public RAG** - COMPLETE
 ✅ **Phase 3: App RAG** - COMPLETE (2026-09-12) -- see below
-🚧 **Phase 4: Enterprise RAG** - Data model designed (`docs/ENTERPRISE_RAG_DATA_MODEL.md`), routes/UI not yet built
+✅ **Phase 4: Enterprise RAG** - COMPLETE (2026-09-13) -- see below
 
 ---
 
@@ -59,6 +59,52 @@ A public document created before the community-crypto scheme existed
 (encrypted client-side with an ordinary wallet-derived key) can't be
 decrypted server-side either -- it's counted in the response's `skipped`
 field rather than returned or erroring the whole request.
+
+---
+
+## Enterprise RAG
+
+Organization-level document sharing for teams, with membership that's
+**invite-only and requires no crypto wallet** -- see
+`docs/ENTERPRISE_RAG_IDENTITY.md` (backend) and `docs/ENTERPRISE_RAG_DATA_MODEL.md`
+(data model) for the full design. This is a deliberate exception to
+every other tier here: Private/Public/App RAG all assume a connected
+wallet is the user's identity; an Enterprise RAG member logs in with
+just an email and password.
+
+An org admin invites a member's email; accepting the invitation link
+(`/orgs/invitations/:token`) sets a password and logs them straight in.
+That login issues the exact same `{walletAddress}` JWT a wallet-signature
+login does -- just over a deterministic, non-signable address derived
+from the email (`packages/registry/src/services/emailIdentity.ts`), never
+a real wallet. Every other RAG-tier component on this page, and every
+`api.*` call in this app, keeps working unchanged for that session.
+
+Org documents reuse Public RAG's community-key encryption exactly like
+App RAG does above (`POST /rag/community/encrypt`/`/decrypt`) -- not
+`PublicRAGClient`, which requires a connected wallet just to derive its
+own encryption key, something an email-identity member never has.
+
+```tsx
+import { EnterprisePage } from '../enterprise/EnterprisePage';
+
+<EnterprisePage />
+```
+
+`EnterprisePage` shows email sign-in (or the org dashboard, if already
+signed in) and, separately, an admin-only "provision a new organization"
+panel that's the one part of this feature that legitimately still uses
+the existing wallet-connect flow (creating an org is a platform-admin
+action, not something a member does).
+
+**Components** (`src/app/components/enterprise/`): `EnterpriseLogin`,
+`ForgotPasswordForm`, `ResetPasswordForm`, `InvitationAccept`,
+`OrgDashboard` (members, roles, invite form, document panel),
+`CreateOrganizationForm`.
+
+**Services:** `src/services/enterpriseAuthApi.ts` (email session,
+stored under the same `localStorage` keys `authApi.ts`'s wallet login
+uses), `src/services/orgsApi.ts` (org/member/invitation/document calls).
 
 ---
 
@@ -469,10 +515,21 @@ src/
 │   ├── RAGSourceManager.tsx     # Source configuration
 │   ├── PrivateRAGManager.tsx    # Private RAG UI
 │   └── PublicRAGManager.tsx     # Public RAG UI
+├── app/components/enterprise/    # Enterprise RAG (email/password, no wallet)
+│   ├── EnterprisePage.tsx
+│   ├── EnterpriseLogin.tsx
+│   ├── ForgotPasswordForm.tsx / ResetPasswordForm.tsx
+│   ├── InvitationAccept.tsx
+│   ├── OrgDashboard.tsx
+│   └── CreateOrganizationForm.tsx
+├── services/
+│   ├── enterpriseAuthApi.ts      # Enterprise RAG email session
+│   └── orgsApi.ts                # Org/member/invitation/document calls
 └── types/
     ├── rag.ts                   # Base types
     ├── rag-public.ts            # Public RAG types
-    └── rag-enhanced.ts          # Enhanced types
+    ├── rag-enhanced.ts          # Enhanced types
+    └── enterprise.ts            # Enterprise RAG types
 ```
 
 App RAG has no `tais_frontend` component of its own -- the consuming
@@ -514,6 +571,18 @@ other cross-app scope already uses.
 - [x] TLS 1.3 for all communication
 - [x] API key authentication
 
+✅ **App RAG**
+- [x] OAuth-scoped access (`rag:read`), no new credential type
+- [x] Private documents never included, regardless of scope
+- [x] Server-side-only community key -- an app never sees it
+
+✅ **Enterprise RAG**
+- [x] Invite-only membership -- no self-serve join or org creation
+- [x] No wallet, private key, or blockchain call anywhere in the login path
+- [x] Org creation is a separate, admin-wallet-gated action from member login
+- [x] Org documents use the same server-held community key as Public/App RAG -- no new crypto
+- [x] Password hashing (bcrypt), single-use hashed invite/reset tokens
+
 ✅ **Encryption Service**
 - [x] Deterministic key generation
 - [x] Secure key storage
@@ -543,9 +612,9 @@ other cross-app scope already uses.
 
 ## Version
 
-**Current:** 2.4.0  
-**Status:** Phases 1 & 2 Complete  
-**Last Updated:** February 18, 2026
+**Current:** 2.7.0  
+**Status:** Phases 1-4 Complete (Private, Public, App, Enterprise RAG)  
+**Last Updated:** September 13, 2026
 
 ---
 

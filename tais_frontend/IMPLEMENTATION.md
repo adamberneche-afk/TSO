@@ -432,8 +432,8 @@ try {
 - [ ] Web agent deployment (live chat interface)
 - [ ] Desktop app download
 - [ ] API endpoint generation
-- [ ] Agent marketplace
-- [ ] Skill publishing wizard
+- [x] Agent marketplace
+- [x] Skill publishing wizard
 - [ ] Agent version control
 - [ ] Collaborative editing
 - [ ] Template library
