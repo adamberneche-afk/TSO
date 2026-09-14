@@ -593,10 +593,8 @@ export async function syncMemoriesToCloud(walletAddress: string): Promise<{
     }
     
     const result = await api.post('/api/v1/memory/backup', {
-      data: {
-        wallet: walletAddress,
-        memories: allMemories,
-      }
+      wallet: walletAddress,
+      memories: allMemories,
     });
     
     console.log('[Memory] Synced to cloud:', result);

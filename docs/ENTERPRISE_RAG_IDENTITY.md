@@ -185,7 +185,18 @@ There is no self-serve "sign up" or "create your own org" flow:
   `__tests__/orgsApi.test.ts`) proving every call sends its body
   directly, not double-wrapped -- see the note on `authApi.ts` below.
 
-## Found, not fixed (out of scope here)
+## Found, not fixed (out of scope here) -- resolved 2026-09-14
+
+> This section is kept as the original finding, not edited away, but the
+> fix landed: see `HANDOFF.md`'s 2026-09-14 follow-up update. It turned
+> out to be far more widespread than described below -- 23 call sites
+> across 8 files, including `configApi.ts`'s `saveConfiguration`
+> (the actual save call behind the product's core "build and save your
+> agent" flow, which 400'd on every real attempt) -- all now fixed and
+> covered by 19 new regression tests. Two call sites
+> (`rcrtApi.refreshToken`/`scanContent`) remain non-functional for a
+> different, unrelated reason: no matching backend route exists at all,
+> not a wrapping bug: see the handoff update for detail.
 
 - **`authApi.ts`'s `getNonce`/`login`, and most of `oauthApi.ts`, pass
   their request body as `{ data: {...} }` to `api.post`, whose second

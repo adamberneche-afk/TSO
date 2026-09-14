@@ -67,9 +67,15 @@ export const configApi = {
     configData: any,
     description?: string
   ): Promise<SaveConfigResponse> {
-    return api.post<SaveConfigResponse>('/api/v1/configurations', {
-      data: { name, configData, description }
-    });
+    // api.post's second argument IS the request body -- { data: {...} }
+    // sent routes/configurations.ts's POST / a body with no top-level
+    // `name`/`configData`/`description` at all, so `const { name } =
+    // req.body` always read undefined and every save from the interview
+    // wizard's "finish" step 400'd with "Configuration name cannot be
+    // empty" (or silently no-opped fields that happened to already be
+    // undefined-tolerant). This was the actual save call behind the
+    // product's core "build and save your agent" flow.
+    return api.post<SaveConfigResponse>('/api/v1/configurations', { name, configData, description });
   },
 
   /**
@@ -84,9 +90,7 @@ export const configApi = {
       personalityMd?: string;
     }
   ): Promise<{ success: boolean; configuration: AgentConfiguration }> {
-    return api.put(`/api/v1/configurations/${configId}`, {
-      data: updates
-    });
+    return api.put(`/api/v1/configurations/${configId}`, updates);
   },
 
   /**

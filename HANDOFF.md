@@ -346,6 +346,47 @@ whatever gets decided next — read this before re-reading the whole repo.
 > same reason row 8's `vm2` decision did: no infrastructure commitment
 > (hosting compute, code-signing certificates) should be made
 > unilaterally.
+>
+> **Update — 2026-09-14 (follow-up):** Asked to fix the `{ data: {...} }`
+> double-wrapping bug flagged (not fixed) above, as a final pass before
+> merging. It turned out to be far more widespread than that flag
+> described: not just `authApi.ts` and most of `oauthApi.ts`, but also
+> `rcrtApi.ts`/`kbApi`/`grantApi` (7 calls), `configApi.ts`'s
+> `saveConfiguration`/`updateConfiguration`, `memoryAPI.ts`'s cloud
+> backup, and one inline call each in `PlatformSettings.tsx` and
+> `GoldTierDashboard.tsx` -- 23 call sites across 8 files, all sending
+> `{"data": {...}}` to routes that do a plain `const { x } = req.body`,
+> reading every field as `undefined`. The worst of these:
+> `configApi.saveConfiguration` is the actual save call behind the
+> product's core "answer 7 questions, save your agent" flow
+> (`GuidedDiscoveryWizard.tsx`/`ConfigPreview.tsx`) -- it 400'd with
+> "Configuration name cannot be empty" on every real attempt, and
+> `updateConfiguration` (Dashboard.tsx's agent editor) the same way.
+> `oauthApi`'s wallet-signature OAuth flows (register app, approve
+> authorization, sandbox creation/tokens, enterprise org upsert) were
+> similarly broken wherever `OAuthAuthorize.tsx`/`DeveloperPortal.tsx`
+> actually called them -- not dead code, live and broken. Fixed all 23
+> by sending the intended object directly (`api.post`'s second argument
+> already *is* the body -- no wrapper needed), plus one call
+> (`updatePermissionScopes`) that was also missing its `scopes` key
+> entirely under the wrapper. Two call sites remain non-functional for
+> an unrelated, separate reason found along the way and deliberately not
+> fixed: `rcrtApi.refreshToken`/`scanContent` call
+> `POST /api/v1/rcrt/{refresh,scan}`, and no such route exists anywhere
+> in `packages/registry` -- a 404 regardless of body shape. Building
+> those routes is new backend work, not a wrapping fix, and neither
+> method is called anywhere in the live app today (verified by
+> search), so left as a documented gap rather than invented here.
+> Verified, not just typed: `tsc --noEmit` and `vite build` both clean,
+> and 19 new regression tests (`authApi.test.ts`, `configApi.test.ts`,
+> `oauthApi.test.ts`, `rcrtApi.test.ts`) each asserting the exact flat
+> body now sent, on top of the existing 48 (67/67 total, 16/16 files).
+> Backend untouched by this pass -- still 34/34 suites, 205/205 tests.
+> `docs/ENTERPRISE_RAG_IDENTITY.md`'s "Found, not fixed" section (the
+> origin of this flag) should be read as resolved by this update rather
+> than edited to remove the finding -- the record of what was found and
+> why it was deferred stays accurate; this note is where the resolution
+> lives.
 
 ## TL;DR
 

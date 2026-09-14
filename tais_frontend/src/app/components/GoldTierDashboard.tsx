@@ -346,9 +346,7 @@ function KnowledgeBaseSection({ address }: { address: string }) {
      if (!newInsight.title.trim() || !newInsight.content.trim()) return;
      setIsSubmitting(true);
      try {
-       const data = await api.post<any>('/api/v1/cto/insights', {
-         data: { ...newInsight, walletAddress: address }
-       });
+       const data = await api.post<any>('/api/v1/cto/insights', { ...newInsight, walletAddress: address });
        toast.success('Insight saved to knowledge base!');
        setShowAddForm(false);
        setNewInsight({ title: '', content: '', category: 'lessons-learned' });
@@ -719,11 +717,9 @@ function CTOAgentSection({ address }: { address: string }) {
       setIsCreating(true);
       try {
         const data = await api.post<any>(`/api/v1/cto/projects`, {
-          data: {
-            wallet: address,
-            name: newProjectName,
-            description: newProjectDesc
-          }
+          wallet: address,
+          name: newProjectName,
+          description: newProjectDesc
         });
         toast.success('Project created!');
         setNewProjectName('');
