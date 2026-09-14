@@ -145,16 +145,14 @@ export function PlatformSettingsPage({ onBack }: { onBack: () => void }) {
            const token = localStorage.getItem('auth_token');
            if (token) {
              await api.patch('/api/v1/auth/memory-preferences', {
-               data: {
-                 reportFrequency: settings.memoryReports.frequency,
-                 includeDriftStats: settings.memoryReports.includeDriftStats,
-                 includeUsagePatterns: settings.memoryReports.includeUsagePatterns,
-                 includeAppUsage: settings.memoryReports.includeAppUsage,
-                 includeRagPools: settings.memoryReports.includeRagPools,
-                 includeAlignmentIndex: settings.memoryReports.includeAlignmentIndex,
-                 notifyOnFlag: settings.memoryReports.notifyOnFlag,
-                 notifyOnDrift: settings.memoryReports.notifyOnDrift,
-               }
+               reportFrequency: settings.memoryReports.frequency,
+               includeDriftStats: settings.memoryReports.includeDriftStats,
+               includeUsagePatterns: settings.memoryReports.includeUsagePatterns,
+               includeAppUsage: settings.memoryReports.includeAppUsage,
+               includeRagPools: settings.memoryReports.includeRagPools,
+               includeAlignmentIndex: settings.memoryReports.includeAlignmentIndex,
+               notifyOnFlag: settings.memoryReports.notifyOnFlag,
+               notifyOnDrift: settings.memoryReports.notifyOnDrift,
              });
            }
          } catch (e) {

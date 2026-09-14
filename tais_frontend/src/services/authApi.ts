@@ -19,18 +19,19 @@ export const authApi = {
    * Get nonce for wallet signature
    */
   async getNonce(walletAddress: string): Promise<NonceResponse> {
-    return api.post<NonceResponse>('/api/v1/auth/nonce', { 
-      data: { walletAddress } 
-    });
+    // api.post's second argument IS the request body -- wrapping it in
+    // { data: ... } sent { data: { walletAddress } } instead of
+    // { walletAddress }, which routes/auth.ts's POST /nonce (a plain
+    // `const { walletAddress } = req.body`) read as undefined, always
+    // failing wallet login's first step with "Invalid wallet address".
+    return api.post<NonceResponse>('/api/v1/auth/nonce', { walletAddress });
   },
 
   /**
    * Authenticate with wallet signature
    */
   async login(walletAddress: string, signature: string, nonce: string): Promise<AuthResponse> {
-    const result = await api.post<AuthResponse>('/api/v1/auth/login', { 
-      data: { walletAddress, signature, nonce } 
-    });
+    const result = await api.post<AuthResponse>('/api/v1/auth/login', { walletAddress, signature, nonce });
     
     // Store token and wallet in localStorage
     localStorage.setItem('auth_token', result.token);

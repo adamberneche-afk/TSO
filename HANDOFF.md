@@ -219,6 +219,174 @@ whatever gets decided next — read this before re-reading the whole repo.
 > existing `/agent/chat` logic scoped to one `AgentConfiguration`), just
 > not in scope for this pass. `docs/DOCS_VS_CODEBASE.md` now stands at
 > **19 BUILT · 3 PARTIAL · 2 NOT BUILT** of 24.
+>
+> **Update — 2026-09-13:** Asked to build out row 14's remaining
+> Enterprise RAG half (org CRUD, invite-only membership, role-gated
+> management, org-scoped RAG document routes), with one explicit
+> constraint: no blockchain infrastructure -- an enterprise member should
+> never need to install or manage a crypto wallet. Three ways to remove
+> that requirement were weighed (a real server-custodied wallet keypair;
+> an outsourced embedded-wallet vendor like Privy/Web3Auth; a fully
+> parallel non-wallet identity system touching every `walletAddress`-keyed
+> table and auth middleware) before landing on the one actually built: a
+> deterministic, non-signable pseudo-address derived from an email/
+> password account (`services/emailIdentity.ts`), satisfying every
+> existing `walletAddress` column and the JWT pipeline with zero changes
+> anywhere else -- no private key ever exists, nothing is custodied,
+> nothing touches a chain. See `docs/ENTERPRISE_RAG_IDENTITY.md` for the
+> full design writeup and the reasoning against the other two options.
+> Built: `EmailIdentity`/`PasswordResetToken`/`OrganizationInvitation`
+> Prisma models (their own migration, `20260913225431_enterprise_rag_
+> email_identity`); org CRUD, invitation create/preview/accept, member
+> list/role-change/remove (`routes/orgs.ts`); email login/forgot/reset-
+> password (`routes/emailAuth.ts`); `routes/rag.ts`'s document upload and
+> delete extended to accept/moderate org-scoped documents, resolving the
+> org-document encryption/access-boundary question `docs/
+> ENTERPRISE_RAG_DATA_MODEL.md` had deliberately left open, as its own
+> option (a) -- app-layer `OrganizationMember` checks over the existing
+> community-key encryption, no new crypto needed. Full e2e coverage of
+> the invite -> accept -> login -> role-gated-action lifecycle. Also
+> fixed, because it was blocking a clean migration for this work: a
+> pre-existing, unrelated schema-drift bug flagged in the 2026-09-12
+> update above but not fixed there -- `GitHubToken` was a real, migrated-
+> looking model in `schema.prisma` with no actual migration ever
+> generated for it -- given its own dedicated migration
+> (`20260913220000_add_github_tokens`) rather than folded into this
+> feature's. **Deliberately not built:** a `tais_frontend` UI -- every
+> route above is real and tested at the API level, but nothing is
+> clickable yet; this is genuinely the one remaining gap for row 14.
+> SSO/SAML/OIDC was also deliberately left out of scope, as a distinct,
+> materially larger effort layered on top of the same
+> `OrganizationMember` model rather than a prerequisite for it. `docs/
+> DOCS_VS_CODEBASE.md`'s BUILT/PARTIAL/NOT BUILT counts are unchanged (row
+> 14 stays PARTIAL, now solely for the missing UI) -- see its row 14 and
+> the updated narrative paragraph for the detail.
+>
+> **Update — 2026-09-13 (same-day follow-up):** Asked to build the
+> frontend UI for the Enterprise RAG work above. Built, under
+> `tais_frontend/src/app/components/enterprise/`: email sign-in/forgot/
+> reset-password screens with no wallet-connect button anywhere; the
+> invitation-accept landing page an invite email's link points at; an
+> org dashboard (member list with role change/removal and an
+> invite-by-email form, both gated to owner/admin, plus a document
+> panel: list, share, view/decrypt, delete); and an admin-only
+> org-provisioning screen -- the one part of this feature that
+> legitimately still uses the existing wallet-connect flow, since
+> creating an org is a platform-admin action. `useEnterpriseAuth.ts`/
+> `enterpriseAuthApi.ts` deliberately parallel `useWallet.ts`/`authApi.ts`
+> rather than reusing them (restoring a session here never checks
+> `window.ethereum`), but store the JWT under the exact same
+> `localStorage` keys the wallet flow uses, so every existing API call
+> in the app already attaches it unchanged. Document upload/view
+> deliberately bypasses `services/rag/publicRAGClient.ts` (which
+> requires a connected wallet just to derive its encryption key) for the
+> existing `POST /rag/community/encrypt`/`/decrypt` endpoints instead --
+> the community-key design the data model doc already settled on needs
+> no wallet at all. Needed one small backend addition once the UI
+> exposed the gap: `GET /api/v1/orgs` ("which org(s) is the caller a
+> member of" -- there was no way to answer that after a plain login,
+> only right after accepting an invitation), plus extending
+> `GET /:orgId/rag/documents` to include the ciphertext/iv/salt a
+> member's client needs to decrypt-on-view. All of it e2e/unit-tested (5
+> new backend assertions, 16 new frontend tests) and verified against a
+> real build (`tsc --noEmit`, `vite build`, both clean) -- not just typed
+> and hoped for. **Row 14 is now fully BUILT**; `docs/DOCS_VS_CODEBASE.md`
+> now stands at **20 BUILT · 2 PARTIAL · 2 NOT BUILT** of 24. **Found,
+> not fixed:** while building this, `authApi.ts`'s wallet-signature
+> login and most of `oauthApi.ts` turned out to double-wrap their
+> request bodies as `{ data: {...} }` when `api.post`'s second argument
+> *is* the body -- the exact bug row 22's `registryClient.publishSkill`
+> fix (above) already found and fixed once, apparently never
+> generalized to the rest of the API client. This session's own new
+> code deliberately doesn't repeat it, but did not fix the pre-existing
+> instances: doing so blind, with no real browser/MetaMask available in
+> this environment to verify a wallet-login fix against, is a
+> materially riskier change than this pass's scope -- and wallet login
+> is the platform's *primary* auth path, so a blind fix that's subtly
+> wrong would be worse than leaving it flagged. See `docs/
+> ENTERPRISE_RAG_IDENTITY.md`'s "Found, not fixed" section; this is
+> worth a dedicated follow-up session with real end-to-end verification.
+>
+> **Update — 2026-09-14:** Asked to "put the skills marketplace
+> together" -- interpreted as row 22's Agent Marketplace half (the
+> actual named PARTIAL capability; there's no separately-tracked "skill
+> marketplace" concept, and skill publishing itself was already BUILT).
+> Built on top of the existing, migrated `AgentListing` data model:
+> `routes/agentListings.ts` (public browse/search, create/update/
+> withdraw a listing, an install flow), moderation added to
+> `routes/admin.ts` mirroring the existing Skill block/unblock/verify
+> pattern exactly (approve/reject/suspend, each requiring a reason), and
+> a `tais_frontend/src/app/components/marketplace/` UI (browse grid with
+> an Install button, a "My Listings" publish/edit/withdraw panel, an
+> admin moderation queue). Resolved the three open questions
+> `docs/AGENT_MARKETPLACE_DATA_MODEL.md` had left open: who can list an
+> agent (whoever already owns the configuration -- no new gating needed,
+> since creating an `AgentConfiguration` at all already requires THINK
+> NFT ownership); what "installing" means (copying the configuration
+> into the installer's own, reusing the existing, already-tested
+> `saveConfiguration()` rather than any live-hosting concept, which
+> stays properly out of scope alongside row 22's other undecided
+> infrastructure pieces); what moderating a listing checks (an
+> application-layer human judgment call, not a scanning engine -- a
+> listing has no executable content the way a Skill package does).
+> Added one small endpoint neither this nor the pre-existing Skill
+> moderation flow had before: `GET /admin/agent-listings?status=`, a
+> real moderation queue -- both `GET /skills` and `GET /agent-listings`
+> had only ever hardcoded `status: 'APPROVED'` for public browsing, with
+> no way for an admin to discover what's waiting on a decision except
+> already knowing an id. Editing an approved listing now resets it to
+> `PENDING` for re-review. Verified against a real Postgres instance and
+> a real frontend build, not just typed: `tsc --noEmit` and `vite build`
+> both clean on both packages, 34/34 backend test suites (205/205
+> tests, 6 new for this pass) and 12/12 frontend test files (48/48
+> tests, 7 new) all passing. `docs/DOCS_VS_CODEBASE.md`'s counts are
+> unchanged (20 BUILT · 2 PARTIAL · 2 NOT BUILT) -- row 22 stays PARTIAL,
+> now solely for its still-undecided web-deployment/desktop-packaging/
+> API-generation pieces, which this pass deliberately left alone for the
+> same reason row 8's `vm2` decision did: no infrastructure commitment
+> (hosting compute, code-signing certificates) should be made
+> unilaterally.
+>
+> **Update — 2026-09-14 (follow-up):** Asked to fix the `{ data: {...} }`
+> double-wrapping bug flagged (not fixed) above, as a final pass before
+> merging. It turned out to be far more widespread than that flag
+> described: not just `authApi.ts` and most of `oauthApi.ts`, but also
+> `rcrtApi.ts`/`kbApi`/`grantApi` (7 calls), `configApi.ts`'s
+> `saveConfiguration`/`updateConfiguration`, `memoryAPI.ts`'s cloud
+> backup, and one inline call each in `PlatformSettings.tsx` and
+> `GoldTierDashboard.tsx` -- 23 call sites across 8 files, all sending
+> `{"data": {...}}` to routes that do a plain `const { x } = req.body`,
+> reading every field as `undefined`. The worst of these:
+> `configApi.saveConfiguration` is the actual save call behind the
+> product's core "answer 7 questions, save your agent" flow
+> (`GuidedDiscoveryWizard.tsx`/`ConfigPreview.tsx`) -- it 400'd with
+> "Configuration name cannot be empty" on every real attempt, and
+> `updateConfiguration` (Dashboard.tsx's agent editor) the same way.
+> `oauthApi`'s wallet-signature OAuth flows (register app, approve
+> authorization, sandbox creation/tokens, enterprise org upsert) were
+> similarly broken wherever `OAuthAuthorize.tsx`/`DeveloperPortal.tsx`
+> actually called them -- not dead code, live and broken. Fixed all 23
+> by sending the intended object directly (`api.post`'s second argument
+> already *is* the body -- no wrapper needed), plus one call
+> (`updatePermissionScopes`) that was also missing its `scopes` key
+> entirely under the wrapper. Two call sites remain non-functional for
+> an unrelated, separate reason found along the way and deliberately not
+> fixed: `rcrtApi.refreshToken`/`scanContent` call
+> `POST /api/v1/rcrt/{refresh,scan}`, and no such route exists anywhere
+> in `packages/registry` -- a 404 regardless of body shape. Building
+> those routes is new backend work, not a wrapping fix, and neither
+> method is called anywhere in the live app today (verified by
+> search), so left as a documented gap rather than invented here.
+> Verified, not just typed: `tsc --noEmit` and `vite build` both clean,
+> and 19 new regression tests (`authApi.test.ts`, `configApi.test.ts`,
+> `oauthApi.test.ts`, `rcrtApi.test.ts`) each asserting the exact flat
+> body now sent, on top of the existing 48 (67/67 total, 16/16 files).
+> Backend untouched by this pass -- still 34/34 suites, 205/205 tests.
+> `docs/ENTERPRISE_RAG_IDENTITY.md`'s "Found, not fixed" section (the
+> origin of this flag) should be read as resolved by this update rather
+> than edited to remove the finding -- the record of what was found and
+> why it was deferred stays accurate; this note is where the resolution
+> lives.
 
 ## TL;DR
 

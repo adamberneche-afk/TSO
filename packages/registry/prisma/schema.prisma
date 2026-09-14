@@ -479,6 +479,7 @@ model Organization {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   members     OrganizationMember[]
+  invitations OrganizationInvitation[]
   documents   RAGDocument[]
 
   @@index([slug])
@@ -491,6 +492,11 @@ model Organization {
 //        moderate (delete) any org document, not just their own.
 // MEMBER: upload documents to the org and read every org document;
 //         cannot manage membership or moderate others' documents.
+//
+// "walletAddress" here may be a real wallet or an EmailIdentity's
+// deterministic pseudo-address (see EmailIdentity below) -- this table
+// doesn't need to know or care which, since both authenticate to the
+// exact same {walletAddress} JWT shape.
 model OrganizationMember {
   id             String           @id @default(uuid())
   organizationId String           @map("organization_id")
@@ -506,6 +512,86 @@ model OrganizationMember {
   @@index([organizationId])
   @@index([walletAddress])
   @@map("organization_members")
+}
+
+// ============================================
+// Enterprise RAG -- email/password identity
+// (docs/ENTERPRISE_RAG_IDENTITY.md; built to remove the "must install a
+// crypto wallet" adoption blocker for enterprise org members, without
+// requiring any blockchain infrastructure.)
+// ============================================
+
+// A password-authenticated identity for org members who don't have a
+// wallet. `walletAddress` is NOT a real wallet -- no private key is ever
+// generated, held, or exists anywhere for it. It's a deterministic,
+// non-signable identifier derived from the email
+// (services/emailIdentity.ts's deriveWalletAddressForEmail: a
+// domain-separated keccak256 hash of the lowercased email, checksummed
+// like a normal address), which is what lets every existing
+// wallet-keyed table (OrganizationMember, RAGDocument, ...) and the
+// existing JWT/authMiddleware pipeline work completely unchanged for
+// these accounts -- routes/emailAuth.ts's login just calls the same
+// AuthService.generateToken(walletAddress) a real wallet-signature login
+// uses. These accounts are scoped to Enterprise RAG only: they hold no
+// NFTs and are not expected to hit NFT-gated routes (skill publishing,
+// audits) or own a Skill/AgentConfiguration.
+model EmailIdentity {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  walletAddress String    @unique @map("wallet_address")
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  lastLoginAt   DateTime? @map("last_login_at")
+
+  @@index([walletAddress])
+  @@map("email_identities")
+}
+
+// Single-use, hashed (never stored raw) password-reset token, mirroring
+// the AuthNonce/ApiKey/TokenBlacklist convention of only ever persisting
+// a sha256 hash of a secret handed to the client.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  email     String
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([email])
+  @@map("password_reset_tokens")
+}
+
+// Org membership is invite-only -- there is no self-serve "join an org"
+// or "create your own org" flow. An OWNER/ADMIN invites by email; the
+// recipient accepts via a one-time token, which creates their
+// EmailIdentity (if they don't already have one -- an existing member
+// invited a second time, or a wallet-holding user invited by email,
+// reuses their existing identity) and their OrganizationMember row in
+// the same step (see routes/orgs.ts). Re-inviting the same email to the
+// same org (after removal, or before the first invite was accepted)
+// reuses this row via upsert rather than erroring on the unique
+// constraint below.
+model OrganizationInvitation {
+  id             String           @id @default(uuid())
+  organizationId String           @map("organization_id")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  email          String
+  role           OrganizationRole @default(MEMBER)
+  invitedBy      String           @map("invited_by") // wallet address (real or pseudo) of the inviting admin/owner
+  tokenHash      String           @unique @map("token_hash")
+
+  expiresAt      DateTime         @map("expires_at")
+  acceptedAt     DateTime?        @map("accepted_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([email])
+  @@map("organization_invitations")
 }
 
 // RAG Chunk - Individual chunks of documents with embedding hashes

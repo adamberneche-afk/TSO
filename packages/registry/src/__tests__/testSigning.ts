@@ -107,3 +107,26 @@ export async function completeOAuthFlow(
 
   return { accessToken: tokenResponse.body.access_token, refreshToken: tokenResponse.body.refresh_token };
 }
+
+/**
+ * Drives the real nonce -> sign -> login round trip (routes/auth.ts)
+ * end to end and returns a genuinely issued platform JWT, for e2e suites
+ * that need to act as an authenticated wallet against any
+ * authMiddleware-protected route (not just OAuth/agent ones).
+ */
+export async function loginWithWallet(app: import('express').Express, wallet: ethers.Wallet): Promise<string> {
+  const nonceResponse = await request(app).post('/api/v1/auth/nonce').send({ walletAddress: wallet.address });
+  if (nonceResponse.status !== 200) {
+    throw new Error(`loginWithWallet: /nonce failed (${nonceResponse.status}): ${JSON.stringify(nonceResponse.body)}`);
+  }
+  const { nonce } = nonceResponse.body;
+  const signature = await wallet.signMessage(`${process.env.AUTH_SIGNATURE_MESSAGE || 'TAIS Platform Authentication'}\n\nNonce: ${nonce}`);
+
+  const loginResponse = await request(app)
+    .post('/api/v1/auth/login')
+    .send({ walletAddress: wallet.address, signature, nonce });
+  if (loginResponse.status !== 200) {
+    throw new Error(`loginWithWallet: /login failed (${loginResponse.status}): ${JSON.stringify(loginResponse.body)}`);
+  }
+  return loginResponse.body.token;
+}

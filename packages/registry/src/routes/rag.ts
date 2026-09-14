@@ -43,7 +43,11 @@ const uploadDocumentSchema = z.object({
   ownerPublicKey: z.string(),
   tags: z.array(z.string()).default([]),
   isPublic: z.boolean().default(false),
-  chunks: z.array(uploadChunkSchema).default([])
+  chunks: z.array(uploadChunkSchema).default([]),
+  // Enterprise RAG (docs/ENTERPRISE_RAG_DATA_MODEL.md): sharing with an
+  // org the caller belongs to, independent of isPublic -- see the
+  // membership check in the handler below.
+  organizationId: z.string().uuid().optional()
 });
 
 const searchSchema = z.object({
@@ -194,7 +198,19 @@ router.post('/documents', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
     
-    const { encryptedData, encryptedMetadata, iv, salt, ownerPublicKey, tags, isPublic, chunks = [] } = validation.data;
+    const { encryptedData, encryptedMetadata, iv, salt, ownerPublicKey, tags, isPublic, chunks = [], organizationId } = validation.data;
+
+    if (organizationId) {
+      const membership = await req.prisma.organizationMember.findUnique({
+        where: { organizationId_walletAddress: { organizationId, walletAddress: walletAddress.toLowerCase() } }
+      });
+      if (!membership) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'You are not a member of this organization'
+        });
+      }
+    }
 
     // The server never sees plaintext title -- it's inside encryptedMetadata,
     // which only the owner (or, for public docs, anyone holding the shared
@@ -211,6 +227,7 @@ router.post('/documents', async (req: AuthenticatedRequest, res: Response) => {
         title: null,
         isPublic,
         tags,
+        organizationId,
         size: Buffer.byteLength(encryptedData, 'utf8'),
         chunkCount: chunks.length
       }
@@ -236,6 +253,7 @@ router.post('/documents', async (req: AuthenticatedRequest, res: Response) => {
       title: document.title,
       isPublic: document.isPublic,
       tags: document.tags,
+      organizationId: document.organizationId,
       size: document.size,
       chunkCount: document.chunkCount,
       createdAt: document.createdAt
@@ -596,14 +614,27 @@ router.delete('/documents/:documentId', async (req: AuthenticatedRequest, res: R
       });
     }
     
-    // Check if user owns the document
-    if (document.walletAddress?.toLowerCase() !== walletAddress.toLowerCase()) {
+    // The uploader can always delete their own document. Failing that,
+    // an org ADMIN/OWNER can moderate (delete) any document shared with
+    // their organization -- per OrganizationMember's role comments, this
+    // is exactly the "moderate any org document" power those roles are
+    // documented to have, not something a plain MEMBER gets.
+    const isOwner = document.walletAddress?.toLowerCase() === walletAddress.toLowerCase();
+    let isOrgModerator = false;
+    if (!isOwner && document.organizationId) {
+      const membership = await req.prisma.organizationMember.findUnique({
+        where: { organizationId_walletAddress: { organizationId: document.organizationId, walletAddress: walletAddress.toLowerCase() } }
+      });
+      isOrgModerator = membership?.role === 'ADMIN' || membership?.role === 'OWNER';
+    }
+
+    if (!isOwner && !isOrgModerator) {
       return res.status(403).json({
         error: 'Access denied',
         message: 'You do not have permission to delete this document'
       });
     }
-    
+
     // Delete chunks first (due to foreign key constraint)
     await req.prisma.rAGChunk.deleteMany({
       where: { documentId: documentId }
