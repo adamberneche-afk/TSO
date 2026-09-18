@@ -387,6 +387,78 @@ whatever gets decided next — read this before re-reading the whole repo.
 > than edited to remove the finding -- the record of what was found and
 > why it was deferred stays accurate; this note is where the resolution
 > lives.
+>
+> **Update — 2026-09-18:** Sprint-planned the path from "code is ready" to
+> a confirmed live deployment, then started the recon (Sprint 0) and
+> repo-only infrastructure-truth work (Sprint 1) from that plan. This
+> session has no network egress to Render or Vercel's dashboards, so
+> everything below is what's determinable from GitHub's own record --
+> confirming the database/service are actually still alive, applying
+> migrations, and taking a backup all still need a human with dashboard
+> access before this goes further.
+>
+> **Recon finding:** every run of `.github/workflows/deploy.yml`'s
+> `deploy` job on `main`, back through the oldest one still in Actions
+> history (2026-02-24), has failed at the `vercel pull` step --
+> completing in under a second, consistent with a missing or invalid
+> `VERCEL_TOKEN` secret or a project that's no longer linked. The `test`
+> job passes every time; only the push to Vercel fails. Two explanations
+> both fit `taisplatform.vercel.app` having been live in `docs/
+> E2E_TEST_REPORT.md`: either Vercel's own native Git integration deploys
+> independently of this workflow (making this workflow a broken,
+> redundant duplicate), or it's the only deploy path and the frontend has
+> not received a single CI-driven deploy since at least February --
+> meaning roughly seven months of merges to `main`, Enterprise RAG and
+> the Agent Marketplace included, may never have reached production.
+> **Needs a human with Vercel dashboard access to tell which** -- this
+> session cannot reach vercel.com to check.
+>
+> **Also found, reading source rather than docs, while building the env
+> reference below:** `render.yaml`'s `CORS_ORIGIN: "*"` cannot be what
+> the live Render service is actually running with -- `config/cors.ts`
+> treats `CORS_ORIGIN` as a literal comma-separated origin list, not a
+> wildcard, so a literal `"*"` would reject every real browser origin
+> outright rather than allow all of them, which contradicts `docs/
+> E2E_TEST_REPORT.md`'s own recorded CORS results against a real frontend
+> origin. `render.yaml` was already known to be documentation rather than
+> the live config source (per `DEPLOYMENT.md`); this confirms the drift
+> extends to values that would break the service if actually applied, not
+> just cosmetic ones. Separately: `services/githubToken.ts` falls back to
+> a **hardcoded** encryption key (visible in this repo's own source)
+> whenever `GITHUB_TOKEN_ENCRYPTION_KEY` is unset, and no deployment doc
+> or `render.yaml` revision has ever provisioned that variable -- given
+> `GitHubToken`'s migration (`20260913220000_add_github_tokens`) is now
+> live per the 2026-09-13 update above, this is a real, current gap if
+> that code path is reachable in production, not a theoretical one. And
+> `MONITORING.md`'s documented `REDIS_URL`/Upstash caching layer has zero
+> matches for `REDIS` anywhere in `packages/registry/src` despite
+> `ioredis` being a listed dependency -- the doc describes wiring that
+> either never happened or was since removed; treat it as unverified
+> rather than working until someone traces it further.
+>
+> **Fixed this pass (repo-only -- nothing deployed or touched outside
+> GitHub):** `render.yaml`'s placeholder `repo:` URL; `CORS_ORIGIN` set to
+> the one known production frontend origin, flagged pending dashboard
+> confirmation; `IPFS_ENABLED` set to `false` (its credentials were never
+> actually provisioned, so it was silently erroring rather than working,
+> per `docs/E2E_TEST_REPORT.md`'s own "IPFS: error" finding) with
+> `ENABLE_IPFS_STORAGE`/`ENABLE_FIAT_PAYMENTS` flagged as read nowhere in
+> `packages/registry/src` as of this pass. Added `packages/registry/
+> .env.production.example`, built by grepping every `process.env.*`
+> reference in `packages/registry/src` directly rather than transcribing
+> the four docs (`DEPLOYMENT.md`, `PREFLIGHT.md`, `MONITORING.md`,
+> `render.yaml`) that had each drifted into their own partial list --
+> `GITHUB_TOKEN_ENCRYPTION_KEY` called out there as effectively required,
+> not optional.
+>
+> **Not done, deliberately, pending human dashboard access:** confirming
+> the Render service/Postgres and Vercel project are still alive on the
+> intended plan; applying pending Prisma migrations and taking a backup;
+> everything in the later sprints (a real predeploy CI gate, a fresh E2E
+> report, Sentry/alerting/Redis wiring, the Render tier upgrade, and the
+> seven still-open Dependabot PRs). None of it is safe to do blind
+> against infrastructure this session cannot reach or confirm is still
+> the live target.
 
 ## TL;DR
 
