@@ -10,6 +10,11 @@ on:
 jobs:
   doctor:
     runs-on: ubuntu-latest
+    # Only checks out and calls Vercel's own API (not GitHub's) -- no GitHub
+    # API calls, no artifacts -- so GITHUB_TOKEN needs nothing beyond
+    # reading repo contents.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
 

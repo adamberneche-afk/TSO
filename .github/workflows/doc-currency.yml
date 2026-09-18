@@ -12,6 +12,11 @@ on:
 jobs:
   doc-currency:
     runs-on: ubuntu-latest
+    # Only checks out and runs a local static-analysis script -- no GitHub
+    # API calls, no artifacts -- so GITHUB_TOKEN needs nothing beyond
+    # reading repo contents.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

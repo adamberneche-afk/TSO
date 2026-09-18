@@ -196,9 +196,19 @@ function checkFileCitation(citedPath, allFiles) {
   return allFiles.some((real) => real === citedPath || real.endsWith('/' + citedPath));
 }
 
+// Standard complete regex-metacharacter escape (CodeQL js/incomplete-sanitization
+// flagged an earlier version of this that escaped only `$` -- correct in
+// practice today, since FUNCTION_CITATION_RE already restricts `name` to
+// identifier characters no other metacharacter can reach, but not a real
+// general-purpose escape, which this now actually is regardless of what a
+// caller passes).
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Whole-word match, not substring -- "run" must not match inside "runner".
 function checkFunctionCitation(name, codeCorpus) {
-  const re = new RegExp(`\\b${name.replace(/[$]/g, '\\$')}\\b`);
+  const re = new RegExp(`\\b${escapeRegExp(name)}\\b`);
   return codeCorpus.some((f) => re.test(f.content));
 }
 
