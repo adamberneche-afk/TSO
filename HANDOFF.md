@@ -576,6 +576,45 @@ whatever gets decided next — read this before re-reading the whole repo.
 > 2026-09-18 update: whether Vercel's deploys have truly been broken this
 > whole time, or its native Git integration has been deploying
 > independently of the failing Action.
+>
+> **Update — 2026-09-18 (third follow-up):** Ported one more piece of
+> KOS/Mothership's deployment tooling: `doctor` -- Mothership's
+> `scripts/doctor.js`, which exists because `GLOBAL_GITHUB_TOKEN` was found
+> silently invalid through 5 straight scheduled runs and a spoke had been
+> failing 100+ runs on a secret that was never set, both checkable in
+> under a second by something that actually asked. TSO's version
+> (`tools/doctor/check.js`, `.github/workflows/doctor.yml`,
+> `tests/doctor.test.js`) checks the four GitHub Actions secrets this repo's
+> workflows actually reference (`grep -rhoE "secrets\.[A-Z_0-9]+"
+> .github/workflows/*.yml`, not guessed): `VERCEL_TOKEN` gets a real,
+> read-only validity probe (`GET https://api.vercel.com/v2/user`) --
+> the one thing in this file that can actually confirm the exact failure
+> `deploy-drift`'s still-open question is pointing at, rather than
+> inferring it from a failing build step three layers away.
+> `VERCEL_URL`/`VERCEL_BYPASS_TOKEN` (call-hub.yml's target -- TSO turns
+> out to be a registered Mothership spoke, confirmed by reading
+> call-hub.yml's own `POST ${VERCEL_URL}/api/autonomous_agent` call
+> against Mothership's real `api/autonomous_agent.js`) and `CRON_SECRET`
+> (weekly-insights.yml's auth to `/admin/cron/weekly-insights`) get
+> presence-only checks, deliberately not exercised live -- both guard a
+> real side effect (a live Mothership agent review; a real weekly-insights
+> email), so firing either just to validate a secret would trade one
+> problem for a worse one. `workflow_dispatch`-only, no schedule, same
+> reasoning `tools/watchdog/check.js` and Mothership's own `doctor.yml`
+> already give: adding a *scheduled* job here risks the exact
+> failing-silently-unwatched failure mode this tool exists to catch.
+>
+> Verified for real: 13 new tests (`tests/doctor.test.js`, injectable
+> fetch, no real network dependency) plus a live local run against the
+> real `api.vercel.com` with a deliberately garbage token, which came back
+> a real `403` end-to-end -- not just asserted against a mock. Root suite
+> now 52/52. Workflow file passes `actionlint`.
+>
+> `coverage-gaps` (scheduled-job test-coverage) and a narrow `doc-currency`
+> (catching a doc that names a function/route no longer in source) are the
+> two KOS/Mothership concepts flagged as worth adapting next but not yet
+> built -- see the conversation this pass came from for the full reasoning
+> on each.
 
 ## TL;DR
 
