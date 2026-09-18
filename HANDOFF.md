@@ -660,6 +660,77 @@ whatever gets decided next — read this before re-reading the whole repo.
 > A narrow `doc-currency` (catching a doc that names a function/route no
 > longer in source) remains the one flagged-but-unbuilt concept from the
 > original KOS/Mothership review.
+>
+> **Update — 2026-09-18 (fifth follow-up):** Ported `doc-currency` --
+> narrowly, as flagged: only KOS's check 1 (a doc names a backticked
+> function/file gone from source), not the full 14-check version built for
+> an Apps Script codebase's addendum files and blocked-GCP-surface prose.
+> `tools/doc-currency/check.js` checks two things: a backticked,
+> slash-containing file path that doesn't exist anywhere in the repo, and a
+> backticked bare `identifier(...)` call that appears nowhere in actual
+> code (any occurrence counts, not just a declaration -- if a name is truly
+> gone, it won't appear anywhere, including at a call site).
+>
+> **The first real run found ~90 apparent findings, and nearly all of them
+> were a bug in the tool, not the docs.** This repo's own convention is to
+> cite a file relative to its own package's `src/` (a doc under
+> `packages/registry/` writing `` `routes/skills.ts` `` to mean
+> `packages/registry/src/routes/skills.ts`), not the monorepo root --
+> resolving only against repo root flagged the large majority of
+> `docs/DOCS_VS_CODEBASE.md`'s own citations, every one of them a real,
+> current file once traced by hand. Fixed by accepting a path-boundary-safe
+> SUFFIX match against any real file in the repo, not just an exact
+> root-relative one -- the same "false conflict on every run is how a check
+> gets muted" reasoning `gas-lint`'s own column-map check already
+> documents. Also excluded, beyond KOS's own CHANGELOG/HISTORY precedent:
+> any doc filename containing a 4-digit year (a point-in-time snapshot,
+> same signal as an explicit CHANGELOG name) and `docs/*_PLAN.md`/
+> `*_PRD.md` -- HANDOFF.md's own "Key documents to read next" section
+> already names these as non-authoritative vision docs, in this repo's own
+> words, honored here rather than re-derived.
+>
+> One tool bug found along the way and fixed: the file-existence check was
+> built on the same `EXCLUDE_DIRS` list used to decide which docs/code to
+> *scan*, which also excludes `archive/` -- so a real, legitimate citation
+> of `archive/outdated/NORTH_STAR.md` (a file this very HANDOFF.md points
+> readers at, several sections up) came back "missing" purely because the
+> existence check couldn't see into the directory it was checking against.
+> Split into `GENERATED_DIRS` (excluded everywhere, including existence
+> checks) and `STALE_CONTENT_DIRS` (excluded only from scanning/corpus,
+> never from existence checks) to fix it.
+>
+> That left exactly 3 real findings against the actual repo, and all 3 were
+> genuine, not tool bugs -- but 2 of the 3 were this session's own writing:
+> `tools/deploy-drift/README.md`'s Testing section, written by a prior pass
+> this same session, cited `tests/tools/deploy-drift-expected-marker.test.js`
+> and `tests/tools/deploy-drift-check.test.js` -- KOS's own nested test
+> layout, copied by habit instead of TSO's real, flat
+> `tests/deploy-drift.test.js`. **Fixed the doc**, not just flagged it. The
+> remaining 2 are legitimate cross-system references this tool can't tell
+> apart from a real citation on its own (Mothership's `scripts/deploy-drift.js`,
+> Apps Script's `doGet()` convention, both cited for contrast, not claimed
+> as this repo's own) plus one genuine "create this file, it doesn't exist
+> yet" AWS instruction -- rather than let CI start permanently red on
+> findings that will never resolve (the exact "a check that noisy is worse
+> than none" failure mode `gas-lint`'s own README warns about), added a
+> declared, explicit per-line escape hatch
+> (`<!-- doc-currency:ignore -- why -->`, an invisible HTML comment) and
+> used it on those 3 lines -- same philosophy KOS's own `sandboxScope.allow`
+> uses: reach for it only when the citation is genuinely not this tool's
+> business, and say why right there.
+>
+> Push/PR-gated (`.github/workflows/doc-currency.yml`), same reasoning as
+> `coverage-gaps.yml`: checks static text against static source, so the
+> right moment to catch a regression is before merge.
+>
+> Verified: 25 new tests (`tests/doc-currency.test.js`), a real run against
+> this actual repo confirmed clean (exit 0) after the fixes above -- not
+> just asserted against synthetic fixtures. Root suite 103/103. Workflow
+> passes `actionlint`.
+>
+> **All five KOS/Mothership concepts flagged in the original review are
+> now ported**: `watchdog` (already existed), `deploy-drift`, `doctor`,
+> `coverage-gaps`, `doc-currency`.
 
 ## TL;DR
 

@@ -9,7 +9,8 @@ would have told you that without someone happening to check by hand.
 Ported from the same mechanism already proven in this account's
 [KOS](https://github.com/adamberneche-afk/KOS) (`tools/deploy-drift/`),
 Argoloth, and [Mothership](https://github.com/adamberneche-afk/Mothership)
-(`scripts/deploy-drift.js`) repos — see KOS's own `tools/deploy-drift/README.md`
+(`scripts/deploy-drift.js`) repos <!-- doc-currency:ignore -- Mothership's own file, not this repo's --> —
+see KOS's own `tools/deploy-drift/README.md`
 for the fullest writeup of the underlying idea and the incidents that shaped
 it.
 
@@ -17,7 +18,7 @@ it.
 
 KOS's version pushes: a GAS project self-reports outward via
 `repository_dispatch`, because most of its web apps sit behind Google's own
-sign-in wall — an external poll never even reaches `doGet()`. That's not
+sign-in wall — an external poll never even reaches `doGet()`. <!-- doc-currency:ignore -- Apps Script's own entry-point convention, cited for contrast, not this repo's --> That's not
 true here. Neither Render nor Vercel puts anything in front of the plain
 HTTP endpoints this repo already exposes:
 
@@ -86,10 +87,11 @@ same boundary KOS's own deploy-drift explicitly protects.
 
 ## Testing
 
-- `tests/tools/deploy-drift-expected-marker.test.js` — the git-log
-  wrapper, scoped per service.
-- `tests/tools/deploy-drift-check.test.js` — evaluate/publish logic, with
-  an injectable `fetchImpl` (same convention `tools/watchdog/check.js`
+- `tests/deploy-drift.test.js` — the git-log wrapper (`expected-marker.js`)
+  and the evaluate/publish logic (`check.js`) together, one flat file
+  matching every other root-level tool's test location (`tests/watchdog.test.js`,
+  `tests/doctor.test.js`) rather than KOS's nested `tests/tools/` layout —
+  with an injectable `fetchImpl` (same convention `tools/watchdog/check.js`
   already uses) so no test makes a real network call.
 - `packages/registry/src/__tests__/routes/version.test.ts` — the registry's
   own `/api/version` route.
