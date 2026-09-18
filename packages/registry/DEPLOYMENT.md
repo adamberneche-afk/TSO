@@ -158,7 +158,7 @@ For production-scale deployments, AWS provides the most control.
 
 ### Terraform Configuration
 
-Create `infrastructure/main.tf`:
+Create `infrastructure/main.tf`: <!-- doc-currency:ignore -- to be created in whatever separate AWS setup you're building; the AWS path below is a from-scratch alternative, not what's actually deployed -->
 
 ```hcl
 provider "aws" {

@@ -1,0 +1,32 @@
+name: Coverage gaps
+
+# Push/PR-gated, not scheduled -- unlike watchdog/deploy-drift/doctor, this
+# checks static config (which scheduled scripts have real, CI-reachable
+# tests), not live state, so it belongs where a regression can be caught
+# before it merges. The actual failure mode this tool exists for is "a new
+# scheduled script ships with no test, or a real test gets written but never
+# wired into `npm test`" -- both are things a push/PR check catches at the
+# right moment, not something worth waiting on a clock for.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  coverage-gaps:
+    runs-on: ubuntu-latest
+    # Only checks out and runs a local static-analysis script -- no GitHub
+    # API calls, no artifacts -- so GITHUB_TOKEN needs nothing beyond
+    # reading repo contents (same reasoning deploy.yml's own permissions
+    # block already gives).
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Check every scheduled job's script has real, CI-reachable test coverage
+        run: node tools/coverage-gaps/check.js

@@ -387,6 +387,350 @@ whatever gets decided next — read this before re-reading the whole repo.
 > than edited to remove the finding -- the record of what was found and
 > why it was deferred stays accurate; this note is where the resolution
 > lives.
+>
+> **Update — 2026-09-18:** Sprint-planned the path from "code is ready" to
+> a confirmed live deployment, then started the recon (Sprint 0) and
+> repo-only infrastructure-truth work (Sprint 1) from that plan. This
+> session has no network egress to Render or Vercel's dashboards, so
+> everything below is what's determinable from GitHub's own record --
+> confirming the database/service are actually still alive, applying
+> migrations, and taking a backup all still need a human with dashboard
+> access before this goes further.
+>
+> **Recon finding:** every run of `.github/workflows/deploy.yml`'s
+> `deploy` job on `main`, back through the oldest one still in Actions
+> history (2026-02-24), has failed at the `vercel pull` step --
+> completing in under a second, consistent with a missing or invalid
+> `VERCEL_TOKEN` secret or a project that's no longer linked. The `test`
+> job passes every time; only the push to Vercel fails. Two explanations
+> both fit `taisplatform.vercel.app` having been live in `docs/
+> E2E_TEST_REPORT.md`: either Vercel's own native Git integration deploys
+> independently of this workflow (making this workflow a broken,
+> redundant duplicate), or it's the only deploy path and the frontend has
+> not received a single CI-driven deploy since at least February --
+> meaning roughly seven months of merges to `main`, Enterprise RAG and
+> the Agent Marketplace included, may never have reached production.
+> **Needs a human with Vercel dashboard access to tell which** -- this
+> session cannot reach vercel.com to check.
+>
+> **Also found, reading source rather than docs, while building the env
+> reference below:** `render.yaml`'s `CORS_ORIGIN: "*"` cannot be what
+> the live Render service is actually running with -- `config/cors.ts`
+> treats `CORS_ORIGIN` as a literal comma-separated origin list, not a
+> wildcard, so a literal `"*"` would reject every real browser origin
+> outright rather than allow all of them, which contradicts `docs/
+> E2E_TEST_REPORT.md`'s own recorded CORS results against a real frontend
+> origin. `render.yaml` was already known to be documentation rather than
+> the live config source (per `DEPLOYMENT.md`); this confirms the drift
+> extends to values that would break the service if actually applied, not
+> just cosmetic ones. Separately: `services/githubToken.ts` falls back to
+> a **hardcoded** encryption key (visible in this repo's own source)
+> whenever `GITHUB_TOKEN_ENCRYPTION_KEY` is unset, and no deployment doc
+> or `render.yaml` revision has ever provisioned that variable -- given
+> `GitHubToken`'s migration (`20260913220000_add_github_tokens`) is now
+> live per the 2026-09-13 update above, this is a real, current gap if
+> that code path is reachable in production, not a theoretical one. And
+> `MONITORING.md`'s documented `REDIS_URL`/Upstash caching layer has zero
+> matches for `REDIS` anywhere in `packages/registry/src` despite
+> `ioredis` being a listed dependency -- the doc describes wiring that
+> either never happened or was since removed; treat it as unverified
+> rather than working until someone traces it further.
+>
+> **Fixed this pass (repo-only -- nothing deployed or touched outside
+> GitHub):** `render.yaml`'s placeholder `repo:` URL; `CORS_ORIGIN` set to
+> the one known production frontend origin, flagged pending dashboard
+> confirmation; `IPFS_ENABLED` set to `false` (its credentials were never
+> actually provisioned, so it was silently erroring rather than working,
+> per `docs/E2E_TEST_REPORT.md`'s own "IPFS: error" finding) with
+> `ENABLE_IPFS_STORAGE`/`ENABLE_FIAT_PAYMENTS` flagged as read nowhere in
+> `packages/registry/src` as of this pass. Added `packages/registry/
+> .env.production.example`, built by grepping every `process.env.*`
+> reference in `packages/registry/src` directly rather than transcribing
+> the four docs (`DEPLOYMENT.md`, `PREFLIGHT.md`, `MONITORING.md`,
+> `render.yaml`) that had each drifted into their own partial list --
+> `GITHUB_TOKEN_ENCRYPTION_KEY` called out there as effectively required,
+> not optional.
+>
+> **Not done, deliberately, pending human dashboard access:** confirming
+> the Render service/Postgres and Vercel project are still alive on the
+> intended plan; applying pending Prisma migrations and taking a backup;
+> everything in the later sprints (a real predeploy CI gate, a fresh E2E
+> report, Sentry/alerting/Redis wiring, the Render tier upgrade, and the
+> seven still-open Dependabot PRs). None of it is safe to do blind
+> against infrastructure this session cannot reach or confirm is still
+> the live target.
+>
+> **Update — 2026-09-18 (same-day follow-up):** Continued the relaunch
+> plan into Sprint 4 (dependency hardening) -- the one sprint fully
+> reachable from GitHub access alone, no dashboard needed. Re-triaged all
+> 13 currently-open Dependabot PRs by actually merging each into a local
+> scratch branch and building/testing it (`cargo build` for Rust,
+> `tsc`/`npm test` for TypeScript), rather than trusting either the
+> original 2026-09-06 triage or the PRs' own stale `mergeable_state`.
+>
+> **Merged (8), each verified clean first:** `uuid` 1.26.0→1.26.1 and
+> `actions/cache` 4→6 (both already based on current `main`, GitHub's own
+> `mergeable_state: clean` matched local verification); `dotenv`
+> 16.6.1→17.4.2 (`packages/registry` `tsc` build clean once `@think/types`
+> was built and `prisma generate` run -- the same two-step bootstrap
+> `test.yml` needed per the 2026-09-08 update above); `@radix-ui/react-
+> progress`/`react-dialog`/`react-label` and `tailwind-merge` (all four:
+> `tais_frontend` typecheck clean, 16/16 test files, 67/67 tests); and
+> `electron` 25.9.8→44.2.0 (`packages/core` `tsc --noEmit` clean, 7/7
+> suites, 29/29 tests -- flagged in the merge itself that this only
+> exercises typecheck/unit tests, not an actual packaged-app launch, so a
+> real desktop smoke test is still worth doing before trusting this fully
+> given the 19-major-version jump).
+>
+> **Left open (5), each with a comment giving the current, re-verified
+> reason -- not just re-stating the 2026-09-06 notes:**
+> - `rand` 0.8→0.10 -- `rand::thread_rng()` (removed in 0.10) is still
+>   live in `crates/rcrt-standalone/src/main.rs`, and the PR now also has
+>   a real merge conflict in that same file.
+> - `chalk` 4→6 -- confirmed via `tsconfig.json` (`"module": "commonjs"`)
+>   and all 8 `import chalk from 'chalk'` sites in `packages/cli/src`
+>   that chalk 5+'s ESM-only build would break `require()` at runtime,
+>   not just in theory; also now conflicted in 4 files.
+> - `@sentry/node` 7→10 -- `monitoring/sentry.ts` calls `configureScope`,
+>   removed in Sentry SDK v8; `@sentry/tracing@7` (folded into core in
+>   v8) would ship mismatched regardless. Needs an actual rewrite against
+>   the current SDK surface, which this session can't verify without
+>   network access to the package's real v10 API -- not safe to guess at
+>   for an error-tracking integration.
+> - `typescript` 5.9.3→7.0.2 -- monorepo-wide (root + every workspace
+>   member), two major versions at once, and the branch is stale enough
+>   that its own diff pulls in unrelated deletions of files added to
+>   `main` since its base commit. Deserves a dedicated, rebased pass, not
+>   a blind merge.
+> - `vite` 6→8 -- **worse than risky:** merging this PR as it stands
+>   would silently *downgrade* `ethers` 6→5, `lucide-react` 1.33→0.575,
+>   and `zod` 4→3, and *delete* `@testing-library/react`/`jsdom`/
+>   `vitest` and the `typecheck`/`test` npm scripts from `tais_frontend/
+>   package.json` entirely -- an artifact of how stale the branch has
+>   become, unrelated to vite's own compatibility, which was never
+>   actually re-evaluated because the diff makes it moot. Commented
+>   recommending the PR be closed and Dependabot asked to recreate it
+>   fresh against current `main`, rather than continuing to leave this
+>   specific stale PR open.
+>
+> No repo file changed by this pass except this entry -- the 8 merges
+> were direct PR merges via GitHub, not commits pushed to any working
+> branch. Sprints 0-3's dashboard-gated items (confirming Render/Vercel/
+> Postgres are alive, applying migrations, monitoring wiring, the Render
+> tier upgrade) remain exactly as blocked as the update above describes.
+>
+> **Update — 2026-09-18 (second follow-up):** Reviewed this account's KOS
+> and Mothership repos (separate Google Apps Script projects, unrelated to
+> TSO's own product) specifically for their deployment-integrity tooling,
+> and ported the one piece TSO didn't already have: `deploy-drift`. TSO's
+> own `tools/watchdog/check.js` turned out to already be a port of a KOS
+> tool (its header says so -- "Ported from the same watchdog already
+> running in this account's KOS, Argoloth, and Mothership repos"), and is
+> in fact the most advanced of the three (it added workflow-active-state
+> and cron-staleness detection KOS's original lacks). `deploy-drift` is
+> the other half of that same family: it catches the gap between "what
+> git says `main` should be running" and "what's actually live" -- the
+> exact blind spot the first 2026-09-18 update above hit (the "Deploy to
+> Vercel" Action failing silently at auth since February, with nothing
+> anywhere that would have surfaced that on its own).
+>
+> KOS's version pushes -- a GAS project self-reports its version outward
+> via `repository_dispatch`, because most of its web apps sit behind
+> Google's own sign-in wall and an external poll never reaches them. That
+> constraint doesn't exist here, so this polls instead, which turns out to
+> be a real simplification, not just a port: no committed marker file, no
+> "commit the code, then commit the marker as a separate commit" ritual,
+> and neither deployed service needs to hold a GitHub token of any kind --
+> the only credential anywhere in the mechanism is the workflow's own
+> ambient `GITHUB_TOKEN`.
+>
+> Built: `GET /api/version` on the registry (`routes/version.ts`, reading
+> `RENDER_GIT_COMMIT`, which Render stamps automatically -- no config
+> needed); a `prebuild` step on the frontend
+> (`tais_frontend/scripts/write-version.cjs`) that writes a static
+> `public/version.json` from `VERCEL_GIT_COMMIT_SHA` (falling back to
+> `git rev-parse HEAD`), served at `/version.json` since Vercel's
+> filesystem routes win over the SPA catch-all rewrite; `tools/
+> deploy-drift/` (`services.js`, `expected-marker.js`, `check.js`,
+> `README.md`) polling both hourly
+> (`.github/workflows/deploy-drift.yml`) and managing one pinned `Deploy
+> drift: <service>` issue per service, same update-in-place pattern
+> `tools/watchdog/check.js` already uses. 19 new regression tests
+> (`tests/deploy-drift.test.js`, injectable fetch/exec, no real network or
+> git-history dependency) plus 5 for the registry route
+> (`packages/registry/src/__tests__/routes/version.test.ts`, run against a
+> real local Postgres with all 26 migrations applied) -- 39/39 across the
+> root suite, registry `tsc` build clean, frontend `vite build` verified
+> to actually produce and copy `version.json` into `dist/`, workflow file
+> passes `actionlint`.
+>
+> **Not verified: whether this actually reports correctly against the
+> real live Render/Vercel deployments.** This session still has no network
+> egress to either dashboard or either live URL -- everything above is
+> tested with injected fakes, which proves the logic but not the real
+> integration. First real signal arrives whenever `deploy-drift.yml` next
+> runs on `main` (hourly) or someone triggers it via `workflow_dispatch`;
+> if both services are actually live and current, expect a clean run with
+> no issues opened. If `tais-frontend` comes back `unreachable` or drifted,
+> that's likely confirmation of the still-open question from the first
+> 2026-09-18 update: whether Vercel's deploys have truly been broken this
+> whole time, or its native Git integration has been deploying
+> independently of the failing Action.
+>
+> **Update — 2026-09-18 (third follow-up):** Ported one more piece of
+> KOS/Mothership's deployment tooling: `doctor` -- Mothership's
+> `scripts/doctor.js`, which exists because `GLOBAL_GITHUB_TOKEN` was found
+> silently invalid through 5 straight scheduled runs and a spoke had been
+> failing 100+ runs on a secret that was never set, both checkable in
+> under a second by something that actually asked. TSO's version
+> (`tools/doctor/check.js`, `.github/workflows/doctor.yml`,
+> `tests/doctor.test.js`) checks the four GitHub Actions secrets this repo's
+> workflows actually reference (`grep -rhoE "secrets\.[A-Z_0-9]+"
+> .github/workflows/*.yml`, not guessed): `VERCEL_TOKEN` gets a real,
+> read-only validity probe (`GET https://api.vercel.com/v2/user`) --
+> the one thing in this file that can actually confirm the exact failure
+> `deploy-drift`'s still-open question is pointing at, rather than
+> inferring it from a failing build step three layers away.
+> `VERCEL_URL`/`VERCEL_BYPASS_TOKEN` (call-hub.yml's target -- TSO turns
+> out to be a registered Mothership spoke, confirmed by reading
+> call-hub.yml's own `POST ${VERCEL_URL}/api/autonomous_agent` call
+> against Mothership's real `api/autonomous_agent.js`) and `CRON_SECRET`
+> (weekly-insights.yml's auth to `/admin/cron/weekly-insights`) get
+> presence-only checks, deliberately not exercised live -- both guard a
+> real side effect (a live Mothership agent review; a real weekly-insights
+> email), so firing either just to validate a secret would trade one
+> problem for a worse one. `workflow_dispatch`-only, no schedule, same
+> reasoning `tools/watchdog/check.js` and Mothership's own `doctor.yml`
+> already give: adding a *scheduled* job here risks the exact
+> failing-silently-unwatched failure mode this tool exists to catch.
+>
+> Verified for real: 13 new tests (`tests/doctor.test.js`, injectable
+> fetch, no real network dependency) plus a live local run against the
+> real `api.vercel.com` with a deliberately garbage token, which came back
+> a real `403` end-to-end -- not just asserted against a mock. Root suite
+> now 52/52. Workflow file passes `actionlint`.
+>
+> `coverage-gaps` (scheduled-job test-coverage) and a narrow `doc-currency`
+> (catching a doc that names a function/route no longer in source) are the
+> two KOS/Mothership concepts flagged as worth adapting next but not yet
+> built -- see the conversation this pass came from for the full reasoning
+> on each.
+>
+> **Update — 2026-09-18 (fourth follow-up):** Ported `coverage-gaps`.
+> KOS's version answers "was this Apps Script trigger handler's body ever
+> entered", using V8 coverage instrumentation over files loaded into a vm
+> sandbox -- a real trick needed only because GAS has no module system.
+> TSO's scheduled-job scripts are ordinary Node modules with a real
+> `require()` graph, so the same underlying question ("does this
+> unattended, scheduled script have any real safety net at all") is
+> answerable by resolving that graph directly -- no coverage
+> instrumentation needed. `tools/coverage-gaps/check.js` discovers its own
+> target set from source (every `node <script>.js` a `schedule:`-triggered
+> workflow actually invokes -- currently `tools/deploy-drift/check.js`,
+> `scripts/health-analyzer.js`, `tools/watchdog/check.js`), rather than a
+> hand-maintained list that could itself go stale.
+>
+> **It found a real, live gap on its first real run, not a synthetic one:**
+> `scripts/health-analyzer.js` (health-report.yml, daily) had a genuine
+> test file -- `scripts/__tests__/health-analyzer.test.js`, 6 passing
+> tests covering the exact inverted-heuristic bugs a previous session
+> fixed -- but root `package.json`'s `"test": "node --test
+> tests/*.test.js && ..."` only glob-expands files directly inside
+> `tests/`, so those 6 tests have never once run as part of `npm test`.
+> Same underlying failure class this repo already lived through twice
+> (health-analyzer.js's own repo-owner typo going unnoticed for months;
+> `JWT_SECRET` blocking every registry test for weeks) -- this time a
+> human had already done the work of writing the safety net, and nothing
+> wired it in. **Fixed in the same pass**, not just flagged: moved the
+> file to `tests/health-analyzer.test.js` (matching every other root-level
+> tool's test location) and corrected its now-relative require path.
+> `npm test`'s `node --test` count went from 52 to 58 as a direct result.
+>
+> Push/PR-gated (`.github/workflows/coverage-gaps.yml`), not scheduled --
+> unlike `watchdog`/`deploy-drift`/`doctor`, this checks static config, not
+> live state, so the right moment to catch a regression (a new scheduled
+> script shipping with no wired-in test) is before merge, not on a clock.
+>
+> Verified: 20 new tests (`tests/coverage-gaps.test.js`, real temp-file
+> fixtures over mocks where a real filesystem made the test more honest),
+> a real run against this actual repo (not just synthetic fixtures) both
+> before the fix (correctly flagged the orphaned file, exit 1) and after
+> (clean, exit 0). Root suite 78/78. Workflow passes `actionlint`.
+>
+> A narrow `doc-currency` (catching a doc that names a function/route no
+> longer in source) remains the one flagged-but-unbuilt concept from the
+> original KOS/Mothership review.
+>
+> **Update — 2026-09-18 (fifth follow-up):** Ported `doc-currency` --
+> narrowly, as flagged: only KOS's check 1 (a doc names a backticked
+> function/file gone from source), not the full 14-check version built for
+> an Apps Script codebase's addendum files and blocked-GCP-surface prose.
+> `tools/doc-currency/check.js` checks two things: a backticked,
+> slash-containing file path that doesn't exist anywhere in the repo, and a
+> backticked bare `identifier(...)` call that appears nowhere in actual
+> code (any occurrence counts, not just a declaration -- if a name is truly
+> gone, it won't appear anywhere, including at a call site).
+>
+> **The first real run found ~90 apparent findings, and nearly all of them
+> were a bug in the tool, not the docs.** This repo's own convention is to
+> cite a file relative to its own package's `src/` (a doc under
+> `packages/registry/` writing `` `routes/skills.ts` `` to mean
+> `packages/registry/src/routes/skills.ts`), not the monorepo root --
+> resolving only against repo root flagged the large majority of
+> `docs/DOCS_VS_CODEBASE.md`'s own citations, every one of them a real,
+> current file once traced by hand. Fixed by accepting a path-boundary-safe
+> SUFFIX match against any real file in the repo, not just an exact
+> root-relative one -- the same "false conflict on every run is how a check
+> gets muted" reasoning `gas-lint`'s own column-map check already
+> documents. Also excluded, beyond KOS's own CHANGELOG/HISTORY precedent:
+> any doc filename containing a 4-digit year (a point-in-time snapshot,
+> same signal as an explicit CHANGELOG name) and `docs/*_PLAN.md`/
+> `*_PRD.md` -- HANDOFF.md's own "Key documents to read next" section
+> already names these as non-authoritative vision docs, in this repo's own
+> words, honored here rather than re-derived.
+>
+> One tool bug found along the way and fixed: the file-existence check was
+> built on the same `EXCLUDE_DIRS` list used to decide which docs/code to
+> *scan*, which also excludes `archive/` -- so a real, legitimate citation
+> of `archive/outdated/NORTH_STAR.md` (a file this very HANDOFF.md points
+> readers at, several sections up) came back "missing" purely because the
+> existence check couldn't see into the directory it was checking against.
+> Split into `GENERATED_DIRS` (excluded everywhere, including existence
+> checks) and `STALE_CONTENT_DIRS` (excluded only from scanning/corpus,
+> never from existence checks) to fix it.
+>
+> That left exactly 3 real findings against the actual repo, and all 3 were
+> genuine, not tool bugs -- but 2 of the 3 were this session's own writing:
+> `tools/deploy-drift/README.md`'s Testing section, written by a prior pass
+> this same session, cited `tests/tools/deploy-drift-expected-marker.test.js`
+> and `tests/tools/deploy-drift-check.test.js` -- KOS's own nested test
+> layout, copied by habit instead of TSO's real, flat
+> `tests/deploy-drift.test.js`. **Fixed the doc**, not just flagged it. The
+> remaining 2 are legitimate cross-system references this tool can't tell
+> apart from a real citation on its own (Mothership's `scripts/deploy-drift.js`,
+> Apps Script's `doGet()` convention, both cited for contrast, not claimed
+> as this repo's own) plus one genuine "create this file, it doesn't exist
+> yet" AWS instruction -- rather than let CI start permanently red on
+> findings that will never resolve (the exact "a check that noisy is worse
+> than none" failure mode `gas-lint`'s own README warns about), added a
+> declared, explicit per-line escape hatch
+> (`<!-- doc-currency:ignore -- why -->`, an invisible HTML comment) and
+> used it on those 3 lines -- same philosophy KOS's own `sandboxScope.allow`
+> uses: reach for it only when the citation is genuinely not this tool's
+> business, and say why right there.
+>
+> Push/PR-gated (`.github/workflows/doc-currency.yml`), same reasoning as
+> `coverage-gaps.yml`: checks static text against static source, so the
+> right moment to catch a regression is before merge.
+>
+> Verified: 25 new tests (`tests/doc-currency.test.js`), a real run against
+> this actual repo confirmed clean (exit 0) after the fixes above -- not
+> just asserted against synthetic fixtures. Root suite 103/103. Workflow
+> passes `actionlint`.
+>
+> **All five KOS/Mothership concepts flagged in the original review are
+> now ported**: `watchdog` (already existed), `deploy-drift`, `doctor`,
+> `coverage-gaps`, `doc-currency`.
 
 ## TL;DR
 

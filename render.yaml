@@ -1,8 +1,17 @@
+# NOTE (Relaunch Sprint 1, 2026-09-18): This file is NOT the live Render
+# Blueprint source -- the "tais-registry" service was hand-configured in
+# the Render dashboard and this file is not synced from it (confirmed in
+# packages/registry/DEPLOYMENT.md). Treat this as a best-effort record of
+# the intended production config, not something that can be applied
+# directly to reproduce the running service -- a human with dashboard
+# access still needs to confirm every value below against what's actually
+# set (see HANDOFF.md's 2026-09-18 update for what prompted each change
+# in this pass, and what's still unconfirmed).
 services:
   - type: web
     name: tais-registry
     runtime: node
-    repo: https://github.com/YOUR_USERNAME/TSO
+    repo: https://github.com/adamberneche-afk/TSO
     branch: main
     rootDir: packages/registry
     buildCommand: chmod +x build.sh && ./build.sh
@@ -18,8 +27,20 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      - key: GITHUB_TOKEN_ENCRYPTION_KEY
+        # REQUIRED, not just recommended: services/githubToken.ts falls
+        # back to a hardcoded key when this is unset, silently encrypting
+        # stored GitHub tokens with a value visible in this repo's own
+        # source. No prior version of this file provisioned it.
+        generateValue: true
+      # IPFS was never actually configured with real credentials
+      # (IPFS_PROJECT_ID/IPFS_PROJECT_SECRET below are unset placeholders),
+      # so leaving IPFS_ENABLED=true made it silently error on every call
+      # rather than working -- see docs/E2E_TEST_REPORT.md's "IPFS: error"
+      # finding. Disabled explicitly; flip back to true once real
+      # Pinata/Infura credentials are set (Sprint 1, item I3).
       - key: IPFS_ENABLED
-        value: true
+        value: false
       - key: IPFS_HOST
         value: ipfs.infura.io
       - key: IPFS_PORT
@@ -32,12 +53,26 @@ services:
         sync: false
       - key: ENABLE_BLOCKCHAIN_VERIFICATION
         value: false
+      # Neither of these two flags is read anywhere in
+      # packages/registry/src as of this pass (grepped, not assumed) --
+      # they don't currently do anything either way. Left in rather than
+      # removed in case something reads them at a layer this pass didn't
+      # check; verify before relying on either.
       - key: ENABLE_IPFS_STORAGE
         value: true
       - key: ENABLE_FIAT_PAYMENTS
         value: false
+      # config/cors.ts treats this as a literal origin allow-list, not a
+      # wildcard -- a literal "*" rejects every real browser origin
+      # outright rather than allowing all of them. The value below is the
+      # one production frontend origin confirmed working in
+      # docs/E2E_TEST_REPORT.md; CONFIRM it against the live dashboard
+      # before trusting this file -- Sprint 0 found the "Deploy to
+      # Vercel" GitHub Actions workflow has failed on every run in visible
+      # history back to 2026-02-24, so this domain has not been
+      # reconfirmed as still the deployed one.
       - key: CORS_ORIGIN
-        value: "*"
+        value: "https://taisplatform.vercel.app"
       - key: CRON_SECRET
         generateValue: true
     healthCheckPath: /api/health

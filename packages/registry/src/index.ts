@@ -53,6 +53,7 @@ import { provenanceRoutes } from './routes/provenance';
 import { searchRoutes } from './routes/search';
 import { adminRoutes } from './routes/admin';
 import { healthRoutes } from './routes/health';
+import { versionRoutes } from './routes/version';
 
 // Load environment variables
 dotenv.config();
@@ -189,6 +190,11 @@ const applyMiddlewareChain = (middlewares: any[]) => {
 
 // Health check (unversioned, no auth)
 app.use('/health', healthRoutes);
+
+// Deploy-version marker (unversioned, no auth, public) -- polled directly
+// by tools/deploy-drift/check.js; see routes/version.ts's own header for
+// the full mechanism.
+app.use('/api/version', versionRoutes);
 
 // API v1 Routes
 const apiV1Router = express.Router();
