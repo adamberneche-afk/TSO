@@ -459,6 +459,65 @@ whatever gets decided next — read this before re-reading the whole repo.
 > seven still-open Dependabot PRs). None of it is safe to do blind
 > against infrastructure this session cannot reach or confirm is still
 > the live target.
+>
+> **Update — 2026-09-18 (same-day follow-up):** Continued the relaunch
+> plan into Sprint 4 (dependency hardening) -- the one sprint fully
+> reachable from GitHub access alone, no dashboard needed. Re-triaged all
+> 13 currently-open Dependabot PRs by actually merging each into a local
+> scratch branch and building/testing it (`cargo build` for Rust,
+> `tsc`/`npm test` for TypeScript), rather than trusting either the
+> original 2026-09-06 triage or the PRs' own stale `mergeable_state`.
+>
+> **Merged (8), each verified clean first:** `uuid` 1.26.0→1.26.1 and
+> `actions/cache` 4→6 (both already based on current `main`, GitHub's own
+> `mergeable_state: clean` matched local verification); `dotenv`
+> 16.6.1→17.4.2 (`packages/registry` `tsc` build clean once `@think/types`
+> was built and `prisma generate` run -- the same two-step bootstrap
+> `test.yml` needed per the 2026-09-08 update above); `@radix-ui/react-
+> progress`/`react-dialog`/`react-label` and `tailwind-merge` (all four:
+> `tais_frontend` typecheck clean, 16/16 test files, 67/67 tests); and
+> `electron` 25.9.8→44.2.0 (`packages/core` `tsc --noEmit` clean, 7/7
+> suites, 29/29 tests -- flagged in the merge itself that this only
+> exercises typecheck/unit tests, not an actual packaged-app launch, so a
+> real desktop smoke test is still worth doing before trusting this fully
+> given the 19-major-version jump).
+>
+> **Left open (5), each with a comment giving the current, re-verified
+> reason -- not just re-stating the 2026-09-06 notes:**
+> - `rand` 0.8→0.10 -- `rand::thread_rng()` (removed in 0.10) is still
+>   live in `crates/rcrt-standalone/src/main.rs`, and the PR now also has
+>   a real merge conflict in that same file.
+> - `chalk` 4→6 -- confirmed via `tsconfig.json` (`"module": "commonjs"`)
+>   and all 8 `import chalk from 'chalk'` sites in `packages/cli/src`
+>   that chalk 5+'s ESM-only build would break `require()` at runtime,
+>   not just in theory; also now conflicted in 4 files.
+> - `@sentry/node` 7→10 -- `monitoring/sentry.ts` calls `configureScope`,
+>   removed in Sentry SDK v8; `@sentry/tracing@7` (folded into core in
+>   v8) would ship mismatched regardless. Needs an actual rewrite against
+>   the current SDK surface, which this session can't verify without
+>   network access to the package's real v10 API -- not safe to guess at
+>   for an error-tracking integration.
+> - `typescript` 5.9.3→7.0.2 -- monorepo-wide (root + every workspace
+>   member), two major versions at once, and the branch is stale enough
+>   that its own diff pulls in unrelated deletions of files added to
+>   `main` since its base commit. Deserves a dedicated, rebased pass, not
+>   a blind merge.
+> - `vite` 6→8 -- **worse than risky:** merging this PR as it stands
+>   would silently *downgrade* `ethers` 6→5, `lucide-react` 1.33→0.575,
+>   and `zod` 4→3, and *delete* `@testing-library/react`/`jsdom`/
+>   `vitest` and the `typecheck`/`test` npm scripts from `tais_frontend/
+>   package.json` entirely -- an artifact of how stale the branch has
+>   become, unrelated to vite's own compatibility, which was never
+>   actually re-evaluated because the diff makes it moot. Commented
+>   recommending the PR be closed and Dependabot asked to recreate it
+>   fresh against current `main`, rather than continuing to leave this
+>   specific stale PR open.
+>
+> No repo file changed by this pass except this entry -- the 8 merges
+> were direct PR merges via GitHub, not commits pushed to any working
+> branch. Sprints 0-3's dashboard-gated items (confirming Render/Vercel/
+> Postgres are alive, applying migrations, monitoring wiring, the Render
+> tier upgrade) remain exactly as blocked as the update above describes.
 
 ## TL;DR
 
