@@ -23,7 +23,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { assessCodeHealth, analyzeNorthStar, formatReport } = require('../health-analyzer');
+const { assessCodeHealth, analyzeNorthStar, formatReport } = require('../scripts/health-analyzer');
 
 function fakeIssue({ body = '', labels = [], state = 'open' } = {}) {
   return { title: 'fake issue', body, labels: labels.map(name => ({ name })), state };

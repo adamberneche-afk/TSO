@@ -615,6 +615,51 @@ whatever gets decided next — read this before re-reading the whole repo.
 > two KOS/Mothership concepts flagged as worth adapting next but not yet
 > built -- see the conversation this pass came from for the full reasoning
 > on each.
+>
+> **Update — 2026-09-18 (fourth follow-up):** Ported `coverage-gaps`.
+> KOS's version answers "was this Apps Script trigger handler's body ever
+> entered", using V8 coverage instrumentation over files loaded into a vm
+> sandbox -- a real trick needed only because GAS has no module system.
+> TSO's scheduled-job scripts are ordinary Node modules with a real
+> `require()` graph, so the same underlying question ("does this
+> unattended, scheduled script have any real safety net at all") is
+> answerable by resolving that graph directly -- no coverage
+> instrumentation needed. `tools/coverage-gaps/check.js` discovers its own
+> target set from source (every `node <script>.js` a `schedule:`-triggered
+> workflow actually invokes -- currently `tools/deploy-drift/check.js`,
+> `scripts/health-analyzer.js`, `tools/watchdog/check.js`), rather than a
+> hand-maintained list that could itself go stale.
+>
+> **It found a real, live gap on its first real run, not a synthetic one:**
+> `scripts/health-analyzer.js` (health-report.yml, daily) had a genuine
+> test file -- `scripts/__tests__/health-analyzer.test.js`, 6 passing
+> tests covering the exact inverted-heuristic bugs a previous session
+> fixed -- but root `package.json`'s `"test": "node --test
+> tests/*.test.js && ..."` only glob-expands files directly inside
+> `tests/`, so those 6 tests have never once run as part of `npm test`.
+> Same underlying failure class this repo already lived through twice
+> (health-analyzer.js's own repo-owner typo going unnoticed for months;
+> `JWT_SECRET` blocking every registry test for weeks) -- this time a
+> human had already done the work of writing the safety net, and nothing
+> wired it in. **Fixed in the same pass**, not just flagged: moved the
+> file to `tests/health-analyzer.test.js` (matching every other root-level
+> tool's test location) and corrected its now-relative require path.
+> `npm test`'s `node --test` count went from 52 to 58 as a direct result.
+>
+> Push/PR-gated (`.github/workflows/coverage-gaps.yml`), not scheduled --
+> unlike `watchdog`/`deploy-drift`/`doctor`, this checks static config, not
+> live state, so the right moment to catch a regression (a new scheduled
+> script shipping with no wired-in test) is before merge, not on a clock.
+>
+> Verified: 20 new tests (`tests/coverage-gaps.test.js`, real temp-file
+> fixtures over mocks where a real filesystem made the test more honest),
+> a real run against this actual repo (not just synthetic fixtures) both
+> before the fix (correctly flagged the orphaned file, exit 1) and after
+> (clean, exit 0). Root suite 78/78. Workflow passes `actionlint`.
+>
+> A narrow `doc-currency` (catching a doc that names a function/route no
+> longer in source) remains the one flagged-but-unbuilt concept from the
+> original KOS/Mothership review.
 
 ## TL;DR
 
