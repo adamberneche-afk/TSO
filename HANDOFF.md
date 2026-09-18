@@ -518,6 +518,64 @@ whatever gets decided next — read this before re-reading the whole repo.
 > branch. Sprints 0-3's dashboard-gated items (confirming Render/Vercel/
 > Postgres are alive, applying migrations, monitoring wiring, the Render
 > tier upgrade) remain exactly as blocked as the update above describes.
+>
+> **Update — 2026-09-18 (second follow-up):** Reviewed this account's KOS
+> and Mothership repos (separate Google Apps Script projects, unrelated to
+> TSO's own product) specifically for their deployment-integrity tooling,
+> and ported the one piece TSO didn't already have: `deploy-drift`. TSO's
+> own `tools/watchdog/check.js` turned out to already be a port of a KOS
+> tool (its header says so -- "Ported from the same watchdog already
+> running in this account's KOS, Argoloth, and Mothership repos"), and is
+> in fact the most advanced of the three (it added workflow-active-state
+> and cron-staleness detection KOS's original lacks). `deploy-drift` is
+> the other half of that same family: it catches the gap between "what
+> git says `main` should be running" and "what's actually live" -- the
+> exact blind spot the first 2026-09-18 update above hit (the "Deploy to
+> Vercel" Action failing silently at auth since February, with nothing
+> anywhere that would have surfaced that on its own).
+>
+> KOS's version pushes -- a GAS project self-reports its version outward
+> via `repository_dispatch`, because most of its web apps sit behind
+> Google's own sign-in wall and an external poll never reaches them. That
+> constraint doesn't exist here, so this polls instead, which turns out to
+> be a real simplification, not just a port: no committed marker file, no
+> "commit the code, then commit the marker as a separate commit" ritual,
+> and neither deployed service needs to hold a GitHub token of any kind --
+> the only credential anywhere in the mechanism is the workflow's own
+> ambient `GITHUB_TOKEN`.
+>
+> Built: `GET /api/version` on the registry (`routes/version.ts`, reading
+> `RENDER_GIT_COMMIT`, which Render stamps automatically -- no config
+> needed); a `prebuild` step on the frontend
+> (`tais_frontend/scripts/write-version.cjs`) that writes a static
+> `public/version.json` from `VERCEL_GIT_COMMIT_SHA` (falling back to
+> `git rev-parse HEAD`), served at `/version.json` since Vercel's
+> filesystem routes win over the SPA catch-all rewrite; `tools/
+> deploy-drift/` (`services.js`, `expected-marker.js`, `check.js`,
+> `README.md`) polling both hourly
+> (`.github/workflows/deploy-drift.yml`) and managing one pinned `Deploy
+> drift: <service>` issue per service, same update-in-place pattern
+> `tools/watchdog/check.js` already uses. 19 new regression tests
+> (`tests/deploy-drift.test.js`, injectable fetch/exec, no real network or
+> git-history dependency) plus 5 for the registry route
+> (`packages/registry/src/__tests__/routes/version.test.ts`, run against a
+> real local Postgres with all 26 migrations applied) -- 39/39 across the
+> root suite, registry `tsc` build clean, frontend `vite build` verified
+> to actually produce and copy `version.json` into `dist/`, workflow file
+> passes `actionlint`.
+>
+> **Not verified: whether this actually reports correctly against the
+> real live Render/Vercel deployments.** This session still has no network
+> egress to either dashboard or either live URL -- everything above is
+> tested with injected fakes, which proves the logic but not the real
+> integration. First real signal arrives whenever `deploy-drift.yml` next
+> runs on `main` (hourly) or someone triggers it via `workflow_dispatch`;
+> if both services are actually live and current, expect a clean run with
+> no issues opened. If `tais-frontend` comes back `unreachable` or drifted,
+> that's likely confirmation of the still-open question from the first
+> 2026-09-18 update: whether Vercel's deploys have truly been broken this
+> whole time, or its native Git integration has been deploying
+> independently of the failing Action.
 
 ## TL;DR
 

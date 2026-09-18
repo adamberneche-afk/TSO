@@ -49,3 +49,9 @@ coverage/
 # write the default rules out as .yar files so the real engine/binary can
 # compile them; pattern-mode backend never writes this).
 yara-rules/
+
+# Generated at build time by tais_frontend/scripts/write-version.cjs (the
+# frontend half of the deploy-drift version marker, see
+# tools/deploy-drift/README.md) -- never hand-committed, always regenerated
+# fresh from the actual commit being built.
+tais_frontend/public/version.json
