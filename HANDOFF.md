@@ -888,6 +888,76 @@ whatever gets decided next — read this before re-reading the whole repo.
 > re-run clean against the real repo after the one-line `services.js`
 > change.
 
+> **Update — 2026-09-19 (second follow-up):** Asked to reconcile the
+> `render.yaml`/live-dashboard drift flagged above. Before editing
+> anything, checked the live service's deploy history via the Render
+> connector -- and found something bigger than a doc mismatch:
+> **`tais-registry` has not deployed since 2026-03-24.** `autoDeploy` had
+> been off the entire time, and nobody had manually triggered a deploy
+> in the ~6 months since. Every backend change from every session since
+> then -- everything this file documents from the 2026-09-18 entries
+> onward, including this session's own `/api/version` route -- has never
+> actually reached `tso.onrender.com`. The live server has been running
+> commit `c0e5623a` (a March 24 commit) the whole time.
+>
+> Also found while checking this: **no Postgres instance exists in any
+> of the three Render workspaces this account can see** (nor a Key-Value
+> store). `render.yaml` declares `tais-db` as a Render-managed free
+> Postgres the registry's `DATABASE_URL` should draw from -- if that's
+> what was actually live, Render's free-tier database expiration policy
+> (auto-deleted after a period of inactivity) is a plausible explanation
+> given the 6-month gap, but this wasn't confirmed (this session has no
+> tool to read the live service's actual `DATABASE_URL` value, only to
+> set new env vars). **Flagged to the user, not yet resolved.**
+>
+> Walked the user through the two dashboard changes this session's
+> Render MCP connector can't make itself (no tool exposes editing an
+> *existing* service's build command or auto-deploy setting, only
+> creating new services) -- Build Command back to `build.sh`,
+> Auto-Deploy on -- then confirmed both took via `get_service` before
+> triggering a real deploy.
+>
+> **That deploy failed** (safely -- Render never cuts traffic to a
+> failed build, so `tso.onrender.com` kept serving the March version
+> throughout): `tsc` failed on every `@think/types` import with "Cannot
+> find module... or its corresponding type declarations". Root cause,
+> confirmed by reproducing it against a fresh clone locally before
+> touching the real script: `build.sh` deliberately renames the root
+> `package.json` away to disable npm workspace detection (a workaround
+> for something else, predating this session), which means
+> `packages/registry`'s `npm install` pulls in `@think/types` as a bare
+> `file:../types` dependency rather than a workspace link -- and npm's
+> `file:` protocol only copies/symlinks source, it never runs the
+> target's own build script. `packages/types/dist` is gitignored, never
+> committed, so nothing anywhere in this build path had ever compiled it
+> on a truly fresh clone. This had been silently latent since whenever
+> workspace-detection-disabling was added to `build.sh` -- invisible for
+> as long as autoDeploy stayed off.
+>
+> **Fixed, not just diagnosed**: `build.sh` now explicitly builds
+> `@think/types` (`npm install` for its own runtime dep, `zod`, then
+> registry's own already-installed `tsc` binary directly -- deliberately
+> *not* `npm run build` inside `packages/types`, since that package has
+> no `typescript` devDependency of its own and would fail with "tsc: not
+> found" in a real clean environment; confirmed by testing with this
+> sandbox's own global `tsc` explicitly excluded from `PATH`, after an
+> earlier test run was misleadingly saved by that same global `tsc`
+> masking the real failure mode). Verified end-to-end against a fresh
+> `git clone` of `main`, twice -- once to reproduce the original failure,
+> once to confirm the fix -- before touching the real file, and confirmed
+> `packages/registry/dist/index.js` (what `start.sh` actually execs) gets
+> produced and the root `package.json` restoration trap still fires
+> correctly on both success and failure paths.
+>
+> **Not yet done**: re-triggering the real Render deploy with this fix
+> (next step after this commit merges) to confirm it actually goes live
+> -- and if it does, the still-open Postgres question above becomes
+> urgent, since a successful build with a dead `DATABASE_URL` would
+> still fail at `prisma migrate deploy` inside `build.sh`, or start
+> serving traffic with no working database if that step were ever
+> weakened. Root suite 98/98, `doc-currency` and `coverage-gaps` both
+> clean.
+
 ## TL;DR
 
 TSO was abandoned mid-August 2026, buried under its own automation, not
