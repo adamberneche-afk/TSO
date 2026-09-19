@@ -37,6 +37,29 @@ cd "$REGISTRY_DIR"
 echo "Installing dependencies..."
 npm install
 
+# @think/types (packages/types) is pulled in as a plain `file:../types`
+# dependency, not a workspace link, since workspace detection is disabled
+# above -- npm's `file:` protocol only symlinks/copies its source, it never
+# runs the target package's own build script. packages/types/dist is
+# gitignored (never committed), so without this step the registry's own
+# `tsc` fails on every fresh clone with "Cannot find module '@think/types'
+# or its corresponding type declarations" (confirmed: this is exactly what
+# broke when this build was re-run for the first time in ~6 months on
+# 2026-09-19, autoDeploy having been off since March -- see HANDOFF.md).
+#
+# `npm install` here brings in packages/types' own runtime dependency
+# (zod) so its type-checking resolves, but deliberately does NOT run its
+# `npm run build` script -- packages/types has no `typescript`
+# devDependency of its own (it's normally only ever built as part of a
+# full monorepo workspace install, where typescript hoists from a
+# sibling package), so `npm run build` here would fail with "tsc: not
+# found" in a real clean build environment (confirmed by testing against
+# a fresh clone with no global tsc on PATH). Using the registry's own
+# already-installed tsc binary directly (matches its devDependencies'
+# ^5.3.0 range) avoids that entirely.
+echo "Building @think/types dependency..."
+(cd "$ROOT_DIR/packages/types" && npm install && "$REGISTRY_DIR/node_modules/.bin/tsc")
+
 # Build TypeScript
 echo "Building TypeScript..."
 npm run build
