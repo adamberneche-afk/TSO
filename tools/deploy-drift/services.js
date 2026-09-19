@@ -16,8 +16,14 @@ const SERVICES = {
     gitPaths: ['packages/registry'],
   },
   'tais-frontend': {
-    label: 'Frontend (Vercel)',
-    versionUrl: 'https://taisplatform.vercel.app/version.json',
+    // Cut over 2026-09-19: the tais-frontend Render Static Site was
+    // created for real (via the Render MCP connector) and its first
+    // build confirmed live end-to-end -- write-version.cjs's prebuild
+    // step reported source: "render" with the deploying commit's SHA,
+    // and the build log shows "Your site is live". This service's URL
+    // is what render.yaml's own tais-frontend block already assumed.
+    label: 'Frontend (Render)',
+    versionUrl: 'https://tais-frontend.onrender.com/version.json',
     gitPaths: ['tais_frontend'],
   },
 };
