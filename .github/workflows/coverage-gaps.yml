@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     # Only checks out and runs a local static-analysis script -- no GitHub
     # API calls, no artifacts -- so GITHUB_TOKEN needs nothing beyond
-    # reading repo contents (same reasoning deploy.yml's own permissions
+    # reading repo contents (same reasoning frontend-ci.yml's own permissions
     # block already gives).
     permissions:
       contents: read

@@ -732,6 +732,108 @@ whatever gets decided next — read this before re-reading the whole repo.
 > now ported**: `watchdog` (already existed), `deploy-drift`, `doctor`,
 > `coverage-gaps`, `doc-currency`.
 
+> **Update — 2026-09-19:** Fixed CodeQL's 4 findings on the PR carrying
+> everything in the five entries above (1 high -- `doc-currency`'s
+> `checkFunctionCitation` only escaped `$` in its regex, not a complete
+> escape; 3 medium -- `coverage-gaps.yml`/`doc-currency.yml`/`doctor.yml`
+> all lacked an explicit `permissions:` block), verified clean, and merged
+> as **PR #2032**. Then ran `doctor.yml` for real via `workflow_dispatch`
+> on `main` -- first real signal, not inference: **`VERCEL_TOKEN` and
+> `VERCEL_URL` are both simply not configured as repo secrets at all**,
+> not invalid/expired. That's the definitive root cause of the "Deploy to
+> Vercel" Action's 100% failure rate since Feb 2026, closing the question
+> Sprint 0 could only speculate about.
+>
+> Asked what else besides Vercel `tais_frontend` could run on, then for a
+> cost/pros/cons comparison (Vercel-fixed vs. Render Static Site vs.
+> Cloudflare Pages vs. Netlify), then to confirm the one real open
+> question -- whether Render Static Site PR previews are free or
+> paid-tier-gated (`WebSearch` against Render's own docs: **free**,
+> previews bill at the base service's rate, and static sites are free
+> unconditionally, no commercial-use restriction unlike Vercel's Hobby
+> tier). Decision: **migrate `tais_frontend` to a Render Static Site**,
+> consolidating onto the platform already trusted for `tais-registry`
+> rather than adding a fourth account/dashboard/token to babysit.
+>
+> **This pass built the migration scaffolding, deliberately not the full
+> cutover** (see "not done" below -- several of the changes below are
+> unconfirmed against a live dashboard by design, the same caveat
+> `render.yaml`'s existing `tais-registry` block already carries):
+> - `render.yaml`: added a `tais-frontend` static-site service block
+>   (`rootDir: tais_frontend`, `buildCommand: npm ci && npm run build`,
+>   `staticPublishPath: dist`, the same 4 `VITE_*` build-time env vars
+>   `vercel.json`'s own `env` block sets, one SPA-catch-all `routes:`
+>   rewrite -- `vercel.json`'s `/api/*`/`/assets/*` "rewrite to
+>   themselves" entries were already no-ops, real files win over rewrites
+>   on both platforms, so they had no Render equivalent to port).
+>   `CORS_ORIGIN` widened to a comma-separated pair (`config/cors.ts`
+>   already splits on `,`) -- the original Vercel origin **and** the new
+>   Render one, deliberately, since this session can't confirm from here
+>   whether Vercel's native git integration is still independently live
+>   during the transition.
+> - `.github/workflows/deploy.yml` → renamed `frontend-ci.yml`, the
+>   `deploy` job (Vercel CLI `pull`/`build`/`deploy`) removed entirely --
+>   safe to remove outright, not just neuter, because it's not "possibly
+>   still working": `doctor.yml`'s run confirmed it had literally never
+>   had a token to authenticate with. The `test` job (typecheck + vitest,
+>   `tais_frontend`'s only CI coverage) is unchanged.
+> - `tools/doctor/check.js`: `VERCEL_TOKEN`'s check removed (grepped --
+>   deploy.yml's CLI steps were its only consumer anywhere in the repo,
+>   confirmed before deleting) along with its header section and the now-
+>   unused `fetchImpl` plumbing in `runDoctor`. `VERCEL_URL`/
+>   `VERCEL_BYPASS_TOKEN` checks are untouched -- confirmed via
+>   `call-hub.yml` that these are Mothership's own hub URL/bypass token,
+>   entirely unrelated to where `tais_frontend` is hosted.
+> - `tais_frontend/scripts/write-version.cjs`: added `RENDER_GIT_COMMIT`
+>   as the first-priority SHA source (ahead of `VERCEL_GIT_COMMIT_SHA`,
+>   ahead of the `git rev-parse HEAD` fallback) -- **not yet confirmed**
+>   whether Render actually stamps this in a Static Site's build
+>   environment specifically (only confirmed for `tais-registry`'s web
+>   service, in `routes/version.ts`); harmless to check speculatively
+>   either way since the `git` fallback already covers the "unset" case
+>   with no behavior change from before this pass.
+>
+> **Deliberately NOT done in this pass, and why:**
+> - **`tais_frontend/vercel.json` left untouched.** Its `env` block may be
+>   the only thing currently setting `VITE_*` vars if Vercel's native git
+>   integration is still deploying independently of the (now-deleted)
+>   Action -- deleting it blind risked silently breaking a still-live
+>   production frontend from this session, with no way to verify either
+>   way without dashboard access.
+> - **`tools/deploy-drift/services.js`'s `tais-frontend` entry left
+>   pointed at `taisplatform.vercel.app/version.json`, not the new Render
+>   URL.** `deploy-drift.yml` runs hourly on `main` -- repointing it to a
+>   Render static site that doesn't exist yet would file a real, false
+>   "Deploy drift: tais-frontend" issue on its very next scheduled run,
+>   exactly the "nobody watching, silently wrong" failure mode this whole
+>   line of tooling exists to prevent, not cause. This is the single
+>   remaining code change cutover needs, and it's a one-line edit.
+> - **No Render static site actually exists yet.** `render.yaml`'s new
+>   block is the same kind of best-effort record its own `tais-registry`
+>   block already is -- a human with Render dashboard access needs to
+>   either run a Blueprint sync from this file or create the service by
+>   hand, then confirm the resulting URL matches what `CORS_ORIGIN` and
+>   (once cutover happens) `deploy-drift/services.js` assume.
+> - **No DNS/custom-domain cutover, no Vercel project decommissioning.**
+>   Both need dashboard access this session doesn't have, and shouldn't
+>   happen until the Render service is confirmed live and serving
+>   correctly.
+>
+> Verified: root suite 98/98 (103 minus the 5 `VERCEL_TOKEN`-specific
+> tests removed from `tests/doctor.test.js`, tests renumbered/renamed to
+> match). `doc-currency` and `coverage-gaps` both re-run clean against the
+> real repo post-change. `tais_frontend`: `tsc --noEmit` clean, vitest
+> 16/16 files (67/67 tests) unchanged, a real `npm run build` confirmed
+> `version.json` still lands in `dist/` and the `RENDER_GIT_COMMIT`/
+> `git`-fallback priority both work as designed (tested by hand with and
+> without the env var set). `actionlint` was not available in this
+> session's sandbox (no cached binary, and `rhysd/actionlint` is outside
+> this session's GitHub repo scope) -- new/changed workflow YAML was
+> instead validated with `yaml.safe_load` (syntax-valid) and reviewed by
+> hand against `frontend-ci.yml`'s and `doctor.yml`'s own prior,
+> actionlint-clean structure; a human or a later session with actionlint
+> available should still run it once before or shortly after this merges.
+
 ## TL;DR
 
 TSO was abandoned mid-August 2026, buried under its own automation, not
