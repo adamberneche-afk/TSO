@@ -13,12 +13,23 @@
 // SPA has no request-time Node process on Vercel to ask.
 //
 // The SHA source, in priority order:
-//   1. VERCEL_GIT_COMMIT_SHA -- set automatically by Vercel on every build
+//   1. RENDER_GIT_COMMIT -- Render's own equivalent, already relied on (and
+//      confirmed automatically stamped) for tais-registry's web service in
+//      packages/registry/src/routes/version.ts. NOT yet confirmed to be
+//      set in a Render Static Site's build environment specifically as of
+//      this pass (2026-09-19, the Vercel-to-Render frontend migration) --
+//      if it isn't, this falls straight through to #3 with no error, so
+//      there's no risk in checking for it speculatively.
+//   2. VERCEL_GIT_COMMIT_SHA -- set automatically by Vercel on every build
 //      (https://vercel.com/docs/environment-variables/system-environment-variables),
-//      no config needed.
-//   2. `git rev-parse HEAD` -- fallback for a local build or any other
-//      host, using whatever checkout is actually being built.
-//   3. null, with source "unknown" -- deliberately not a fake placeholder;
+//      no config needed. Kept as a fallback, not removed, in case Vercel's
+//      native git integration is still independently deploying this same
+//      build during the migration window -- see vercel.json's own note.
+//   3. `git rev-parse HEAD` -- fallback for a local build or any other
+//      host, using whatever checkout is actually being built. The
+//      guaranteed-correct source regardless of which platform (if any) of
+//      the above actually applies.
+//   4. null, with source "unknown" -- deliberately not a fake placeholder;
 //      a wrong-but-present SHA is worse than an honest gap for a tool whose
 //      entire job is catching exactly that kind of mismatch.
 //
@@ -35,6 +46,9 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 function resolveSha() {
+  const renderSha = process.env.RENDER_GIT_COMMIT;
+  if (renderSha) return { sha: renderSha, source: 'render' };
+
   const vercelSha = process.env.VERCEL_GIT_COMMIT_SHA;
   if (vercelSha) return { sha: vercelSha, source: 'vercel' };
 

@@ -9,12 +9,15 @@
 // straight scheduled runs, and a spoke repo had been failing 100+ runs on
 // a secret that was never set -- both checkable in under a second, and
 // nothing before that tool ran either check before something broke in
-// production. TSO has the same class of history: deploy.yml's "Pull
-// Vercel Environment Information" step has failed instantly on every run
-// since at least Feb 2026 (see HANDOFF.md's first 2026-09-18 entry),
-// consistent with exactly what this tool's VERCEL_TOKEN check exists to
-// catch directly, instead of inferring it from a failing build step three
-// layers away from the actual cause.
+// production. TSO had the same class of history: the old "Deploy to
+// Vercel" Action's "Pull Vercel Environment Information" step had failed
+// instantly on every run since at least Feb 2026 (see HANDOFF.md's first
+// 2026-09-18 entry) -- this tool's first real run (2026-09-19) confirmed
+// why: VERCEL_TOKEN had never actually been set as a repo secret at all.
+// That whole deploy path (and the VERCEL_TOKEN check that once lived
+// here) is now retired as part of migrating tais_frontend to a Render
+// static site (see HANDOFF.md's 2026-09-19 entry) -- Render's own
+// autoDeploy needs no GitHub Actions secret of any kind.
 //
 // Deliberately workflow_dispatch-only (.github/workflows/doctor.yml), not
 // scheduled: adding another scheduled job risks the identical "failing
@@ -26,12 +29,6 @@
 // on a clock.
 //
 // What this checks, and why each one stops where it does:
-//   - VERCEL_TOKEN: a REAL validity check (GET /v2/user), not just
-//     presence -- Vercel's own read-only "who am I" endpoint, the same
-//     kind of low-cost, side-effect-free probe Mothership's own
-//     checkGlobalGithubToken (GET /rate_limit) and checkAiKey (GET
-//     /models) use. This is the one check in this file that can actually
-//     tell "configured" apart from "configured wrong."
 //   - VERCEL_URL / VERCEL_BYPASS_TOKEN / CRON_SECRET: presence only,
 //     deliberately not exercised live. Each guards a real side effect --
 //     VERCEL_URL+VERCEL_BYPASS_TOKEN is call-hub.yml's endpoint for
@@ -45,32 +42,6 @@
 //     already state: this can confirm a secret with the right NAME
 //     exists, never that its VALUE is actually correct.
 // =============================================================================
-
-const VERCEL_API = 'https://api.vercel.com';
-
-// The one check that can tell "configured" apart from "configured wrong" --
-// see the file header for why this is the only credential here that gets a
-// real live probe.
-async function checkVercelToken(token, fetchImpl) {
-  const label = 'VERCEL_TOKEN';
-  if (!token) return { label, ok: false, required: true, detail: 'not configured' };
-  try {
-    const res = await fetchImpl(`${VERCEL_API}/v2/user`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) return { label, ok: true, required: true, detail: 'valid' };
-    return {
-      label,
-      ok: false,
-      required: true,
-      detail:
-        `invalid or expired (HTTP ${res.status}) -- this is the exact failure ` +
-        `deploy.yml's "Pull Vercel Environment Information" step hits on every run`,
-    };
-  } catch (e) {
-    return { label, ok: false, required: true, detail: `unexpected error (${e.message})` };
-  }
-}
 
 // Presence-only -- see the file header for why none of these three get a
 // live call. `required: false` means this repo's own deploy pipeline
@@ -86,9 +57,8 @@ function checkPresence(label, value, { required, note }) {
   };
 }
 
-async function runDoctor(env = process.env, { fetchImpl = fetch } = {}) {
+async function runDoctor(env = process.env) {
   const checks = [];
-  checks.push(await checkVercelToken(env.VERCEL_TOKEN, fetchImpl));
   checks.push(
     checkPresence('VERCEL_URL', env.VERCEL_URL, {
       required: true,
@@ -136,4 +106,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { runDoctor, renderReport, checkVercelToken, checkPresence };
+module.exports = { runDoctor, renderReport, checkPresence };

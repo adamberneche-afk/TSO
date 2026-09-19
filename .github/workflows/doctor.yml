@@ -20,7 +20,6 @@ jobs:
 
       - name: Check every deploy-pipeline secret this repo actually uses
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_URL: ${{ secrets.VERCEL_URL }}
           VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}

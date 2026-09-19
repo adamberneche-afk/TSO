@@ -62,21 +62,72 @@ services:
         value: true
       - key: ENABLE_FIAT_PAYMENTS
         value: false
-      # config/cors.ts treats this as a literal origin allow-list, not a
-      # wildcard -- a literal "*" rejects every real browser origin
-      # outright rather than allowing all of them. The value below is the
-      # one production frontend origin confirmed working in
-      # docs/E2E_TEST_REPORT.md; CONFIRM it against the live dashboard
-      # before trusting this file -- Sprint 0 found the "Deploy to
-      # Vercel" GitHub Actions workflow has failed on every run in visible
-      # history back to 2026-02-24, so this domain has not been
-      # reconfirmed as still the deployed one.
+      # config/cors.ts treats this as a literal, comma-separated origin
+      # allow-list (getCorsConfig splits on ","), not a wildcard -- a
+      # literal "*" rejects every real browser origin outright rather than
+      # allowing all of them. Two origins are listed deliberately during
+      # the Vercel-to-Render frontend migration (2026-09-19, see
+      # HANDOFF.md): the original Vercel origin (unconfirmed as still
+      # live -- the "Deploy to Vercel" Action had failed on every run
+      # since Feb 2026, though Vercel's own native git integration may
+      # have kept deploying independently of that Action) and the new
+      # Render static site's expected origin (tais-frontend's name in
+      # this file's own services list below -- Render assigns
+      # https://<name>.onrender.com when that name is available, but this
+      # is NOT yet confirmed against a live dashboard). CONFIRM both
+      # against the live dashboards before trusting this file, and drop
+      # the Vercel origin once traffic is confirmed fully cut over.
       - key: CORS_ORIGIN
-        value: "https://taisplatform.vercel.app"
+        value: "https://taisplatform.vercel.app,https://tais-frontend.onrender.com"
       - key: CRON_SECRET
         generateValue: true
     healthCheckPath: /api/health
     autoDeploy: true
+
+  # Added 2026-09-19 as part of migrating tais_frontend off Vercel (see
+  # HANDOFF.md for the cost/pros/cons review that led here): Render was
+  # already the trusted, working platform for tais-registry above, and its
+  # static sites are free with no commercial-use restriction and no PR-preview
+  # paywall, unlike Vercel's Hobby tier. This block is the same kind of
+  # best-effort record tais-registry's own block above already is -- it has
+  # NOT been applied via a live Render Blueprint sync, and a human with
+  # dashboard access still needs to actually create this service (or run a
+  # Blueprint sync from this file) before it exists anywhere. Once it does:
+  # confirm the assigned onrender.com URL (or custom domain) matches what
+  # CORS_ORIGIN above and tools/deploy-drift/services.js's tais-frontend
+  # entry assume, and update either if it doesn't.
+  - type: web
+    name: tais-frontend
+    runtime: static
+    repo: https://github.com/adamberneche-afk/TSO
+    branch: main
+    rootDir: tais_frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      # Build-time Vite env vars -- previously set via tais_frontend/vercel.json's
+      # own "env" block (left in place, unused by Render, in case Vercel's
+      # native git integration is still independently live -- see that
+      # file's own note). Values copied from vercel.json verbatim so a
+      # cutover doesn't also silently change what's live.
+      - key: VITE_REGISTRY_URL
+        value: "https://tso.onrender.com"
+      - key: VITE_PUBLIC_RAG_API_URL
+        value: "https://tso.onrender.com/api/v1/rag"
+      - key: VITE_RPC_URL
+        value: "https://cloudflare-eth.com"
+      - key: VITE_GENESIS_CONTRACT
+        value: "0x11B3EfbF04F0bA505F380aC20444B6952970AdA6"
+    routes:
+      # Static files (including /version.json, /assets/*) win over this by
+      # default on Render, same as they did on Vercel -- see
+      # tais_frontend/scripts/write-version.cjs's own header. Only the SPA
+      # catch-all needs a real entry; vercel.json's "/api/:path* -> /api/:path*"
+      # and "/assets/:path* -> /assets/:path*" rules were no-ops for the same
+      # reason and have no Render equivalent needed.
+      - type: rewrite
+        source: /*
+        destination: /index.html
 
 cron:
   - name: memory-reports

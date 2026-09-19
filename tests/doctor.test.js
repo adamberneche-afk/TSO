@@ -6,45 +6,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { runDoctor, renderReport, checkVercelToken, checkPresence } = require('../tools/doctor/check.js');
-
-function fakeFetchStatus(status) {
-  return async () => ({ ok: status >= 200 && status < 300, status });
-}
-
-// ---------------------------------------------------------------------------
-// checkVercelToken
-// ---------------------------------------------------------------------------
-
-test('checkVercelToken reports "not configured" without ever making a network call', async () => {
-  let called = false;
-  const fetchImpl = async () => { called = true; return { ok: true, status: 200 }; };
-  const result = await checkVercelToken('', fetchImpl);
-  assert.equal(result.ok, false);
-  assert.equal(result.required, true);
-  assert.equal(result.detail, 'not configured');
-  assert.equal(called, false);
-});
-
-test('checkVercelToken reports valid on a real 2xx from Vercel', async () => {
-  const result = await checkVercelToken('a-real-token', fakeFetchStatus(200));
-  assert.equal(result.ok, true);
-  assert.equal(result.detail, 'valid');
-});
-
-test('checkVercelToken reports invalid/expired on a 403, naming the actual failure it maps to', async () => {
-  const result = await checkVercelToken('a-stale-token', fakeFetchStatus(403));
-  assert.equal(result.ok, false);
-  assert.ok(result.detail.includes('403'));
-  assert.ok(result.detail.includes('Pull Vercel Environment Information'));
-});
-
-test('checkVercelToken reports a network failure as a finding rather than throwing', async () => {
-  const fetchImpl = async () => { throw new Error('ENOTFOUND'); };
-  const result = await checkVercelToken('a-token', fetchImpl);
-  assert.equal(result.ok, false);
-  assert.ok(result.detail.includes('ENOTFOUND'));
-});
+const { runDoctor, renderReport, checkPresence } = require('../tools/doctor/check.js');
 
 // ---------------------------------------------------------------------------
 // checkPresence
@@ -72,8 +34,8 @@ test('checkPresence carries required through unchanged', () => {
 // ---------------------------------------------------------------------------
 
 test('runDoctor: allOk is true when every required check passes, even if the optional one is unset', async () => {
-  const env = { VERCEL_TOKEN: 'tok', VERCEL_URL: 'https://hub.example', CRON_SECRET: 'sekrit' };
-  const result = await runDoctor(env, { fetchImpl: fakeFetchStatus(200) });
+  const env = { VERCEL_URL: 'https://hub.example', CRON_SECRET: 'sekrit' };
+  const result = await runDoctor(env);
   assert.equal(result.allOk, true);
   const bypass = result.checks.find((c) => c.label === 'VERCEL_BYPASS_TOKEN');
   assert.equal(bypass.ok, false);
@@ -81,24 +43,17 @@ test('runDoctor: allOk is true when every required check passes, even if the opt
 });
 
 test('runDoctor: allOk is false when a required check fails, regardless of the others', async () => {
-  const env = { VERCEL_TOKEN: 'tok', VERCEL_URL: '', CRON_SECRET: 'sekrit' };
-  const result = await runDoctor(env, { fetchImpl: fakeFetchStatus(200) });
+  const env = { VERCEL_URL: '', CRON_SECRET: 'sekrit' };
+  const result = await runDoctor(env);
   assert.equal(result.allOk, false);
 });
 
-test('runDoctor: an invalid VERCEL_TOKEN alone is enough to fail the whole run', async () => {
-  const env = { VERCEL_TOKEN: 'tok', VERCEL_URL: 'https://hub.example', CRON_SECRET: 'sekrit' };
-  const result = await runDoctor(env, { fetchImpl: fakeFetchStatus(401) });
-  assert.equal(result.allOk, false);
-  assert.equal(result.checks.find((c) => c.label === 'VERCEL_TOKEN').ok, false);
-});
-
-test('runDoctor checks all four known secrets, in a stable order', async () => {
+test('runDoctor checks all three known secrets, in a stable order', async () => {
   const env = {};
-  const result = await runDoctor(env, { fetchImpl: fakeFetchStatus(200) });
+  const result = await runDoctor(env);
   assert.deepEqual(
     result.checks.map((c) => c.label),
-    ['VERCEL_TOKEN', 'VERCEL_URL', 'VERCEL_BYPASS_TOKEN', 'CRON_SECRET']
+    ['VERCEL_URL', 'VERCEL_BYPASS_TOKEN', 'CRON_SECRET']
   );
 });
 
