@@ -834,6 +834,60 @@ whatever gets decided next — read this before re-reading the whole repo.
 > actionlint-clean structure; a human or a later session with actionlint
 > available should still run it once before or shortly after this merges.
 
+> **Update — 2026-09-19 (follow-up):** The user added the Render MCP
+> connector to this session and asked to have the cutover actually
+> carried out, not just scaffolded. With real Render account access,
+> found the correct workspace by listing all three the account has
+> access to and matching which one actually hosts the live `tso.onrender.com`
+> registry service (`tea-d65249fpm1nc738km5gg`, confusingly also the
+> name of two of the three workspaces) -- created the `tais-frontend`
+> static site there for real via `create_static_site`, wired to
+> `github.com/adamberneche-afk/TSO`, branch `main`, matching the
+> `render.yaml` block from the prior entry (`create_static_site`'s tool
+> doesn't expose a `rootDir` parameter, so `buildCommand`/`publishPath`
+> encode it instead: `cd tais_frontend && npm ci && npm run build` /
+> `tais_frontend/dist`).
+>
+> **The first real build succeeded end-to-end** (watched via
+> `get_deploy` and confirmed with the actual build log, not just a
+> status field): `write-version.cjs`'s prebuild step reported
+> `source: "render"` with the deploying commit's SHA -- **this resolves
+> the "not yet confirmed" flag on `RENDER_GIT_COMMIT` from the entry
+> above: Render Static Site builds do stamp it**, the same as the
+> `tais-registry` web service already relied on. `vite build` completed
+> (4387 modules), and Render's own log ends with "Your site is live".
+> The resulting URL, `https://tais-frontend.onrender.com`, is exactly
+> what `render.yaml`'s block and `CORS_ORIGIN` already assumed -- no
+> follow-up edit needed there. This session has no network egress to
+> `onrender.com` itself (same block that already applied to
+> `render.com`'s docs pages), so the build log is the actual evidence,
+> not an external HTTP check.
+>
+> **Completed the one remaining code change the prior entry flagged**:
+> `tools/deploy-drift/services.js`'s `tais-frontend` entry now points at
+> the real Render URL instead of the Vercel one, label updated to
+> `Frontend (Render)`. This was deliberately left for last, after (not
+> before) the service was confirmed to actually exist and build
+> successfully -- repointing it earlier would have made `deploy-drift.yml`'s
+> next hourly run file a real false "unreachable" issue against a
+> service that didn't exist yet.
+>
+> **Still not done, and still needs a human**: PR-preview deployments on
+> the new static site are off by default and there's no MCP tool
+> exposed to flip that setting -- needs a dashboard visit (Settings → PR
+> Previews). Also spotted, unrelated to this migration but worth a
+> separate look: the *live* `tais-registry` web service's actual
+> configuration disagrees with `render.yaml` in two ways -- its real
+> build command is `start.sh`, not `build.sh`, and `autoDeploy` is off,
+> not on. `vercel.json` and the Vercel origin in `CORS_ORIGIN` are still
+> deliberately untouched -- decommissioning Vercel is a separate decision
+> the user hasn't made yet, independent of whether the Render replacement
+> works.
+>
+> Verified: root suite 98/98, `doc-currency` and `coverage-gaps` both
+> re-run clean against the real repo after the one-line `services.js`
+> change.
+
 ## TL;DR
 
 TSO was abandoned mid-August 2026, buried under its own automation, not
