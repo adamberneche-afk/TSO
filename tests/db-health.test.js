@@ -198,21 +198,52 @@ test('runProbes: a real database-down answer is NOT retried away', async () => {
 const NOW = new Date('2026-10-01T00:00:00Z');
 
 test('evaluateExpiry: comfortably in the future is ok', () => {
-  const result = evaluateExpiry('tais-rag', { expiresAt: '2026-10-20T00:00:00Z', warnWithinDays: 10 }, NOW);
+  const result = evaluateExpiry('tais-rag', { expiresAt: '2026-10-20T00:00:00Z', graceDays: 14, warnWithinDays: 10 }, NOW);
   assert.equal(result.status, 'ok');
   assert.equal(result.daysRemaining, 19);
 });
 
 test('evaluateExpiry: inside the warning window is expiring-soon', () => {
-  const result = evaluateExpiry('tais-rag', { expiresAt: '2026-10-08T00:00:00Z', warnWithinDays: 10 }, NOW);
+  const result = evaluateExpiry('tais-rag', { expiresAt: '2026-10-08T00:00:00Z', graceDays: 14, warnWithinDays: 10 }, NOW);
   assert.equal(result.status, 'expiring-soon');
   assert.equal(result.daysRemaining, 7);
 });
 
-test('evaluateExpiry: a passed date is expired, with how long ago', () => {
-  const result = evaluateExpiry('tais-rag', { expiresAt: '2026-09-28T00:00:00Z', warnWithinDays: 10 }, NOW);
-  assert.equal(result.status, 'expired');
+// The distinction this whole model exists for: past the expiry date the
+// data is still fully recoverable by upgrading, and only after the grace
+// period is it actually gone. Reporting those identically would send
+// someone to "recreate and re-migrate" while their data was still sitting
+// there waiting to be rescued by a credit card.
+test('evaluateExpiry: past expiry but inside the grace period is in-grace, not deleted', () => {
+  const result = evaluateExpiry('tais-rag', { expiresAt: '2026-09-28T00:00:00Z', graceDays: 14, warnWithinDays: 10 }, NOW);
+  assert.equal(result.status, 'in-grace');
+  assert.equal(result.daysRemaining, -3);
+  assert.equal(result.daysUntilDeletion, 11);
   assert.ok(result.detail.includes('3 day(s) ago'));
+  assert.ok(result.detail.includes('11 day(s)'), 'says how long is left to act');
+  assert.ok(result.detail.includes('upgrading'), 'names the recovery route');
+});
+
+test('evaluateExpiry: past the grace period is deleted, and says the data is gone', () => {
+  const result = evaluateExpiry('tais-rag', { expiresAt: '2026-09-10T00:00:00Z', graceDays: 14, warnWithinDays: 10 }, NOW);
+  assert.equal(result.status, 'deleted');
+  assert.equal(result.daysUntilDeletion, -7);
+  assert.ok(result.detail.includes('gone'));
+});
+
+// The boundary itself: the instant the grace period lapses. Off-by-one
+// here is the difference between "you have hours" and "it is gone".
+test('evaluateExpiry: the last day of grace is still in-grace', () => {
+  const result = evaluateExpiry('tais-rag', { expiresAt: '2026-09-17T00:00:00Z', graceDays: 14, warnWithinDays: 10 }, NOW);
+  assert.equal(result.status, 'in-grace');
+  assert.equal(result.daysUntilDeletion, 0);
+});
+
+// A provider whose grace behaviour is unconfirmed must not be assumed to
+// have any: absent graceDays, expiry is treated as immediate deletion.
+test('evaluateExpiry: with no graceDays, a passed expiry is deleted outright', () => {
+  const result = evaluateExpiry('other-db', { expiresAt: '2026-09-28T00:00:00Z', warnWithinDays: 10 }, NOW);
+  assert.equal(result.status, 'deleted');
 });
 
 test('evaluateExpiry: a missing expiresAt is unknown, not silently ok', () => {
@@ -241,23 +272,51 @@ test('summarize: everything passing is healthy with no findings', () => {
   assert.equal(summary.findings.length, 0);
 });
 
-test('summarize: expired AND probes failing blames the expiry as the likely cause', () => {
-  const probes = [
-    { name: 'connectivity', status: 'database-down', detail: '503' },
-    { name: 'schema', status: 'query-failed', detail: '500' },
-  ];
-  const summary = summarize(probes, [{ dbName: 'tais-rag', status: 'expired', detail: 'passed 3 day(s) ago' }]);
+const FAILING_PROBES = [
+  { name: 'connectivity', status: 'database-down', detail: '503' },
+  { name: 'schema', status: 'query-failed', detail: '500' },
+];
+
+// The most time-sensitive report this tool can produce: the database is
+// down AND the data is still rescuable, but only until a fixed deadline.
+// The finding has to say so, because "recreate and re-migrate" -- the
+// right advice once the grace period lapses -- destroys recoverable data
+// if given a day too early.
+test('summarize: in-grace AND probes failing leads with the recovery deadline', () => {
+  const summary = summarize(FAILING_PROBES, [
+    { dbName: 'tais-rag', status: 'in-grace', detail: 'passed 3 day(s) ago', deletesAt: '2026-10-12T00:00:00Z' },
+  ]);
   assert.equal(summary.healthy, false);
-  const expiryFinding = summary.findings.find((f) => f.kind === 'expiry');
-  assert.equal(expiryFinding.status, 'expired-and-failing');
-  assert.ok(expiryFinding.detail.includes('most likely cause'));
+  const finding = summary.findings.find((f) => f.kind === 'expiry');
+  assert.equal(finding.status, 'in-grace-and-failing');
+  assert.ok(finding.detail.includes('2026-10-12T00:00:00Z'), 'names the deadline');
+  assert.ok(finding.detail.includes('upgrading'), 'names the recovery route');
+  assert.ok(!finding.detail.includes('recreated and re-migrated'), 'must not advise recreating while data is still recoverable');
 });
 
-test('summarize: expired BUT probes healthy blames the record, not the database', () => {
+test('summarize: past grace AND probes failing says recreate, and that unbacked data is gone', () => {
+  const summary = summarize(FAILING_PROBES, [
+    { dbName: 'tais-rag', status: 'deleted', detail: 'grace ended 7 day(s) ago' },
+  ]);
+  const finding = summary.findings.find((f) => f.kind === 'expiry');
+  assert.equal(finding.status, 'deleted-and-failing');
+  assert.ok(finding.detail.includes('most likely cause'));
+  assert.ok(finding.detail.includes('recreated and re-migrated'));
+});
+
+test('summarize: in-grace BUT probes healthy blames the record, not the database', () => {
   // The self-correcting case: a stale expiresAt makes every warning this
   // tool prints worthless, so it has to be reported against probes.js.
-  const summary = summarize(OK_PROBES, [{ dbName: 'tais-rag', status: 'expired', detail: 'passed 3 day(s) ago' }]);
+  const summary = summarize(OK_PROBES, [{ dbName: 'tais-rag', status: 'in-grace', detail: 'passed 3 day(s) ago' }]);
   assert.equal(summary.healthy, false);
+  const finding = summary.findings.find((f) => f.kind === 'expiry');
+  assert.equal(finding.status, 'stale-record');
+  assert.ok(finding.detail.includes('probes.js'));
+});
+
+test('summarize: deleted BUT probes healthy also blames the record', () => {
+  // A database that answers cannot have been deleted, whatever this file says.
+  const summary = summarize(OK_PROBES, [{ dbName: 'tais-rag', status: 'deleted', detail: 'grace ended 7 day(s) ago' }]);
   const finding = summary.findings.find((f) => f.kind === 'expiry');
   assert.equal(finding.status, 'stale-record');
   assert.ok(finding.detail.includes('probes.js'));
@@ -291,7 +350,9 @@ test('summarize: every failing probe becomes its own finding', () => {
 const PROBE_RESULTS = [
   { name: 'connectivity', label: 'Database connectivity', url: 'https://example.test/health', status: 'database-down', detail: 'HTTP 503' },
 ];
-const EXPIRY_RESULTS = [{ dbName: 'tais-rag', status: 'expired', daysRemaining: -3, detail: 'passed 3 day(s) ago' }];
+const EXPIRY_RESULTS = [
+  { dbName: 'tais-rag', status: 'in-grace', daysRemaining: -3, daysUntilDeletion: 11, deletesAt: '2026-10-12T00:00:00Z', detail: 'passed 3 day(s) ago' },
+];
 
 test('buildIssueBody: an unhealthy report lists findings and both sections', () => {
   const summary = summarize(PROBE_RESULTS, EXPIRY_RESULTS);

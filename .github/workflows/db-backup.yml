@@ -1,0 +1,186 @@
+name: DB backup
+
+# Takes a verified, encrypted logical backup of the registry's Postgres.
+#
+# WHY THIS EXISTS: Render's free Postgres plan has NO backups of any kind --
+# no snapshots, no point-in-time recovery, no fork. Render's own docs say to
+# use pg_dump yourself. When this repo's two databases were lost in 2026-03
+# there was no backup and the data was simply gone; this workflow is the
+# thing whose absence made that unrecoverable rather than merely annoying.
+#
+# It also makes a free-tier ROTATION survivable. Only one free Postgres may
+# be active per account, so a replacement cannot be created until the old
+# one is deleted -- there is an unavoidable window where a dump is the only
+# copy of the data in existence. Never start a rotation without a recent run
+# of this workflow that PASSED verification.
+#
+# WHY THE DUMP IS ENCRYPTED: this repository is PUBLIC, and artifacts on a
+# public repository can be downloaded by anyone. An unencrypted dump here
+# would publish every user record in the database. The plaintext dump is
+# never uploaded and never leaves the runner.
+
+on:
+  schedule:
+    # 03:40 UTC daily. Off the hour deliberately -- GitHub drops scheduled
+    # runs under load at popular times, and a backup that silently does not
+    # run is the failure mode this whole file exists to prevent.
+    - cron: '40 3 * * *'
+  workflow_dispatch:
+
+# Only reads the repo; the artifact upload needs no extra scope.
+permissions:
+  contents: read
+
+concurrency:
+  # Never let two dumps of the same database overlap.
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Fails rather than skips when unconfigured, on purpose. A backup job
+      # that goes green without producing a backup is exactly the
+      # manufactured-confidence failure this repo has already been burned
+      # by (GET /health answered 503 for six months and nothing asked).
+      # A red run is visible; a green no-op is not. tools/watchdog also
+      # watches workflow health, so this failure gets noticed.
+      - name: Require the secrets this job cannot work without
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -z "${DATABASE_URL}" ] && missing="${missing} BACKUP_DATABASE_URL"
+          [ -z "${PASSPHRASE}" ] && missing="${missing} BACKUP_PASSPHRASE"
+          if [ -n "${missing}" ]; then
+            echo "::error::Missing required secret(s):${missing}"
+            echo ""
+            echo "This job is failing loudly rather than skipping, because a backup"
+            echo "workflow that reports success without producing a backup is worse"
+            echo "than no backup workflow at all."
+            echo ""
+            echo "To configure:"
+            echo "  BACKUP_DATABASE_URL - the registry Postgres EXTERNAL connection"
+            echo "                        string (the *.oregon-postgres.render.com"
+            echo "                        host, not the internal dpg-* one, which is"
+            echo "                        only reachable from inside Render)."
+            echo "  BACKUP_PASSPHRASE   - a strong passphrase used to symmetrically"
+            echo "                        encrypt the dump. STORE IT SOMEWHERE THAT"
+            echo "                        IS NOT THIS REPO. Without it the backups"
+            echo "                        are unreadable and therefore worthless."
+            exit 1
+          fi
+          echo "Both secrets present."
+
+      # pg_dump refuses to dump a server newer than itself, and silently
+      # producing nothing is not an option here, so the version is checked
+      # up front rather than discovered halfway through a failed restore.
+      - name: Ensure a pg_dump at least as new as the server
+        run: |
+          set -euo pipefail
+          SERVER_MAJOR=16
+          if command -v pg_dump >/dev/null 2>&1; then
+            CLIENT_MAJOR="$(pg_dump --version | grep -oE '[0-9]+' | head -1)"
+          else
+            CLIENT_MAJOR=0
+          fi
+          echo "pg_dump major: ${CLIENT_MAJOR}; server major: ${SERVER_MAJOR}"
+          if [ "${CLIENT_MAJOR}" -lt "${SERVER_MAJOR}" ]; then
+            echo "Installing postgresql-client-${SERVER_MAJOR} from PGDG..."
+            sudo install -d /usr/share/postgresql-common/pgdg
+            sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+              https://www.postgresql.org/media/keys/ACCC4CF8.asc
+            echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+              | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq "postgresql-client-${SERVER_MAJOR}"
+          fi
+          pg_dump --version
+
+      # `set +x` throughout: the connection string is a credential. GitHub
+      # masks registered secrets in logs, but an echoed command line is an
+      # easy way to leak one via a substring that masking does not cover.
+      - name: Dump
+        env:
+          PGCONNECT_TIMEOUT: '30'
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          set +x
+          mkdir -p backup
+          # Custom format (-Fc): compressed, and restorable selectively with
+          # pg_restore. --no-owner/--no-acl so the dump restores cleanly into
+          # a NEW instance whose generated role name differs -- which is
+          # precisely the rotation case this backup is meant to serve.
+          pg_dump --format=custom --no-owner --no-acl --verbose \
+            --file=backup/registry.dump "${DATABASE_URL}" 2> backup/dump.log || {
+              echo "::error::pg_dump failed"
+              # The log can contain the host but not the password; still,
+              # only the tail is surfaced, and it is never uploaded.
+              tail -n 20 backup/dump.log
+              exit 1
+            }
+          pg_restore --list backup/registry.dump > backup/toc.txt
+          ls -l backup/registry.dump
+
+      # The step that decides whether this run produced a backup or merely
+      # produced a file. See tools/db-backup/verify.js for what each check
+      # catches; the one with teeth is "valid archive of an empty,
+      # never-migrated database", which looks perfectly healthy otherwise.
+      - name: Verify the dump is actually a backup
+        run: node tools/db-backup/verify.js backup/registry.dump backup/toc.txt
+
+      # Encrypted BEFORE upload, because this repository is public and
+      # artifacts on public repositories are world-downloadable. The
+      # plaintext dump, the toc and the pg_dump log are all deleted here and
+      # only the .gpg file survives into the upload step.
+      - name: Encrypt, and destroy the plaintext
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          set +x
+          printf '%s' "${PASSPHRASE}" | gpg --batch --yes --quiet \
+            --passphrase-fd 0 --pinentry-mode loopback \
+            --symmetric --cipher-algo AES256 \
+            --output backup/registry.dump.gpg backup/registry.dump
+          rm -f backup/registry.dump backup/toc.txt backup/dump.log
+          # Belt and braces: prove nothing unencrypted is left to upload.
+          if find backup -type f ! -name '*.gpg' | grep -q .; then
+            echo "::error::plaintext files remain in backup/ -- refusing to upload"
+            find backup -type f ! -name '*.gpg'
+            exit 1
+          fi
+          ls -l backup/
+
+      - name: Upload the encrypted backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: registry-backup-${{ github.run_id }}
+          path: backup/registry.dump.gpg
+          # Long enough to cover several free-tier expiry cycles, so a
+          # backup from before a bad rotation is still reachable.
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Summary
+        run: |
+          {
+            echo "### Registry backup"
+            echo ""
+            echo "Encrypted dump uploaded as artifact \`registry-backup-${{ github.run_id }}\`."
+            echo ""
+            echo "To restore:"
+            echo '```'
+            echo "gpg --decrypt --output registry.dump registry.dump.gpg"
+            echo "pg_restore --no-owner --no-acl --dbname \"\$TARGET_DATABASE_URL\" registry.dump"
+            echo '```'
+            echo ""
+            echo "The passphrase is \`BACKUP_PASSPHRASE\`. It is not stored in this"
+            echo "repository; without it this artifact is unreadable."
+          } >> "$GITHUB_STEP_SUMMARY"

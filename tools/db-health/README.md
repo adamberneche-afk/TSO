@@ -30,7 +30,7 @@ This tool is the asking.
 | --- | --- | --- |
 | Connectivity | `GET /health` | The registry can open a connection and run `SELECT 1`. |
 | Schema | `GET /api/v1/skills?limit=1` | Real tables exist and answer a real query. |
-| Expiry | arithmetic on `probes.js` | How many days until a Render free-tier database deletes itself. |
+| Expiry | arithmetic on `probes.js` | How long until a Render free-tier database expires, and then how long until it is permanently deleted. |
 
 Both endpoints are public and unauthenticated, so — exactly like
 `deploy-drift` — this holds **no credential** beyond the ambient
@@ -53,12 +53,41 @@ result from a working schema is a pass. The probe asserts *the query ran*.
 
 ### The expiry check is the one that would have prevented this
 
-The others detect the outage. This one prevents it. Render's free Postgres
-plan **deletes the instance 30 days after creation** — that is the actual
-root cause of the original incident, not a random suspension but a
-scheduled deletion nobody was watching for.
+The others detect the outage. This one prevents it. A Render free Postgres
+expires 30 days after creation — that is the actual root cause of the
+original incident, not a random suspension but a scheduled deletion nobody
+was watching for.
 
-`expiresAt` is recorded by hand in `probes.js` because no tool available to
+**Expiry is not deletion**, and the tool tracks both dates because
+conflating them gives dangerously wrong advice:
+
+```
+created ---30 days---> EXPIRES ---14 days grace---> DELETED FOREVER
+```
+
+During the grace period the instance is expired but **upgrading to a paid
+plan restores it with all data intact**. Only after that window is it
+permanently deleted. So there are two distinct past-expiry states and the
+tool reports them separately:
+
+| State | What it means | What to do |
+| --- | --- | --- |
+| `in-grace` | Expired, still recoverable, with a deadline | Upgrade **now** — this is the most time-sensitive thing this tool reports |
+| `deleted` | Past the grace period | Recreate and re-migrate; anything not separately backed up is gone |
+
+Telling someone to "recreate and re-migrate" one day too early destroys
+data that was still rescuable, which is why these are never collapsed into
+a single `expired`. (The first version of this tool did collapse them. It
+was corrected against Render's own docs — the same docs that confirm free
+instances get **no backups of any kind**, which is why the grace period is
+the only recovery mechanism this plan has, and why `tools/db-backup`
+exists.)
+
+This also probably explains the original incident's two different Prisma
+errors: `P1017` on one database (expired, still present) and `P1001` on the
+other (past grace, actually gone).
+
+Both dates are recorded by hand in `probes.js` because no tool available to
 this repo's CI can read a Render database's expiry, and adding a
 `RENDER_API_KEY` secret purely to fetch it would introduce exactly the kind
 of quietly-rotting credential `tools/doctor/check.js` exists to catch.

@@ -32,10 +32,12 @@
 //     answer a real query. A freshly-created, never-migrated database
 //     passes connectivity and fails this -- which is precisely the state
 //     a recreated database sits in before `prisma migrate deploy` runs.
-//   - expiry      (arithmetic on tools/db-health/probes.js): how many days
-//     until a Render free-tier database deletes itself. This is the check
-//     that would have prevented the incident rather than merely detected
-//     it.
+//   - expiry      (arithmetic on tools/db-health/probes.js): how long until
+//     a Render free-tier database expires, and then how long until it is
+//     permanently deleted. Those are two different dates separated by a
+//     grace period in which upgrading still recovers everything, and this
+//     is the check that would have prevented the incident rather than
+//     merely detected it.
 // =============================================================================
 
 const { PROBES, MANAGED_DATABASES, probeNames, managedDatabaseNames } = require('./probes.js');
@@ -199,35 +201,76 @@ function evaluateExpiry(dbName, db, now = new Date()) {
     return { dbName, status: 'unknown', daysRemaining: null, detail: `expiresAt "${db.expiresAt}" is not a valid date` };
   }
 
+  // Expiry is not deletion. Render holds an expired free instance for a
+  // documented grace period, during which upgrading to a paid plan
+  // restores it with all data intact -- see probes.js for the full
+  // lifecycle. `graceDays` absent or 0 means treat expiry as immediate
+  // deletion, which is the pessimistic reading and the safe default for a
+  // provider whose grace behaviour we have not confirmed.
+  const graceDays = db.graceDays ?? 0;
+  const deletesAt = new Date(expiresAt.getTime() + graceDays * MS_PER_DAY);
+
   const daysRemaining = Math.floor((expiresAt.getTime() - now.getTime()) / MS_PER_DAY);
+  const daysUntilDeletion = Math.floor((deletesAt.getTime() - now.getTime()) / MS_PER_DAY);
+  const base = { dbName, daysRemaining, daysUntilDeletion, deletesAt: deletesAt.toISOString() };
+
+  // Past the grace period: the instance and its data are gone. Nothing to
+  // recover, so the only honest advice is recreate-and-remigrate.
+  if (daysUntilDeletion < 0) {
+    return {
+      ...base,
+      status: 'deleted',
+      detail:
+        `recorded expiry ${db.expiresAt} passed ${Math.abs(daysRemaining)} day(s) ago, and the ` +
+        `${graceDays}-day grace period ended ${Math.abs(daysUntilDeletion)} day(s) ago on ` +
+        `${base.deletesAt} -- the instance and all its data are gone`,
+    };
+  }
+
+  // Expired but still inside the grace window. This is the one state where
+  // paying fixes everything, and it is time-boxed, so it says so in the
+  // detail line rather than leaving the reader to infer it.
   if (daysRemaining < 0) {
     return {
-      dbName,
-      status: 'expired',
-      daysRemaining,
-      detail: `recorded expiry ${db.expiresAt} passed ${Math.abs(daysRemaining)} day(s) ago`,
+      ...base,
+      status: 'in-grace',
+      detail:
+        `recorded expiry ${db.expiresAt} passed ${Math.abs(daysRemaining)} day(s) ago, but the ` +
+        `${graceDays}-day grace period runs until ${base.deletesAt} -- ${daysUntilDeletion} day(s) ` +
+        `left to recover it intact by upgrading to a paid plan, after which it is deleted permanently`,
     };
   }
+
   if (daysRemaining <= (db.warnWithinDays ?? 0)) {
     return {
-      dbName,
+      ...base,
       status: 'expiring-soon',
-      daysRemaining,
-      detail: `expires in ${daysRemaining} day(s), on ${db.expiresAt}`,
+      detail: `expires in ${daysRemaining} day(s), on ${db.expiresAt} (then ${graceDays} day(s) of grace, deleted ${base.deletesAt})`,
     };
   }
-  return { dbName, status: 'ok', daysRemaining, detail: `expires in ${daysRemaining} day(s), on ${db.expiresAt}` };
+  return {
+    ...base,
+    status: 'ok',
+    detail: `expires in ${daysRemaining} day(s), on ${db.expiresAt} (then ${graceDays} day(s) of grace, deleted ${base.deletesAt})`,
+  };
 }
 
 // The part that turns three independent signals into an actual diagnosis.
 //
-// An expired record means two completely different things depending on
-// whether the database still answers, and saying the wrong one sends
-// whoever reads the issue in the wrong direction:
-//   - expired AND the probes are failing  -> the expiry is almost certainly
-//     the cause; recreate the database.
-//   - expired AND the probes are healthy  -> the RECORD is wrong, not the
-//     database. Someone recreated or upgraded it without updating
+// A past-expiry record means three completely different things depending
+// on how far past it is and whether the database still answers, and
+// saying the wrong one sends whoever reads the issue in the wrong
+// direction at the one moment it is most expensive:
+//   - in grace AND the probes are failing -> the expiry is almost
+//     certainly the cause, AND the data is still fully recoverable by
+//     upgrading to a paid plan, but only until a stated deadline. This is
+//     the most time-sensitive thing this tool can report, so the finding
+//     leads with the deadline rather than the diagnosis.
+//   - past grace AND the probes are failing -> the same cause, but the
+//     recovery window is gone. Recreate and re-migrate; anything not
+//     separately backed up is lost.
+//   - past expiry AND the probes are healthy -> the RECORD is wrong, not
+//     the database. Someone recreated or upgraded it without updating
 //     probes.js, which means every "expires in N days" warning this tool
 //     prints is now fiction. That is a real finding about this tool's own
 //     data, and it stays loud until someone fixes the file.
@@ -235,7 +278,11 @@ function summarize(probeResults, expiryResults) {
   const findings = [];
 
   const probesFailing = probeResults.filter((p) => p.status !== 'ok');
-  const expired = expiryResults.filter((e) => e.status === 'expired');
+  // Two distinct past-expiry states, deliberately not collapsed: inside
+  // the grace period the data is still recoverable by upgrading, past it
+  // the data is gone. They call for opposite actions.
+  const inGrace = expiryResults.filter((e) => e.status === 'in-grace');
+  const deleted = expiryResults.filter((e) => e.status === 'deleted');
   const expiringSoon = expiryResults.filter((e) => e.status === 'expiring-soon');
   const unknownExpiry = expiryResults.filter((e) => e.status === 'unknown');
 
@@ -243,13 +290,35 @@ function summarize(probeResults, expiryResults) {
     findings.push({ kind: 'probe', name: probe.name, status: probe.status, detail: probe.detail });
   }
 
-  for (const exp of expired) {
+  // Expired-but-recoverable. If the probes are also failing this is almost
+  // certainly why -- and unlike every other failure this tool reports,
+  // there is a deadline attached to fixing it, so the finding leads with
+  // that rather than with diagnosis.
+  for (const exp of inGrace) {
     if (probesFailing.length > 0) {
       findings.push({
         kind: 'expiry',
         name: exp.dbName,
-        status: 'expired-and-failing',
-        detail: `${exp.detail} -- and the live probes above are failing, so this is the most likely cause. A Render free-tier Postgres deletes itself 30 days after creation; it has to be recreated and re-migrated.`,
+        status: 'in-grace-and-failing',
+        detail: `${exp.detail}. The live probes above are failing, which is consistent with an expired instance. ACT BEFORE ${exp.deletesAt}: upgrading to a paid plan within the grace window restores it with all data intact. After that it is deleted permanently and, because free instances have no backups of any kind, unrecoverable.`,
+      });
+    } else {
+      findings.push({
+        kind: 'expiry',
+        name: exp.dbName,
+        status: 'stale-record',
+        detail: `${exp.detail} -- but every live probe is healthy, so the database is clearly still alive and it is this record that is wrong. Update \`expiresAt\` for "${exp.dbName}" in tools/db-health/probes.js; until then every expiry warning from this tool is meaningless.`,
+      });
+    }
+  }
+
+  for (const exp of deleted) {
+    if (probesFailing.length > 0) {
+      findings.push({
+        kind: 'expiry',
+        name: exp.dbName,
+        status: 'deleted-and-failing',
+        detail: `${exp.detail} -- and the live probes above are failing, so this is the most likely cause. The grace period for recovering it by upgrading has passed; it has to be recreated and re-migrated, and any data not separately backed up is gone.`,
       });
     } else {
       findings.push({
@@ -266,7 +335,7 @@ function summarize(probeResults, expiryResults) {
       kind: 'expiry',
       name: exp.dbName,
       status: 'expiring-soon',
-      detail: `${exp.detail}. Recreating it loses all data unless it is backed up or upgraded to a paid plan first -- this is the warning that did not exist the last time, when the database simply vanished.`,
+      detail: `${exp.detail}. Upgrading to a paid plan before then avoids the whole problem; recreating it instead loses all data unless it is backed up first, because free instances get no backups of any kind. This is the warning that did not exist the last time, when the database simply vanished.`,
     });
   }
 

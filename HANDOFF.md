@@ -1149,6 +1149,326 @@ whatever gets decided next — read this before re-reading the whole repo.
 > that worked for `doctor.yml`: merge, fire the workflow manually, and
 > read the real run. Until that happens this tool is unproven.
 
+> **Update — 2026-09-20 (Sprint B validated + Sprint C):** PR #2040 merged
+> and `db-health.yml` was fired manually against `main`. **It passed on
+> the live service** — the validation the Sprint B entry above says was
+> missing:
+>
+> ```
+> ✓ Database connectivity: ok — connection opened and `SELECT 1` succeeded
+> ✓ Schema queryable: ok — query executed against real tables (total = 3)
+> ✓ tais-rag expiry: expires in 29 day(s), on 2026-10-20T11:12:55Z
+> ```
+>
+> Two things in that run are worth more than the green tick:
+>
+> 1. **The cold-start handling was exercised for real on the first run.**
+>    The probe step ran 12:06:10 → 12:07:26 — **76 seconds** for two HTTP
+>    requests. That is the designed path firing: the first request hit a
+>    spun-down free instance, the tool waited 45s, retried, and got a
+>    clean answer. Without that logic this run would have reported a
+>    false database outage, and a check that cries wolf on its own first
+>    run gets muted and never heard from again. The design problem was
+>    found before it cost anything, which is the cheapest place to find
+>    one.
+> 2. **`total = 3`** — the registry answers real queries against real
+>    tables with the Sprint A seed data intact. The 2026-03→09 outage is
+>    fully closed, not merely "the service boots".
+>
+> **The standing risk this surfaces: `tais-rag` deletes itself on
+> 2026-10-20.** It is a free-tier Render Postgres, which is the literal
+> root cause of the original outage, and nothing about recreating it
+> changed that property. `db-health` will start warning ~Oct 10 (10-day
+> threshold). A warning is not a fix — before that date this needs either
+> a paid plan or a deliberate, scheduled recreate-and-remigrate. If it is
+> ever recreated, `tools/db-health/probes.js`'s `expiresAt` MUST be
+> updated to match or every warning it emits afterwards is fiction (the
+> tool guards against this: a passed expiry while probes are healthy is
+> reported as a bug in that file, not as a database problem).
+>
+> **Sprint C** reconciled `render.yaml` against the live dashboard via the
+> Render API — checked, not assumed. The drift was worse than the one
+> known item, and two entries had real teeth:
+>
+> | `render.yaml` said | Live actually has | Why it mattered |
+> | --- | --- | --- |
+> | name `tais-registry` | name `TSO` (slug `tso`) | Blueprint sync matches by name → would have created a *second* service |
+> | `startCommand: npm start` | `./start.sh` | `npm start` is bare `node dist/index.js`; `start.sh` runs `prisma migrate deploy` on both URLs first → applying this file would have silently stopped running migrations |
+> | `healthCheckPath: /api/health` | blank | That route has never existed (only `/api/v1` and `/api/version` are mounted; health is at bare `/health`) → Render would poll a 404 forever |
+> | two `databases:` | one (`tais-rag`) | Free tier permits one active Postgres per account; consolidation was the user's cost decision |
+> | frontend rootDir/build/publish | all three different | — |
+>
+> `healthCheckPath` was left **blank on purpose** rather than repointed at
+> the real `/health`. That endpoint returns 503 when the database is
+> unreachable, so as a Render health check it would let a database outage
+> block the deploy and take down every endpoint that needs no database at
+> all. `db-health` polls it from outside instead: the alerting without
+> coupling the service's liveness to its database. If a real health check
+> is ever wanted there, add a *shallow* liveness route and point at that.
+>
+> **Vercel decommissioned** (user's decision). Two findings made it a safe
+> call rather than a guess. Vercel's native git integration was still
+> deploying production from `main` on **every** merge — #2033 through
+> #2039 all have READY production deployments — so only the *GitHub
+> Action* was ever dead, which is not the same thing as Vercel being
+> dead; every earlier note in this file that guessed at this was wrong.
+> And the project has `ssoProtection` enabled with `deploymentType:
+> "all_except_custom_domains"` and owns no custom domain, so by Vercel's
+> documented behaviour `taisplatform.vercel.app` was almost certainly
+> never publicly reachable. That second point is **strongly indicated,
+> not proven** — an anonymous fetch was not possible from this sandbox.
+>
+> Done for the decommission: `tais_frontend/vercel.json` deleted (its
+> cache headers **ported into `render.yaml`**, not dropped — the
+> `index.html` `no-cache` rule matters because Vite emits content-hashed
+> asset names, so a cached `index.html` leaves returning visitors
+> requesting assets that no longer exist), `CORS_ORIGIN` narrowed to the
+> Render origin in both the file and the **live env var** (applied via the
+> Render API; triggered a deploy on `6f83755`), and the stale
+> `yourapp.vercel.app` example in `cors.ts`'s error message updated.
+>
+> **How the pause was actually confirmed** (worth recording, because the
+> first attempt failed): the project was paused via `pause_project`
+> (deployment policies are Pro-only on this Hobby account and the
+> connector exposes no git-unlink endpoint, so a true "disconnect git"
+> was not reachable). The call returned clean, but both follow-up reads
+> to confirm it were denied by this session's permission classifier, so
+> it was initially written up as unverified. Confirmation then arrived
+> from two independent directions without needing those reads:
+>   - Vercel's own GitHub bot commented on PR #2041 that its deployment
+>     was **`BLOCKED`** — which is exactly what a paused project does to
+>     new deployments.
+>   - A later `update_project` call returned a read-back showing
+>     `latestDeployment: null` and `domains: []` — the project has
+>     released `taisplatform.vercel.app` and has no live deployment.
+>
+> `unpause_project` reverses it in one call if the decision is revisited.
+>
+> **A consequence worth knowing about:** a paused project still has its
+> GitHub integration attached, so Vercel keeps *attempting* deployments
+> and posting a failing `Vercel — Deployment was blocked` commit status.
+> That is a red on every PR, forever, caused by the decommissioning
+> rather than by anything wrong with the code. `previewDeploymentsDisabled`
+> was set to stop Vercel attempting PR previews at all, which should stop
+> it on pull requests. The complete fix is to disconnect the Git
+> integration in the Vercel dashboard (Settings -> Git), or delete the
+> project outright. The user authorised deletion on 2026-09-20, but the
+> Vercel MCP connector has NO delete-project operation at all (searched,
+> not assumed: it exposes create, update, pause, transfer and env-var
+> tools only), so this remains a human action -- dashboard Settings ->
+> Delete Project, or `vercel project rm taisplatform`. Until then, treat
+> a red `Vercel` status on a PR as expected noise, not a defect.
+>
+> **Update — 2026-09-20 (expiry mechanics, and the guard built on them):**
+> Asked to set up "a recurring redeploy of tais-rag every 25 days" to keep
+> the database alive. **That would not have worked, and it is worth
+> recording exactly why, because the shape of the mistake is the same one
+> that caused the original outage: a mechanism that looks like protection
+> while answering the wrong question.**
+>
+> Render's free Postgres expiry is a pure function of CREATION time, not
+> of activity. Straight from the API:
+>
+> ```
+> createdAt:  2026-09-20T11:12:55.246885Z
+> expiresAt:  2026-10-20T11:12:55.246885Z
+> ```
+>
+> Identical to the microsecond, exactly +30 days. No redeploy, query,
+> connection or other activity moves `expiresAt`. A 25-day "keep it warm"
+> job would have run faithfully, reported success, and the database would
+> still have been deleted on schedule -- with a calendar entry making it
+> look handled.
+>
+> There is also no such operation to schedule. The Render connector
+> exposes only `create_postgres`, `get_postgres`,
+> `list_postgres_instances` and `query_render_postgres`. No redeploy, no
+> restart, and **no delete** -- which matters beyond this one request: the
+> free tier permits a single active instance, so a replacement cannot be
+> created until the old one is deleted, and that deletion is
+> dashboard-only. Rotation therefore CANNOT be fully automated from a
+> session, and its unavoidable window (old instance gone, new one not yet
+> restored) is one where an unverified dump is the only surviving copy --
+> precisely the situation that lost the data the first time.
+>
+> Built instead: a weekly Routine (`trig_01CoUnvrUnoPt6CGp5G6gUr7`, push +
+> email) keyed to the real expiry DATE rather than a fixed interval --
+> silent above 14 days remaining, escalating below, urgent under 5,
+> treating a passed date as an incident. Date-keyed rather than
+> interval-keyed on purpose: an interval timer silently desynchronises the
+> moment the database is recreated on a new date, which is exactly when
+> the guard matters most.
+>
+> **Caveat on that Routine:** its creation result warned that it stores no
+> MCP connectors, so the sessions it fires will have no Render or GitHub
+> tools. Its prompt was rewritten to work purely from date arithmetic so
+> it degrades gracefully instead of waking up unable to act. To have it
+> verify against live Render data, recreate it from the claude.ai Routines
+> UI, where connectors can be attached. `db-health` is unaffected -- it
+> runs in GitHub Actions, needs no connectors, and remains the primary
+> automated signal.
+>
+> **The standing recommendation is still to upgrade off the free plan.**
+> Every alternative re-accepts this same risk every 30 days, forever.
+
+> **Still needing a human with dashboard access** — `render.yaml` is not
+> synced to live, so two values in it are now *ahead* of reality rather
+> than behind it: the `tais-frontend` `headers` block (live has no custom
+> headers configured at all) and, if the API-applied change is ever
+> reverted, `CORS_ORIGIN`. Both are called out in the file's own header.
+
+> **Update — 2026-09-20 (grace-period correction + db-backup):** Two
+> changes, both prompted by the user pushing back on the recommendation to
+> pay rather than rotate the free database. The pushback was right to
+> make: answering it properly turned up a fact that made this repo's own
+> tooling wrong.
+>
+> **1. `db-health` had the deadline model wrong, and it has been fixed.**
+> It treated `expiresAt` as the deletion date. Render's docs say
+> otherwise:
+>
+> ```
+> created ---30 days---> EXPIRES ---14 days grace---> DELETED FOREVER
+> ```
+>
+> During the grace period the instance is expired but **upgrading to a
+> paid plan restores it with all data intact**. So the real deadline for
+> `tais-rag` is not 2026-10-20 (expiry) but ~2026-11-03 (deletion), and
+> every earlier note in this file saying the database "deletes itself on
+> 2026-10-20" overstated the cliff. `evaluateExpiry` now returns three
+> distinct past-expiry states instead of one:
+>
+> | State | Meaning | Action |
+> | --- | --- | --- |
+> | `in-grace` | Expired, still fully recoverable, deadline attached | Upgrade **now** |
+> | `deleted` | Past grace | Recreate + re-migrate; unbacked data is gone |
+> | `stale-record` | Probes healthy despite a passed date | Fix `probes.js` |
+>
+> They are deliberately never collapsed: telling someone to "recreate and
+> re-migrate" one day too early **destroys data that was still
+> rescuable**. `graceDays` is per-database and defaults to 0 when absent,
+> so an unconfirmed provider is treated pessimistically.
+>
+> This also probably explains the original incident's two different Prisma
+> errors -- `P1017` on one database (expired, still present) and `P1001`
+> on the other (past grace, actually gone).
+>
+> **2. `tools/db-backup/` — the thing whose absence made March
+> unrecoverable.** Free Render Postgres has **no backups of any kind**;
+> Render's docs say to run `pg_dump` yourself. Daily encrypted dump, 90-day
+> retention, `workflow_dispatch` for on-demand runs before a rotation.
+>
+> Three design decisions worth keeping:
+>
+> - **It verifies its own output.** `verify.js` checks size, the `PGDMP`
+>   custom-format magic bytes, and that expected tables appear in the
+>   archive's *own* table of contents. That last one is the one with
+>   teeth: **a never-migrated database dumps perfectly happily** -- a
+>   well-formed archive containing none of your data, which is exactly the
+>   state a rotation's fresh instance is in before `prisma migrate deploy`
+>   runs, and exactly when someone might write it over their only good
+>   backup. Row counts are deliberately NOT asserted (an empty registry is
+>   legitimate), same reasoning as db-health's schema probe.
+> - **The dump is encrypted before upload, because THIS REPOSITORY IS
+>   PUBLIC.** Artifacts on a public repo are world-downloadable; an
+>   unencrypted dump would publish every user record. gpg AES-256, the
+>   plaintext is deleted on the runner, and the job then asserts nothing
+>   without a `.gpg` extension remains before uploading.
+> - **It fails loudly when unconfigured rather than skipping.** A backup
+>   job that goes green without producing a backup is the same
+>   manufactured-confidence failure this repo already lived through.
+>
+> Needs two secrets before it can work: `BACKUP_DATABASE_URL` (the
+> **external** `*.oregon-postgres.render.com` host -- the internal `dpg-*`
+> one does not resolve from a GitHub runner) and `BACKUP_PASSPHRASE`
+> (**store outside this repo**; without it every artifact is unreadable).
+> Until those exist the workflow fails on purpose. Like `db-health` before
+> its first real run, **this tool is unproven against reality** -- the
+> dump path has never executed. Fire it via `workflow_dispatch` once the
+> secrets are set and read the real run.
+>
+> Verified: root suite 155/155 (133 + 17 new backup tests + 5 new expiry
+> tests), `doc-currency` clean, workflow YAML parses, and `coverage-gaps`
+> independently discovered `tools/db-backup/verify.js` and confirmed its
+> coverage. The corrected expiry timeline was re-checked against the real
+> `probes.js` record: ok -> expiring-soon (Oct 12) -> in-grace (Oct 21) ->
+> deleted (Nov 3).
+>
+> **The recommendation is unchanged: pay for the database.** Rotation
+> keeps a database alive but never gives you backups, and converts a
+> survivable, loudly-signalled deadline into an unattended destructive job
+> whose silent failure performs the deletion itself. This backup makes the
+> free plan *survivable*; it does not make it *safe*.
+
+> **Update — 2026-09-20 (header-drift):** The `tais-frontend` cache headers
+> could not be applied from this session, and the reason generalises, so a
+> check was built instead of just handing the task back.
+>
+> **Why it could not be applied:** Render's MCP connector has no
+> update-service tool at all (only create/read/env-vars/deploy). Render also
+> deliberately does **not** support a `_headers` file the way Netlify and
+> Cloudflare Pages do -- its docs say static sites have no server-side
+> component to inject headers, so they are configured in the dashboard. And
+> `render.yaml` only applies to Blueprint-managed services, which these are
+> not. All three routes closed; it is a dashboard action:
+> **tais-frontend -> Settings -> Headers**, `/assets/*` ->
+> `public, max-age=31536000, immutable` and `/index.html` -> `no-cache`.
+>
+> **Why a check was the right answer.** That task existed *because*
+> render.yaml is not synced -- the same root cause behind the five drifted
+> values found earlier the same day, three of which had been wrong for
+> months. Applying the headers fixes one instance; nothing stopped a sixth
+> from appearing. `tools/header-drift/` fetches the live site and compares
+> its real response headers against what render.yaml declares.
+>
+> Design points worth preserving:
+>
+> - **Expectations are parsed OUT of render.yaml at run time, never
+>   hardcoded.** There is deliberately no second copy of the truth to drift
+>   from the first; a checker with its own private copy would just become a
+>   third thing to reconcile.
+> - **Wildcards resolve to a real asset.** `/assets/*` is not fetchable, so
+>   a genuine filename is pulled from the live `index.html`. Requesting an
+>   invented name would prove nothing -- the SPA rewrite serves index.html
+>   for any unmatched path, so the comparison would silently measure the
+>   wrong resource and pass.
+> - **Comparison is by directive set, not string equality** -- a CDN may
+>   reorder or respace directives without changing meaning, and failing on
+>   that would get the check muted.
+> - **Zero declarations is a FAILURE, not a pass.** If render.yaml loses its
+>   headers or the parser stops understanding them, the run goes red. A
+>   checker that quietly verifies nothing is the exact failure mode this
+>   repo keeps living through.
+> - **No pinned issue of its own.** `watchdog` already reports a non-success
+>   conclusion for any `on.schedule` workflow, so this reuses that rather
+>   than adding a third copy of the issue plumbing db-health and
+>   deploy-drift each carry.
+>
+> Note the parser trap it is tested against: render.yaml has **two**
+> `headers:` blocks -- the static site's response headers
+> (path/name/value) and the cron job's request header (key/value). Entries
+> are accepted on shape rather than position, with a test asserting the
+> cron `Authorization` header is never collected.
+>
+> **This workflow is EXPECTED TO BE RED until the dashboard change is
+> applied**, and that red is the tool working -- the cheapest possible
+> proof, and a better validation story than db-health had. Both outcomes
+> were simulated before commit: drift-present reports both rules missing
+> and exits 1; drift-resolved exits 0, including with the asset's
+> directives deliberately reordered.
+>
+> Scope is stated plainly in its README: it verifies only what is
+> observable over plain HTTP with no credentials. `startCommand`,
+> `healthCheckPath`, `plan`, build settings and env var *values* remain
+> dashboard-only. Natural extensions if it proves useful: the SPA rewrite
+> rule and `CORS_ORIGIN` are both observable the same way.
+>
+> Verified: root suite **183/183**, `coverage-gaps` independently
+> discovered the new script and confirmed coverage, all workflow YAMLs
+> parse. `doc-currency` caught a real error in this tool's own README (a
+> `./start.sh` citation that resolves to `packages/registry/start.sh`) --
+> fixed before commit.
+
 ## TL;DR
 
 TSO was abandoned mid-August 2026, buried under its own automation, not
