@@ -34,26 +34,60 @@ const PROBES = {
   },
 };
 
-// Render-managed databases this repo depends on, and when each one dies on
-// its own. `expiresAt` is a committed fact, not something this tool can
-// discover: no tool available to this repo's CI can read a Render
-// database's expiry, and adding a RENDER_API_KEY secret purely to fetch it
-// would add exactly the kind of quietly-rotting credential
-// tools/doctor/check.js exists to catch. So it is recorded here by hand,
-// and check.js deliberately reports a passed-but-still-reachable date as a
-// finding against THIS FILE rather than against the database -- a stale
-// record here makes every warning below worthless, so it has to be loud.
+// Render-managed databases this repo depends on, and the two dates that
+// matter for each one.
+//
+// THE LIFECYCLE, because getting this wrong makes the tool lie (corrected
+// 2026-09-20 against Render's own docs, having first shipped with the
+// simpler and wrong model that expiry == deletion):
+//
+//   created ---30 days---> EXPIRES ---14 days grace---> DELETED FOREVER
+//
+// Expiry is NOT deletion. A Render free Postgres expires 30 days after
+// creation, and Render then holds it for a 14-day grace period during
+// which upgrading to a paid compute plan restores it with all data
+// intact. Only after that grace period is the instance -- and everything
+// in it -- permanently deleted.
+//
+// That distinction is the whole point of tracking both dates. "Expired,
+// recoverable with a credit card for the next N days" and "deleted, the
+// data is gone" demand completely different reactions, and a tool that
+// reports them identically sends whoever reads it in the wrong direction
+// at the worst possible moment. It also probably explains the original
+// incident's two different Prisma errors: `P1017` on one database
+// (expired/suspended, still present) and `P1001` on the other (past
+// grace, actually gone).
+//
+// Free instances get NO backups of any kind -- no snapshots, no
+// point-in-time recovery, no fork. Paid plans get continuous backups with
+// PITR. So on this plan the grace period is the ONLY recovery mechanism
+// that exists, which is exactly why it is tracked rather than assumed.
+//
+// Both dates are committed facts, not something this tool discovers: no
+// tool available to this repo's CI can read a Render database's expiry,
+// and adding a RENDER_API_KEY secret purely to fetch it would add exactly
+// the kind of quietly-rotting credential tools/doctor/check.js exists to
+// catch. So they are recorded here by hand, and check.js deliberately
+// reports a passed-but-still-reachable date as a finding against THIS
+// FILE rather than against the database -- a stale record here makes
+// every warning below worthless, so it has to be loud.
 const MANAGED_DATABASES = {
   'tais-rag': {
     label: 'Registry Postgres (RAG + Skills, consolidated)',
     id: 'dpg-danrvdrtqb8s73cupd5g-a',
     dashboardUrl: 'https://dashboard.render.com/d/dpg-danrvdrtqb8s73cupd5g-a',
     plan: 'free',
-    // Render's free Postgres plan deletes the instance 30 days after
-    // creation. This is the actual root cause of the 2026-03/2026-09
-    // outage -- not a random suspension, a scheduled deletion nobody was
-    // watching for. Created 2026-09-20T11:12:55Z.
+    // Created 2026-09-20T11:12:55Z; the Render API reported createdAt and
+    // expiresAt identical to the microsecond, exactly 30 days apart. The
+    // expiry is therefore a pure function of creation time -- no
+    // redeploy, query, connection or other activity moves it, so no
+    // "keep it warm" job can help.
     expiresAt: '2026-10-20T11:12:55Z',
+    // Render's documented grace period between expiry and permanent
+    // deletion. Upgrading to a paid plan within this window recovers the
+    // database intact. If this is ever 0 or absent, check.js treats
+    // expiry as immediate deletion -- the pessimistic reading.
+    graceDays: 14,
     warnWithinDays: 10,
   },
 };

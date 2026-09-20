@@ -1317,6 +1317,89 @@ whatever gets decided next — read this before re-reading the whole repo.
 > headers configured at all) and, if the API-applied change is ever
 > reverted, `CORS_ORIGIN`. Both are called out in the file's own header.
 
+> **Update — 2026-09-20 (grace-period correction + db-backup):** Two
+> changes, both prompted by the user pushing back on the recommendation to
+> pay rather than rotate the free database. The pushback was right to
+> make: answering it properly turned up a fact that made this repo's own
+> tooling wrong.
+>
+> **1. `db-health` had the deadline model wrong, and it has been fixed.**
+> It treated `expiresAt` as the deletion date. Render's docs say
+> otherwise:
+>
+> ```
+> created ---30 days---> EXPIRES ---14 days grace---> DELETED FOREVER
+> ```
+>
+> During the grace period the instance is expired but **upgrading to a
+> paid plan restores it with all data intact**. So the real deadline for
+> `tais-rag` is not 2026-10-20 (expiry) but ~2026-11-03 (deletion), and
+> every earlier note in this file saying the database "deletes itself on
+> 2026-10-20" overstated the cliff. `evaluateExpiry` now returns three
+> distinct past-expiry states instead of one:
+>
+> | State | Meaning | Action |
+> | --- | --- | --- |
+> | `in-grace` | Expired, still fully recoverable, deadline attached | Upgrade **now** |
+> | `deleted` | Past grace | Recreate + re-migrate; unbacked data is gone |
+> | `stale-record` | Probes healthy despite a passed date | Fix `probes.js` |
+>
+> They are deliberately never collapsed: telling someone to "recreate and
+> re-migrate" one day too early **destroys data that was still
+> rescuable**. `graceDays` is per-database and defaults to 0 when absent,
+> so an unconfirmed provider is treated pessimistically.
+>
+> This also probably explains the original incident's two different Prisma
+> errors -- `P1017` on one database (expired, still present) and `P1001`
+> on the other (past grace, actually gone).
+>
+> **2. `tools/db-backup/` — the thing whose absence made March
+> unrecoverable.** Free Render Postgres has **no backups of any kind**;
+> Render's docs say to run `pg_dump` yourself. Daily encrypted dump, 90-day
+> retention, `workflow_dispatch` for on-demand runs before a rotation.
+>
+> Three design decisions worth keeping:
+>
+> - **It verifies its own output.** `verify.js` checks size, the `PGDMP`
+>   custom-format magic bytes, and that expected tables appear in the
+>   archive's *own* table of contents. That last one is the one with
+>   teeth: **a never-migrated database dumps perfectly happily** -- a
+>   well-formed archive containing none of your data, which is exactly the
+>   state a rotation's fresh instance is in before `prisma migrate deploy`
+>   runs, and exactly when someone might write it over their only good
+>   backup. Row counts are deliberately NOT asserted (an empty registry is
+>   legitimate), same reasoning as db-health's schema probe.
+> - **The dump is encrypted before upload, because THIS REPOSITORY IS
+>   PUBLIC.** Artifacts on a public repo are world-downloadable; an
+>   unencrypted dump would publish every user record. gpg AES-256, the
+>   plaintext is deleted on the runner, and the job then asserts nothing
+>   without a `.gpg` extension remains before uploading.
+> - **It fails loudly when unconfigured rather than skipping.** A backup
+>   job that goes green without producing a backup is the same
+>   manufactured-confidence failure this repo already lived through.
+>
+> Needs two secrets before it can work: `BACKUP_DATABASE_URL` (the
+> **external** `*.oregon-postgres.render.com` host -- the internal `dpg-*`
+> one does not resolve from a GitHub runner) and `BACKUP_PASSPHRASE`
+> (**store outside this repo**; without it every artifact is unreadable).
+> Until those exist the workflow fails on purpose. Like `db-health` before
+> its first real run, **this tool is unproven against reality** -- the
+> dump path has never executed. Fire it via `workflow_dispatch` once the
+> secrets are set and read the real run.
+>
+> Verified: root suite 155/155 (133 + 17 new backup tests + 5 new expiry
+> tests), `doc-currency` clean, workflow YAML parses, and `coverage-gaps`
+> independently discovered `tools/db-backup/verify.js` and confirmed its
+> coverage. The corrected expiry timeline was re-checked against the real
+> `probes.js` record: ok -> expiring-soon (Oct 12) -> in-grace (Oct 21) ->
+> deleted (Nov 3).
+>
+> **The recommendation is unchanged: pay for the database.** Rotation
+> keeps a database alive but never gives you backups, and converts a
+> survivable, loudly-signalled deadline into an unattended destructive job
+> whose silent failure performs the deletion itself. This backup makes the
+> free plan *survivable*; it does not make it *safe*.
+
 ## TL;DR
 
 TSO was abandoned mid-August 2026, buried under its own automation, not
