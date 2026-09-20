@@ -1,4 +1,126 @@
-# TSO Handoff — 2026-09-06
+# TSO Handoff
+
+> ## ▶ START HERE — current state as of 2026-09-20
+>
+> **Read this section and stop.** Everything below it is a chronological
+> archive of 26 dated session updates (~1,600 lines). It is kept for
+> provenance, not for orientation, and **parts of it are superseded** — see
+> "Claims in the archive that are now wrong" at the end of this section.
+> Where the archive and this section disagree, **this section wins.**
+
+### Where the product actually stands
+
+The 2026-03-24 → 2026-09-20 outage is **closed**. The registry serves real
+queries against real tables from a live database, verified end to end by a
+real `db-health` run (`total = 3`, Sprint A seed intact), not by inference.
+
+| Thing | Where | Notes |
+| --- | --- | --- |
+| Registry API | `TSO` · `srv-d65254fpm1nc73859h20` · https://tso.onrender.com | free plan, `autoDeploy: true` from `main` |
+| Frontend | `tais-frontend` · `srv-damv673m8hqs739f581g` · https://tais-frontend.onrender.com | Render static site; **no custom headers configured** |
+| Database | `tais-rag` · `dpg-danrvdrtqb8s73cupd5g-a` | free, PG16, oregon. **Both** `RAG_DATABASE_URL` and `SKILLS_DATABASE_URL` point here |
+| Vercel | **gone** | project deleted by the owner 2026-09-20 |
+| Render workspace | `tea-d65249fpm1nc738km5gg` | |
+
+### The three things a human still has to do
+
+1. **Upgrade `tais-rag` off the free plan.** Highest value by a distance.
+   It is the only durable fix for the expiry below, and the only way to get
+   point-in-time recovery. Render's API cannot change an existing database's
+   plan — dashboard only.
+2. **Set `BACKUP_DATABASE_URL` and `BACKUP_PASSPHRASE`**, then fire
+   `db-backup.yml` once and read the real run. `BACKUP_DATABASE_URL` must be
+   the **external** `*.oregon-postgres.render.com` host; the internal `dpg-*`
+   one does not resolve from a GitHub runner. Store the passphrase **outside
+   this repo** — without it every backup artifact is unreadable.
+3. **Apply the `tais-frontend` headers** (Render → Settings → Headers):
+   `/assets/*` → `public, max-age=31536000, immutable`, `/index.html` →
+   `no-cache`. The `/assets/*` one is the valuable half — measured live,
+   Render currently serves `public, max-age=0, s-maxage=300`, so every
+   returning visitor revalidates every hashed asset on every page load.
+
+### ⚠️ The standing risk, with real dates
+
+```
+tais-rag:  created 2026-09-20  →  EXPIRES 2026-10-20  →  DELETED ~2026-11-03
+                                  (14-day grace: upgrading here recovers it intact)
+```
+
+The expiry is a pure function of **creation time** — `createdAt` and
+`expiresAt` came back from the API identical to the microsecond, 30 days
+apart. No redeploy, query or activity moves it, so **no "keep it warm" job
+can help**; a 25-day rotation job would run faithfully and the database
+would still be deleted on schedule.
+
+Free instances get **no backups of any kind**. During the grace window,
+upgrading to a paid plan restores everything. After it, the data is gone.
+
+Guards in place: `db-health` warns from 10 days out (hourly, GitHub
+Actions, no connectors needed) and a weekly Routine
+`trig_01CoUnvrUnoPt6CGp5G6gUr7` pings the owner by push + email from 14 days
+out. **If the database is ever recreated**, `tools/db-health/probes.js`'s
+`expiresAt` *and* instance id must be updated, and that Routine's date with
+them, or every warning either emits afterwards is fiction.
+
+### Tooling: what checks what
+
+183 root tests across 9 files (`npm test`), plus `packages/core` 29.
+`coverage-gaps` enforces that every scheduled script has CI-reachable tests.
+
+| Tool | Schedule | Asks |
+| --- | --- | --- |
+| `db-health` | hourly | Does the database actually work, and when does it die? **Validated live.** |
+| `db-backup` | daily 03:40 | Verified, encrypted `pg_dump`. **UNPROVEN — see below.** |
+| `header-drift` | daily 09:15 | Does the live site serve the headers `render.yaml` claims? **Validated live; expected red.** |
+| `deploy-drift` | hourly | Does the deployed commit match git? |
+| `watchdog` | weekly Tue | Are the scheduled workflows themselves alive and passing? |
+| `coverage-gaps` / `doc-currency` | on PR | Untested scheduled scripts; stale doc citations |
+| `doctor` | manual | Repo/secret configuration sanity |
+
+### Gotchas that will bite a fresh session
+
+- **This repository is PUBLIC.** Artifacts are world-downloadable — that is
+  why `db-backup` encrypts before upload. Never write a dump, connection
+  string or secret anywhere in the repo or an unencrypted artifact.
+- **`render.yaml` is NOT synced to Render.** It is documentation shaped like
+  configuration. Editing it changes nothing live; live changes need the
+  dashboard or the Render API. `header-drift` now catches divergence for the
+  subset observable over HTTP.
+- **`db-backup` has never executed its dump path.** It is mock-tested only.
+  Treat it as unproven until a real run is read — exactly the state
+  `db-health` was in before its first run turned up a 76-second cold start
+  no test would have found.
+- **`header-drift` is expected to be RED** until item 3 is done. That red is
+  the tool working. **Do not "fix" it in code.**
+- **The sandbox has no egress to `onrender.com` or `render.com`** (the proxy
+  returns 403). Anything needing the live site must run in GitHub Actions.
+- **Free Render web services spin down** after ~15 min idle; a cold start
+  takes ~30-60s and the platform returns 502/503 HTML meanwhile. Treat that
+  as "waking", not "broken" — `db-health` already does.
+- **Branch policy:** a merged PR's branch is restarted from the new `main`
+  (same name), never stacked on.
+
+### Claims in the archive that are now wrong
+
+| The archive says | Actually |
+| --- | --- |
+| free Postgres "deletes itself 30 days after creation" | it **expires** at 30 days, then a **14-day grace period**, then deletion |
+| Vercel is live / deletion is pending | project **deleted** 2026-09-20 |
+| the registry service is named `tais-registry` | it is named **`TSO`** (slug `tso`) |
+| `startCommand: npm start` | live runs `packages/registry/start.sh`, which runs migrations first |
+| any test count below 183 | 183 root + 29 `packages/core` |
+
+### If you want the reasoning, not just the state
+
+The last four dated updates below (all 2026-09-20) carry it: the database
+recovery, `db-health`, the `render.yaml` reconciliation + Vercel
+decommissioning, the grace-period correction + `db-backup`, and
+`header-drift`. Each tool also has a README next to it explaining what it
+catches and, as importantly, what it deliberately does not assert.
+
+---
+
+# Archive — chronological session log (starts 2026-09-06)
 
 Session summary for whoever (human or Claude) picks this project up next. This
 file is the bridge between "TSO was abandoned, is it worth reviving" and
