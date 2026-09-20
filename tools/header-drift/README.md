@@ -1,0 +1,111 @@
+# header-drift
+
+Checks that the live static site actually serves the response headers
+`render.yaml` says it does.
+
+Workflow: [`.github/workflows/header-drift.yml`](../../.github/workflows/header-drift.yml)
+· Check: [`check.js`](check.js) · Tests: [`tests/header-drift.test.js`](../../tests/header-drift.test.js)
+
+## Why this exists
+
+**`render.yaml` is not synced to Render.** The services were hand-created in
+the dashboard and nothing reconciles the file against them, so it is
+documentation shaped like configuration — and it looks authoritative right
+up until you rely on it.
+
+A single reconciliation pass on 2026-09-20 found **five** values in it that
+disagreed with reality:
+
+| Claimed | Actual | Consequence if applied |
+| --- | --- | --- |
+| service `tais-registry` | `TSO` | Blueprint sync would create a *second* service |
+| `startCommand: npm start` | `packages/registry/start.sh` | **Migrations silently stop running on deploy** |
+| `healthCheckPath: /api/health` | blank | Render polls a route that has never existed |
+| two databases | one | — |
+| frontend build settings | all three differ | — |
+
+Three of those had been wrong for months. Fixing them was one-at-a-time
+work; nothing stopped the sixth from appearing. This closes the loop for the
+subset of `render.yaml`'s claims that can be verified from outside with
+nothing but an HTTP request.
+
+## The design property that matters
+
+**Expectations are parsed out of `render.yaml` at run time, not hardcoded.**
+
+There is deliberately no second copy of the expected values here to drift
+from the first. Change `render.yaml` and this check changes with it. A
+checker carrying its own private copy of the truth would just become a third
+thing needing reconciliation — which is the problem, not the solution.
+
+## What it does, precisely
+
+1. Parses the `headers:` blocks out of `render.yaml`.
+2. Resolves each declared path to something actually fetchable.
+3. Requests it and compares the real response header against the declaration.
+
+Three details that are not incidental:
+
+**Wildcards resolve to a real asset.** `/assets/*` cannot be fetched, so the
+tool pulls a genuine asset filename out of the live `index.html`. Requesting
+an invented name would prove nothing — the SPA rewrite serves `index.html`
+for any unmatched path, so the comparison would silently be measuring the
+wrong resource and passing.
+
+**Comparison is by directive set, not string equality.** A CDN may reorder,
+respace or re-case directives without changing meaning. Failing on that
+would make the check cry wolf, and a check that cries wolf gets muted.
+
+**Both `headers:` shapes in `render.yaml` are distinguished.** The static
+site declares *response* headers (`path`/`name`/`value`); the cron job
+declares a *request* header (`key`/`value`). Entries are accepted on shape
+rather than position, and there is a test asserting the cron job's
+`Authorization` header is never collected.
+
+## Zero declarations is a failure, not a pass
+
+If `render.yaml` loses its headers, or this tool stops being able to parse
+them, the run goes **red**.
+
+A checker that quietly verifies nothing and reports success is the precise
+failure mode this repo keeps getting bitten by — `GET /health` returned a
+correct 503 for six months and nothing asked; `deploy-drift` stayed green
+through a total database outage because it polled an endpoint that never
+touched the database. Reporting a vacuous pass would make this tool the next
+one in that list.
+
+## Scope, stated plainly
+
+It verifies **only what is observable over plain HTTP from a GitHub runner
+with no credentials.** It cannot see `startCommand`, `healthCheckPath`,
+`plan`, `autoDeploy`, build settings, or environment variable values —
+those still need a human against the dashboard. Overstating coverage would
+be worse than not checking at all.
+
+Natural extensions, if this proves useful: the SPA rewrite rule (request a
+deep path, expect `index.html`) and `CORS_ORIGIN` (send an `Origin`, read
+`Access-Control-Allow-Origin`) are both observable the same way.
+
+## No pinned issue of its own
+
+`tools/watchdog` already inspects every workflow with an `on.schedule`
+trigger and reports a non-success conclusion into its own pinned issue. A
+failure here is surfaced through that, rather than adding a **third** copy
+of the GitHub-issue plumbing `db-health` and `deploy-drift` each already
+carry. (`db-health`'s own header notes that duplication as worth
+consolidating one day, as its own deliberate change. This declines to make
+it worse.)
+
+## It is expected to be red at first
+
+As of the commit that added it, the `tais-frontend` headers block exists in
+`render.yaml` but has **not** been applied in the Render dashboard. So the
+first runs report real drift — which is the tool working, and the cheapest
+possible proof of it. It goes green once the dashboard catches up:
+
+Render Dashboard → **tais-frontend** → Settings → **Headers**
+
+| Path | Name | Value |
+| --- | --- | --- |
+| `/assets/*` | `Cache-Control` | `public, max-age=31536000, immutable` |
+| `/index.html` | `Cache-Control` | `no-cache` |

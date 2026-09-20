@@ -1400,6 +1400,75 @@ whatever gets decided next — read this before re-reading the whole repo.
 > whose silent failure performs the deletion itself. This backup makes the
 > free plan *survivable*; it does not make it *safe*.
 
+> **Update — 2026-09-20 (header-drift):** The `tais-frontend` cache headers
+> could not be applied from this session, and the reason generalises, so a
+> check was built instead of just handing the task back.
+>
+> **Why it could not be applied:** Render's MCP connector has no
+> update-service tool at all (only create/read/env-vars/deploy). Render also
+> deliberately does **not** support a `_headers` file the way Netlify and
+> Cloudflare Pages do -- its docs say static sites have no server-side
+> component to inject headers, so they are configured in the dashboard. And
+> `render.yaml` only applies to Blueprint-managed services, which these are
+> not. All three routes closed; it is a dashboard action:
+> **tais-frontend -> Settings -> Headers**, `/assets/*` ->
+> `public, max-age=31536000, immutable` and `/index.html` -> `no-cache`.
+>
+> **Why a check was the right answer.** That task existed *because*
+> render.yaml is not synced -- the same root cause behind the five drifted
+> values found earlier the same day, three of which had been wrong for
+> months. Applying the headers fixes one instance; nothing stopped a sixth
+> from appearing. `tools/header-drift/` fetches the live site and compares
+> its real response headers against what render.yaml declares.
+>
+> Design points worth preserving:
+>
+> - **Expectations are parsed OUT of render.yaml at run time, never
+>   hardcoded.** There is deliberately no second copy of the truth to drift
+>   from the first; a checker with its own private copy would just become a
+>   third thing to reconcile.
+> - **Wildcards resolve to a real asset.** `/assets/*` is not fetchable, so
+>   a genuine filename is pulled from the live `index.html`. Requesting an
+>   invented name would prove nothing -- the SPA rewrite serves index.html
+>   for any unmatched path, so the comparison would silently measure the
+>   wrong resource and pass.
+> - **Comparison is by directive set, not string equality** -- a CDN may
+>   reorder or respace directives without changing meaning, and failing on
+>   that would get the check muted.
+> - **Zero declarations is a FAILURE, not a pass.** If render.yaml loses its
+>   headers or the parser stops understanding them, the run goes red. A
+>   checker that quietly verifies nothing is the exact failure mode this
+>   repo keeps living through.
+> - **No pinned issue of its own.** `watchdog` already reports a non-success
+>   conclusion for any `on.schedule` workflow, so this reuses that rather
+>   than adding a third copy of the issue plumbing db-health and
+>   deploy-drift each carry.
+>
+> Note the parser trap it is tested against: render.yaml has **two**
+> `headers:` blocks -- the static site's response headers
+> (path/name/value) and the cron job's request header (key/value). Entries
+> are accepted on shape rather than position, with a test asserting the
+> cron `Authorization` header is never collected.
+>
+> **This workflow is EXPECTED TO BE RED until the dashboard change is
+> applied**, and that red is the tool working -- the cheapest possible
+> proof, and a better validation story than db-health had. Both outcomes
+> were simulated before commit: drift-present reports both rules missing
+> and exits 1; drift-resolved exits 0, including with the asset's
+> directives deliberately reordered.
+>
+> Scope is stated plainly in its README: it verifies only what is
+> observable over plain HTTP with no credentials. `startCommand`,
+> `healthCheckPath`, `plan`, build settings and env var *values* remain
+> dashboard-only. Natural extensions if it proves useful: the SPA rewrite
+> rule and `CORS_ORIGIN` are both observable the same way.
+>
+> Verified: root suite **183/183**, `coverage-gaps` independently
+> discovered the new script and confirmed coverage, all workflow YAMLs
+> parse. `doc-currency` caught a real error in this tool's own README (a
+> `./start.sh` citation that resolves to `packages/registry/start.sh`) --
+> fixed before commit.
+
 ## TL;DR
 
 TSO was abandoned mid-August 2026, buried under its own automation, not
