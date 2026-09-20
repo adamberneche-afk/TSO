@@ -96,12 +96,43 @@ carry. (`db-health`'s own header notes that duplication as worth
 consolidating one day, as its own deliberate change. This declines to make
 it worse.)
 
-## It is expected to be red at first
+## What the first real run found
 
-As of the commit that added it, the `tais-frontend` headers block exists in
-`render.yaml` but has **not** been applied in the Render dashboard. So the
-first runs report real drift — which is the tool working, and the cheapest
-possible proof of it. It goes green once the dashboard catches up:
+Run 1 (2026-09-20, `workflow_dispatch` on `main`) reported drift and exited
+1, as designed. It also answered a question that could not be answered from
+a sandbox with no egress, and that neither the docs nor the config could
+settle — **what Render actually serves by default:**
+
+```
+/assets/*     declared: public, max-age=31536000, immutable
+              live:     public, max-age=0, s-maxage=300
+/index.html   declared: no-cache
+              live:     public, max-age=0, s-maxage=300
+```
+
+That measurement **reverses the priority** these two rules were originally
+given:
+
+- **`/index.html` is already fine for browsers.** Render sends `max-age=0`,
+  so browsers already revalidate before use — the "stale HTML references
+  deleted hashed assets" failure is already prevented. `s-maxage=300` means
+  the CDN may serve a five-minute-old `index.html` after a deploy, so
+  `no-cache` closes a small window rather than fixing a live problem.
+- **`/assets/*` is the rule worth having.** Content-hashed assets are served
+  `max-age=0`, so every returning visitor revalidates every JS and CSS file
+  on every page load. That is a real, entirely avoidable cost, and
+  `immutable` is safe precisely because Vite hashes the filenames — a
+  changed file is always a new URL.
+
+This is the case for the tool in a single run: the docs said what Render
+*supports*; only the check said what Render *does*.
+
+## It is expected to be red until the dashboard catches up
+
+The `tais-frontend` headers block exists in `render.yaml` but has **not**
+been applied in the Render dashboard. Until it is, this workflow reports
+real drift — which is the tool working, not a defect. Do not "fix" it in
+code. It goes green when reality catches up:
 
 Render Dashboard → **tais-frontend** → Settings → **Headers**
 
