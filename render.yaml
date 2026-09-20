@@ -21,9 +21,31 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: DATABASE_URL
+      # 2026-09-20: this file previously declared a single `tais-db` /
+      # `DATABASE_URL` pair here -- wrong, and not just a naming
+      # mismatch. packages/registry/src/config/database.ts creates two
+      # entirely separate PrismaClient instances (createRAGPrismaClient,
+      # createSkillsPrismaClient), each pointed at its own connection
+      # string via `datasources.db.url`, and the live service's own
+      # startup log confirms it: "Database Configuration: Dual-Database
+      # Mode". build.sh's migration step already reflected this (it runs
+      # `prisma migrate deploy` twice, once per URL) -- this file just
+      # never caught up. Discovered while investigating why the live
+      # service had zero working database connectivity: both
+      # `RAG_DATABASE_URL` and `SKILLS_DATABASE_URL` pointed at Render
+      # Postgres instances that no longer existed (one suspended/deleted
+      # for inactivity, `P1017`; one fully unreachable, `P1001` -- the
+      # live service had not deployed since 2026-03-24, so nothing had
+      # touched either database in ~6 months). No backup existed for
+      # either; both are being recreated empty (see HANDOFF.md's
+      # 2026-09-20 entry for the full incident account).
+      - key: RAG_DATABASE_URL
         fromDatabase:
-          name: tais-db
+          name: tais-rag
+          property: connectionString
+      - key: SKILLS_DATABASE_URL
+        fromDatabase:
+          name: tais-registry
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
@@ -139,7 +161,11 @@ cron:
         value: "Bearer {{ .Envs.CRON_SECRET }}"
 
 databases:
-  - name: tais-db
+  - name: tais-rag
+    databaseName: tais_rag
+    user: tais
+    plan: free
+  - name: tais-registry
     databaseName: tais_registry
     user: tais
     plan: free
