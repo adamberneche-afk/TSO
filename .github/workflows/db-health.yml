@@ -1,0 +1,41 @@
+name: DB health
+
+# The check that did not exist while the registry's database was
+# unreachable from 2026-03-24 to 2026-09-20 -- see tools/db-health/check.js
+# for the full account. Nothing in this repo was asking whether the product
+# actually worked: watchdog watches workflow health, and deploy-drift polls
+# /api/version, which reads env vars and never touches the database, so it
+# stayed green throughout a total database outage.
+#
+# Hourly, matching deploy-drift.yml: this is the same kind of liveness
+# question about the same host, and it costs two GET requests and some
+# date arithmetic -- no build, no checkout depth, no credential beyond the
+# ambient GITHUB_TOKEN needed to manage its one pinned issue. The expiry
+# arithmetic rides along on the same schedule rather than getting its own:
+# it is free, and the pinned issue updates in place rather than reopening,
+# so an expiring database warns once and stays warned instead of filing
+# something new every hour.
+on:
+  schedule:
+    - cron: '30 * * * *'  # Hourly, offset from deploy-drift's :00 so the two don't wake the free instance at the same moment
+  workflow_dispatch:
+
+jobs:
+  db-health:
+    runs-on: ubuntu-latest
+    # Polls two public endpoints and manages one pinned issue. No git
+    # history is read (unlike deploy-drift, which needs `git log`), so the
+    # default shallow checkout is enough.
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Probe the registry's database and check managed-database expiry
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node tools/db-health/check.js

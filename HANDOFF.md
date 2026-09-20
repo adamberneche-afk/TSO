@@ -1080,6 +1080,75 @@ whatever gets decided next — read this before re-reading the whole repo.
 > next version of this exact incident before it goes six months
 > unnoticed again (Sprint B, the most important remaining piece).
 
+> **Update — 2026-09-20 (Sprint B):** Built `db-health`, the check whose
+> absence let the whole thing happen. The uncomfortable finding while
+> designing it: **`GET /health` already existed for the entire outage**,
+> already ran a real `SELECT 1`, and already answered 503
+> `{"status":"unhealthy","error":"Database connection failed"}` on every
+> request. The signal was there from day one. Nothing asked for it.
+> `watchdog` watches workflow health; `deploy-drift` polls `/api/version`,
+> which reads env vars and never touches the database, so it stayed
+> **perfectly green** throughout a total database outage. No check in this
+> repo had a red that meant "the product does not work". That was the real
+> gap -- not a missing endpoint, a missing question.
+>
+> `tools/db-health/` polls two endpoints the registry already exposes
+> publicly, so like `deploy-drift` it holds **no credential** beyond the
+> ambient `GITHUB_TOKEN` for its pinned issue:
+> - **connectivity** (`GET /health`) -- proves a connection opens and
+>   `SELECT 1` runs.
+> - **schema** (`GET /api/v1/skills?limit=1`) -- proves real tables answer
+>   a real query. Connectivity alone is not enough: a freshly created,
+>   never-migrated database answers `SELECT 1` happily while every real
+>   query fails, which is *exactly* the state a recreated database sits in
+>   before `prisma migrate deploy` runs. Deliberately does **not** assert
+>   `total > 0` -- an empty registry is legitimate, and a check that
+>   demanded rows would false-alarm the moment someone removed the last
+>   skill.
+> - **expiry** -- arithmetic over a committed record of each Render-managed
+>   database. This is the check that would have *prevented* the incident
+>   rather than merely detecting it: Render's free Postgres deletes itself
+>   30 days after creation, which is the actual root cause.
+>
+> Two design problems found and fixed while building it, both the
+> "check that cries wolf gets muted" failure mode this repo's own docs
+> warn about:
+> - The registry is on Render's free plan and spins down after ~15 min
+>   idle; the *platform* answers 502/503 with an HTML holding page during
+>   the ~30-60s cold start. A naive check would have reported every cold
+>   start as a database outage and been muted within a week. Fixed: a
+>   502/503 is only believed when it carries the **app's own**
+>   `{"status":"unhealthy"}` JSON; anything else transient is retried once
+>   after a wait (the first request is what wakes the instance), and a
+>   definitive `database-down` is never retried because that would only
+>   delay the alarm.
+> - The hand-maintained `expiresAt` is itself a liability, so the tool
+>   guards its own data: an expiry that has passed **while the probes are
+>   healthy** is reported as a bug in `tools/db-health/probes.js`, not as a
+>   database problem, because a stale record makes every "expires in N
+>   days" warning fiction. Expired **and** probes failing gets the opposite
+>   treatment -- it names the expiry as the likely cause.
+>
+> Also added a 30s per-request timeout: an unattended hourly job should
+> never be able to hang forever on one request.
+>
+> Verified: 35 new tests (`tests/db-health.test.js`; `fetchImpl`, `sleepFn`
+> and `now` all injectable, no real network/clock/service), root suite
+> 133/133, full `npm test` green, `doc-currency` clean, workflow YAML
+> valid. `coverage-gaps` independently discovered the new scheduled script
+> and confirmed its coverage -- the tooling policing itself, which is the
+> point.
+>
+> **NOT yet validated against reality, and this matters**: this sandbox
+> has no network path to `onrender.com` (the local run returns 403 from
+> the egress proxy, not from the service), so the two probes have only
+> ever run against mocks. The classification logic is verified by tests
+> and the endpoint contracts were read directly from
+> `routes/health.ts`/`routes/skills.ts` source rather than assumed -- but
+> the probes have not yet met the live service. Next step is the same one
+> that worked for `doctor.yml`: merge, fire the workflow manually, and
+> read the real run. Until that happens this tool is unproven.
+
 ## TL;DR
 
 TSO was abandoned mid-August 2026, buried under its own automation, not
