@@ -958,6 +958,81 @@ whatever gets decided next — read this before re-reading the whole repo.
 > weakened. Root suite 98/98, `doc-currency` and `coverage-gaps` both
 > clean.
 
+> **Update — 2026-09-20:** PR #2037 merged, real deploy re-triggered.
+> `build.sh`'s `@think/types` fix worked completely -- `tsc` compiled
+> clean, Prisma client generated -- but the build then failed for real at
+> the migration step, confirming and extending the Postgres question the
+> prior entry left open. **Both** production databases are unreachable,
+> not just one, and every startup cycle in the runtime logs (3 found,
+> spanning ~4 hours of the free web service's natural spin-up/spin-down
+> before this session even started today) shows the identical failure --
+> this is not transient:
+> - `RAG_DATABASE_URL` (`dpg-d6au87vpm1nc73djp6t0-a.oregon-postgres.render.com`,
+>   db `public_rag`): `P1017: Server has closed the connection` -- a
+>   connection that's accepted then actively closed, consistent with a
+>   suspended-but-still-existing free Postgres instance.
+> - `SKILLS_DATABASE_URL` (`dpg-d6pdbfpaae7s73er8ru0-a`, db
+>   `registry_8yn3`): `P1001: Can't reach database server` -- a bare
+>   internal-style hostname (no external suffix) that can't be reached at
+>   all, consistent with the instance being fully deleted, not merely
+>   suspended.
+>
+> Asked the user to check for a backup. **There is none -- confirmed
+> unrecoverable.** Given the scope, scoped out a full plan rather than
+> patching narrowly (Sprint A: get the data layer back; Sprint B: build
+> the tools/tests/checks that should have caught this automatically
+> instead of requiring someone to notice a 6-month-stale deploy; Sprint
+> C: clean up `render.yaml`'s remaining known drift). User approved
+> Sprint A first.
+>
+> **Sprint A, in progress:**
+> - Fixed a second, independent `render.yaml` bug found while starting
+>   this: it had only ever declared a single `tais-db`/`DATABASE_URL`
+>   pair, but `packages/registry/src/config/database.ts` creates two
+>   fully independent `PrismaClient` instances
+>   (`createRAGPrismaClient`/`createSkillsPrismaClient`), each pointed at
+>   its own connection string -- confirmed via the live service's own
+>   boot log ("Database Configuration: Dual-Database Mode") and via
+>   `build.sh` already running `prisma migrate deploy` twice, once per
+>   URL. `render.yaml` never reflected this; it's a separate,
+>   independent gap from the expired-database incident, just discovered
+>   at the same time. Fixed: `render.yaml` now declares two databases
+>   (`tais-rag`, `tais-registry`) and the matching `RAG_DATABASE_URL`/
+>   `SKILLS_DATABASE_URL` env var entries.
+> - Provisioned a real replacement Postgres instance via the Render MCP
+>   connector (`tais-rag`, free plan, Oregon) -- and hit two real
+>   constraints in the process, both now documented since they'll matter
+>   again: **Render's free-tier Postgres expires 30 days after creation**
+>   (`expiresAt` came back in the creation response, one month out --
+>   almost certainly the actual root cause of the original incident, not
+>   a random suspension) and **an account can only have one active
+>   free-tier Postgres at a time** (the second `create_postgres` call was
+>   rejected outright). Surfaced both to the user rather than guessing
+>   past them.
+> - User chose to consolidate onto a single database rather than pay for
+>   a second instance. Verified this is safe before proceeding: both
+>   `RAG_DATABASE_URL` and `SKILLS_DATABASE_URL` already get the
+>   identical `schema.prisma` applied via `migrate deploy`, and a check
+>   of `src/index.ts`'s actual route wiring confirmed `ragPrisma` and
+>   `skillsPrisma` never touch overlapping tables (`skillsPrisma` handles
+>   auth/orgs/billing/agent-listing routes, `ragPrisma` handles
+>   `/rcrt` and `/admin/cron` only) -- pointing both env vars at one
+>   physical database just means one instance hosts the full table set
+>   instead of two redundant copies, no collision risk.
+> - **Blocked, real tooling gap**: no tool in this session's Render MCP
+>   connector exposes an existing Postgres instance's connection string
+>   (only `query_render_postgres`, which manages the connection
+>   internally without surfacing it), and there's no Blueprint-sync tool
+>   that would wire `render.yaml`'s `fromDatabase` reference the way a
+>   real `render blueprint sync` would. Asked the user to pull the
+>   Internal Database URL from the dashboard directly.
+>
+> Verified so far: `render.yaml` syntax-valid, doc-currency clean, root
+> suite 98/98. Not yet done: setting `RAG_DATABASE_URL`/
+> `SKILLS_DATABASE_URL` on the live service, triggering and watching a
+> deploy migrate successfully against the new database, confirming real
+> endpoints return functional (if empty) data -- then Sprints B and C.
+
 ## TL;DR
 
 TSO was abandoned mid-August 2026, buried under its own automation, not
