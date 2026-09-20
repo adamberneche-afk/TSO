@@ -14,6 +14,17 @@
 import { SkillInstaller } from '../SkillInstaller';
 import { SkillManifest } from '@think/types';
 
+// Frozen rather than `new Date()`: calculateSkillHash hashes created_at and
+// updated_at along with everything else, so two manifests built at two
+// different instants differ by more than the field under test. That made
+// the "not affected by the value of skill_hash itself" case below flaky --
+// it compares two SEPARATELY-constructed manifests for hash EQUALITY, so it
+// passed whenever both calls landed in the same millisecond and failed when
+// a millisecond boundary fell between them. Pinning the timestamps makes
+// each test isolate the one field it is actually about.
+const FIXED_CREATED_AT = '2026-01-01T00:00:00.000Z';
+const FIXED_UPDATED_AT = '2026-01-02T00:00:00.000Z';
+
 function baseManifest(overrides: Partial<SkillManifest> = {}): SkillManifest {
   return {
     name: 'test-skill',
@@ -31,8 +42,8 @@ function baseManifest(overrides: Partial<SkillManifest> = {}): SkillManifest {
       isnad_chain: [],
       trust_score: 0,
     },
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: FIXED_CREATED_AT,
+    updated_at: FIXED_UPDATED_AT,
     ...overrides,
   };
 }
