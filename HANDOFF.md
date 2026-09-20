@@ -1149,6 +1149,99 @@ whatever gets decided next — read this before re-reading the whole repo.
 > that worked for `doctor.yml`: merge, fire the workflow manually, and
 > read the real run. Until that happens this tool is unproven.
 
+> **Update — 2026-09-20 (Sprint B validated + Sprint C):** PR #2040 merged
+> and `db-health.yml` was fired manually against `main`. **It passed on
+> the live service** — the validation the Sprint B entry above says was
+> missing:
+>
+> ```
+> ✓ Database connectivity: ok — connection opened and `SELECT 1` succeeded
+> ✓ Schema queryable: ok — query executed against real tables (total = 3)
+> ✓ tais-rag expiry: expires in 29 day(s), on 2026-10-20T11:12:55Z
+> ```
+>
+> Two things in that run are worth more than the green tick:
+>
+> 1. **The cold-start handling was exercised for real on the first run.**
+>    The probe step ran 12:06:10 → 12:07:26 — **76 seconds** for two HTTP
+>    requests. That is the designed path firing: the first request hit a
+>    spun-down free instance, the tool waited 45s, retried, and got a
+>    clean answer. Without that logic this run would have reported a
+>    false database outage, and a check that cries wolf on its own first
+>    run gets muted and never heard from again. The design problem was
+>    found before it cost anything, which is the cheapest place to find
+>    one.
+> 2. **`total = 3`** — the registry answers real queries against real
+>    tables with the Sprint A seed data intact. The 2026-03→09 outage is
+>    fully closed, not merely "the service boots".
+>
+> **The standing risk this surfaces: `tais-rag` deletes itself on
+> 2026-10-20.** It is a free-tier Render Postgres, which is the literal
+> root cause of the original outage, and nothing about recreating it
+> changed that property. `db-health` will start warning ~Oct 10 (10-day
+> threshold). A warning is not a fix — before that date this needs either
+> a paid plan or a deliberate, scheduled recreate-and-remigrate. If it is
+> ever recreated, `tools/db-health/probes.js`'s `expiresAt` MUST be
+> updated to match or every warning it emits afterwards is fiction (the
+> tool guards against this: a passed expiry while probes are healthy is
+> reported as a bug in that file, not as a database problem).
+>
+> **Sprint C** reconciled `render.yaml` against the live dashboard via the
+> Render API — checked, not assumed. The drift was worse than the one
+> known item, and two entries had real teeth:
+>
+> | `render.yaml` said | Live actually has | Why it mattered |
+> | --- | --- | --- |
+> | name `tais-registry` | name `TSO` (slug `tso`) | Blueprint sync matches by name → would have created a *second* service |
+> | `startCommand: npm start` | `./start.sh` | `npm start` is bare `node dist/index.js`; `start.sh` runs `prisma migrate deploy` on both URLs first → applying this file would have silently stopped running migrations |
+> | `healthCheckPath: /api/health` | blank | That route has never existed (only `/api/v1` and `/api/version` are mounted; health is at bare `/health`) → Render would poll a 404 forever |
+> | two `databases:` | one (`tais-rag`) | Free tier permits one active Postgres per account; consolidation was the user's cost decision |
+> | frontend rootDir/build/publish | all three different | — |
+>
+> `healthCheckPath` was left **blank on purpose** rather than repointed at
+> the real `/health`. That endpoint returns 503 when the database is
+> unreachable, so as a Render health check it would let a database outage
+> block the deploy and take down every endpoint that needs no database at
+> all. `db-health` polls it from outside instead: the alerting without
+> coupling the service's liveness to its database. If a real health check
+> is ever wanted there, add a *shallow* liveness route and point at that.
+>
+> **Vercel decommissioned** (user's decision). Two findings made it a safe
+> call rather than a guess. Vercel's native git integration was still
+> deploying production from `main` on **every** merge — #2033 through
+> #2039 all have READY production deployments — so only the *GitHub
+> Action* was ever dead, which is not the same thing as Vercel being
+> dead; every earlier note in this file that guessed at this was wrong.
+> And the project has `ssoProtection` enabled with `deploymentType:
+> "all_except_custom_domains"` and owns no custom domain, so by Vercel's
+> documented behaviour `taisplatform.vercel.app` was almost certainly
+> never publicly reachable. That second point is **strongly indicated,
+> not proven** — an anonymous fetch was not possible from this sandbox.
+>
+> Done for the decommission: `tais_frontend/vercel.json` deleted (its
+> cache headers **ported into `render.yaml`**, not dropped — the
+> `index.html` `no-cache` rule matters because Vite emits content-hashed
+> asset names, so a cached `index.html` leaves returning visitors
+> requesting assets that no longer exist), `CORS_ORIGIN` narrowed to the
+> Render origin in both the file and the **live env var** (applied via the
+> Render API; triggered a deploy on `6f83755`), and the stale
+> `yourapp.vercel.app` example in `cors.ts`'s error message updated.
+>
+> **Unverified, and flagged rather than glossed:** the Vercel project was
+> paused via `pause_project` (deployment policies are Pro-only on this
+> Hobby account, and the connector exposes no git-unlink endpoint, so a
+> true "disconnect git" was not reachable). The call returned without
+> error, but **both follow-up reads to confirm it were denied by this
+> session's permission classifier**, so the pause is unconfirmed. Worth a
+> dashboard glance. `unpause_project` reverses it in one call if the
+> decision is revisited.
+>
+> **Still needing a human with dashboard access** — `render.yaml` is not
+> synced to live, so two values in it are now *ahead* of reality rather
+> than behind it: the `tais-frontend` `headers` block (live has no custom
+> headers configured at all) and, if the API-applied change is ever
+> reverted, `CORS_ORIGIN`. Both are called out in the file's own header.
+
 ## TL;DR
 
 TSO was abandoned mid-August 2026, buried under its own automation, not
