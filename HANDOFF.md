@@ -1033,6 +1033,53 @@ whatever gets decided next — read this before re-reading the whole repo.
 > deploy migrate successfully against the new database, confirming real
 > endpoints return functional (if empty) data -- then Sprints B and C.
 
+> **Update — 2026-09-20 (Sprint A complete):** User provided the
+> `tais-rag` Internal Database URL. Set both `RAG_DATABASE_URL` and
+> `SKILLS_DATABASE_URL` to it via the Render connector's
+> `update_environment_variables` (which itself auto-triggered a new
+> deploy on save) and watched the whole thing end to end through build
+> and boot logs, not just a status field:
+> - `build.sh`'s migration step: **"All migrations have been
+>   successfully applied"** -- all 24 real migrations ran against the
+>   fresh database (`Datasource "db": PostgreSQL database "tais_rag" ...
+>   at "dpg-danrvdrtqb8s73cupd5g-a"`), then the second `migrate deploy`
+>   call (Skills) correctly saw the same tables already present and
+>   no-opped, exactly as designed for the consolidated single-database
+>   setup. The build even ran its seed step: 3 skills, 3 audits, 1 API
+>   key.
+> - Runtime boot: **zero `P1017`/`P1001` errors** -- the exact failure
+>   class that broke every startup for months is gone. `start.sh`'s own
+>   migration re-check on boot also correctly reported "No pending
+>   migrations to apply" (idempotent, as intended). Render's own log
+>   ends with "Your service is live" at `https://tso.onrender.com`.
+> - One verification gap, noted rather than papered over:
+>   `query_render_postgres` (this session's one tool for directly
+>   querying a database) failed with `FATAL: SSL/TLS required` against
+>   this instance's external hostname -- a tool-side connection-string
+>   limitation (no `sslmode` parameter exposed), not a real database
+>   problem. Couldn't independently `SELECT count(*)` to confirm the
+>   seeded rows, and this session has no external network path to
+>   `onrender.com` to hit a live endpoint directly either. The build and
+>   boot log evidence above is strong (real DDL executing, real
+>   connection succeeding where it previously failed identically three
+>   times), but a genuine end-to-end HTTP request/response check is
+>   still missing -- exactly the gap Sprint B's smoke-test tooling
+>   should close properly instead of this session improvising one.
+>
+> **Sprint A is functionally done**: the registry has a real, working,
+> migrated database again, `render.yaml` accurately documents the
+> architecture, and the two real Render account constraints hit along
+> the way (30-day free-tier expiration, one-free-database-per-account
+> limit) are both documented for Sprint B to actually build monitoring
+> around, not just remembered informally.
+>
+> **What's still explicitly not done, deliberately**: this is a bare
+> empty database, not a restoration -- there was no backup, confirmed by
+> the user. `IPFS_ENABLED`/`GITHUB_TOKEN_ENCRYPTION_KEY`/`CORS_ORIGIN`
+> cleanup (Sprint C) untouched. No smoke test exists yet to catch the
+> next version of this exact incident before it goes six months
+> unnoticed again (Sprint B, the most important remaining piece).
+
 ## TL;DR
 
 TSO was abandoned mid-August 2026, buried under its own automation, not
