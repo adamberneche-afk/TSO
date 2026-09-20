@@ -1227,14 +1227,34 @@ whatever gets decided next — read this before re-reading the whole repo.
 > Render API; triggered a deploy on `6f83755`), and the stale
 > `yourapp.vercel.app` example in `cors.ts`'s error message updated.
 >
-> **Unverified, and flagged rather than glossed:** the Vercel project was
-> paused via `pause_project` (deployment policies are Pro-only on this
-> Hobby account, and the connector exposes no git-unlink endpoint, so a
-> true "disconnect git" was not reachable). The call returned without
-> error, but **both follow-up reads to confirm it were denied by this
-> session's permission classifier**, so the pause is unconfirmed. Worth a
-> dashboard glance. `unpause_project` reverses it in one call if the
-> decision is revisited.
+> **How the pause was actually confirmed** (worth recording, because the
+> first attempt failed): the project was paused via `pause_project`
+> (deployment policies are Pro-only on this Hobby account and the
+> connector exposes no git-unlink endpoint, so a true "disconnect git"
+> was not reachable). The call returned clean, but both follow-up reads
+> to confirm it were denied by this session's permission classifier, so
+> it was initially written up as unverified. Confirmation then arrived
+> from two independent directions without needing those reads:
+>   - Vercel's own GitHub bot commented on PR #2041 that its deployment
+>     was **`BLOCKED`** — which is exactly what a paused project does to
+>     new deployments.
+>   - A later `update_project` call returned a read-back showing
+>     `latestDeployment: null` and `domains: []` — the project has
+>     released `taisplatform.vercel.app` and has no live deployment.
+>
+> `unpause_project` reverses it in one call if the decision is revisited.
+>
+> **A consequence worth knowing about:** a paused project still has its
+> GitHub integration attached, so Vercel keeps *attempting* deployments
+> and posting a failing `Vercel — Deployment was blocked` commit status.
+> That is a red on every PR, forever, caused by the decommissioning
+> rather than by anything wrong with the code. `previewDeploymentsDisabled`
+> was set to stop Vercel attempting PR previews at all, which should stop
+> it on pull requests. The complete fix is to disconnect the Git
+> integration in the Vercel dashboard (Settings -> Git), or delete the
+> project outright -- neither reachable from this session's connector,
+> and deletion was never authorised. Until one of those happens, treat a
+> red `Vercel` status on a PR as expected noise, not a defect.
 >
 > **Still needing a human with dashboard access** — `render.yaml` is not
 > synced to live, so two values in it are now *ahead* of reality rather
