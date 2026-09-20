@@ -18,6 +18,7 @@ const {
   publishStatus,
   runProbes,
 } = require('../tools/db-health/check.js');
+const { MANAGED_DATABASES } = require('../tools/db-health/probes.js');
 
 const PROBE = { label: 'Database connectivity', url: 'https://example.test/health' };
 const SCHEMA_PROBE = { label: 'Schema queryable', url: 'https://example.test/api/v1/skills?limit=1' };
@@ -298,7 +299,11 @@ test('buildIssueBody: an unhealthy report lists findings and both sections', () 
   assert.ok(body.includes('finding(s)'));
   assert.ok(body.includes('### Live probes'));
   assert.ok(body.includes('### Managed databases'));
-  assert.ok(body.includes('dashboard.render.com'));
+  // Assert the exact rendered dashboard line, not just that the hostname
+  // appears somewhere: a bare substring check passes even if the URL is
+  // mangled (or belongs to some other host entirely), and CodeQL flags it
+  // as incomplete URL sanitization for exactly that reason.
+  assert.ok(body.includes(`  - Dashboard: ${MANAGED_DATABASES['tais-rag'].dashboardUrl}`));
   assert.ok(body.includes(NOW.toISOString()));
 });
 
