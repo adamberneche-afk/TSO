@@ -1252,10 +1252,65 @@ whatever gets decided next — read this before re-reading the whole repo.
 > was set to stop Vercel attempting PR previews at all, which should stop
 > it on pull requests. The complete fix is to disconnect the Git
 > integration in the Vercel dashboard (Settings -> Git), or delete the
-> project outright -- neither reachable from this session's connector,
-> and deletion was never authorised. Until one of those happens, treat a
-> red `Vercel` status on a PR as expected noise, not a defect.
+> project outright. The user authorised deletion on 2026-09-20, but the
+> Vercel MCP connector has NO delete-project operation at all (searched,
+> not assumed: it exposes create, update, pause, transfer and env-var
+> tools only), so this remains a human action -- dashboard Settings ->
+> Delete Project, or `vercel project rm taisplatform`. Until then, treat
+> a red `Vercel` status on a PR as expected noise, not a defect.
 >
+> **Update — 2026-09-20 (expiry mechanics, and the guard built on them):**
+> Asked to set up "a recurring redeploy of tais-rag every 25 days" to keep
+> the database alive. **That would not have worked, and it is worth
+> recording exactly why, because the shape of the mistake is the same one
+> that caused the original outage: a mechanism that looks like protection
+> while answering the wrong question.**
+>
+> Render's free Postgres expiry is a pure function of CREATION time, not
+> of activity. Straight from the API:
+>
+> ```
+> createdAt:  2026-09-20T11:12:55.246885Z
+> expiresAt:  2026-10-20T11:12:55.246885Z
+> ```
+>
+> Identical to the microsecond, exactly +30 days. No redeploy, query,
+> connection or other activity moves `expiresAt`. A 25-day "keep it warm"
+> job would have run faithfully, reported success, and the database would
+> still have been deleted on schedule -- with a calendar entry making it
+> look handled.
+>
+> There is also no such operation to schedule. The Render connector
+> exposes only `create_postgres`, `get_postgres`,
+> `list_postgres_instances` and `query_render_postgres`. No redeploy, no
+> restart, and **no delete** -- which matters beyond this one request: the
+> free tier permits a single active instance, so a replacement cannot be
+> created until the old one is deleted, and that deletion is
+> dashboard-only. Rotation therefore CANNOT be fully automated from a
+> session, and its unavoidable window (old instance gone, new one not yet
+> restored) is one where an unverified dump is the only surviving copy --
+> precisely the situation that lost the data the first time.
+>
+> Built instead: a weekly Routine (`trig_01CoUnvrUnoPt6CGp5G6gUr7`, push +
+> email) keyed to the real expiry DATE rather than a fixed interval --
+> silent above 14 days remaining, escalating below, urgent under 5,
+> treating a passed date as an incident. Date-keyed rather than
+> interval-keyed on purpose: an interval timer silently desynchronises the
+> moment the database is recreated on a new date, which is exactly when
+> the guard matters most.
+>
+> **Caveat on that Routine:** its creation result warned that it stores no
+> MCP connectors, so the sessions it fires will have no Render or GitHub
+> tools. Its prompt was rewritten to work purely from date arithmetic so
+> it degrades gracefully instead of waking up unable to act. To have it
+> verify against live Render data, recreate it from the claude.ai Routines
+> UI, where connectors can be attached. `db-health` is unaffected -- it
+> runs in GitHub Actions, needs no connectors, and remains the primary
+> automated signal.
+>
+> **The standing recommendation is still to upgrade off the free plan.**
+> Every alternative re-accepts this same risk every 30 days, forever.
+
 > **Still needing a human with dashboard access** — `render.yaml` is not
 > synced to live, so two values in it are now *ahead* of reality rather
 > than behind it: the `tais-frontend` `headers` block (live has no custom
