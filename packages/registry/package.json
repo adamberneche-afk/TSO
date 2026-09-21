@@ -55,6 +55,7 @@
   "devDependencies": {
     "@swc/core": "^1.16.2",
     "@swc/jest": "^0.2.39",
+    "@typescript/typescript6": "^6.0.2",
     "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.17",
     "@types/crypto-js": "^4.2.2",
