@@ -191,8 +191,8 @@ function StrongChallengeDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen} disableEscapeKeyDown>
-      <DialogContent className="sm:max-w-[500px]" hideClose>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="sm:max-w-[500px]" hideClose disableEscapeKeyDown>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span>Strong Concern</span>

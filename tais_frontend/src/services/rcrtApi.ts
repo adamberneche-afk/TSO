@@ -120,9 +120,11 @@ export const rcrtApi = {
     if (!wallet) {
       throw new Error('Wallet not found. Please connect your wallet first.');
     }
-    return api.post<RCRTProvision>(`${RCRT_BASE}/provision`, {
-      data: { wallet }
-    });
+    // /rcrt/provision actually sources the wallet from the authenticated
+    // session (req.user), not the body, so this field is currently
+    // ignored server-side either way -- fixed for consistency, not
+    // because it changes behavior.
+    return api.post<RCRTProvision>(`${RCRT_BASE}/provision`, { wallet });
   },
 
   /**
@@ -134,7 +136,7 @@ export const rcrtApi = {
       throw new Error('Wallet not found. Please connect your wallet first.');
     }
     await api.delete(`${RCRT_BASE}/provision`, {
-      data: { wallet, agentId }
+      params: { agentId }
     });
   },
 
@@ -142,18 +144,21 @@ export const rcrtApi = {
    * Refresh RCRT token
    */
   async refreshToken(refreshToken: string): Promise<{ token: string; refreshToken: string }> {
-    return api.post<{ token: string; refreshToken: string }>(`${RCRT_BASE}/refresh`, {
-      data: { refreshToken }
-    });
+    // NOTE: no POST /api/v1/rcrt/refresh route exists in packages/registry
+    // (searched -- there is genuinely no server handler for this path).
+    // This call 404s regardless of body shape; fixed the shape for
+    // consistency, but this method is dead until a real endpoint exists.
+    // Not called anywhere in tais_frontend today.
+    return api.post<{ token: string; refreshToken: string }>(`${RCRT_BASE}/refresh`, { refreshToken });
   },
 
   /**
    * Scan content for security threats
    */
   async scanContent(content: string): Promise<SecurityScanResult> {
-    return api.post<SecurityScanResult>(`${RCRT_BASE}/scan`, {
-      data: { content }
-    });
+    // Same as refreshToken above: no POST /api/v1/rcrt/scan route exists
+    // server-side. Dead, uncalled method; shape fixed for consistency only.
+    return api.post<SecurityScanResult>(`${RCRT_BASE}/scan`, { content });
   },
 
   /**
@@ -200,12 +205,10 @@ export const kbApi = {
     }
   ): Promise<{ success: boolean; kbId: string; contextType: string }> {
     return api.post<{ success: boolean; kbId: string; contextType: string }>(`/api/v1/kb/register`, {
-      data: {
-        kbId,
-        appId: options?.appId,
-        contextType: options?.contextType || 'public',
-        excludeFromRCRT: options?.excludeFromRCRT || false,
-      }
+      kbId,
+      appId: options?.appId,
+      contextType: options?.contextType || 'public',
+      excludeFromRCRT: options?.excludeFromRCRT || false,
     });
   },
 
@@ -220,18 +223,14 @@ export const kbApi = {
    * Update context type for a KB
    */
   async updateContextType(kbId: string, contextType: string): Promise<void> {
-    await api.patch(`/api/v1/kb/${kbId}/context-type`, {
-      data: { contextType }
-    });
+    await api.patch(`/api/v1/kb/${kbId}/context-type`, { contextType });
   },
 
   /**
    * Set RCRT exclusion for a KB
    */
   async setExcludeFromRCRT(kbId: string, exclude: boolean): Promise<void> {
-    await api.post(`/api/v1/kb/${kbId}/exclude-rcrt`, {
-      data: { exclude }
-    });
+    await api.post(`/api/v1/kb/${kbId}/exclude-rcrt`, { exclude });
   },
 
   /**
@@ -250,9 +249,7 @@ export const grantApi = {
    * Add a confidential grant
    */
   async addConfidentialGrant(appId: string): Promise<void> {
-    await api.post(`/api/v1/oauth/confidential-grant`, {
-      data: { appId }
-    });
+    await api.post(`/api/v1/oauth/confidential-grant`, { appId });
   },
 
   /**

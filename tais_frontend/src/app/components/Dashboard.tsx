@@ -29,7 +29,15 @@ import {
   Database,
   Globe,
   Server,
-  Brain
+  Brain,
+  History,
+  Lock,
+  Code,
+  FileCode,
+  CheckCircle2,
+  Circle,
+  RotateCcw,
+  Clock
 } from 'lucide-react';
 import { RCRTIntegrationPanel } from './rcrt/RCRTIntegrationPanel';
 import { AgentConfig } from '../../types/agent';
@@ -69,7 +77,7 @@ export function Dashboard({ onBackToLanding, onStartNewInterview, onViewMemory }
     isLoading: isLoadingRAG,
     isInitialized,
     initialize
-  } = usePublicRAG();
+  } = usePublicRAG(false);
 
   // Don't auto-initialize RAG on mount - only when user clicks Edit or Add RAG
   // This prevents unwanted signature requests
@@ -703,7 +711,7 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
     try {
       const parsed = JSON.parse(value);
       // Merge framework changes back into full config
-      setEditedConfig(prev => ({
+      setEditedConfig((prev: any) => ({
         ...prev,
         agent: {
           ...prev.agent,
@@ -722,7 +730,7 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
 
   const handlePersonalityChange = (value: string | undefined) => {
     if (!value) return;
-    setEditedConfig(prev => ({
+    setEditedConfig((prev: any) => ({
       ...prev,
       agent: {
         ...prev.agent,
@@ -741,7 +749,7 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
       priority: 5
     };
     
-    setEditedConfig(prev => ({
+    setEditedConfig((prev: any) => ({
       ...prev,
       agent: {
         ...prev.agent,
@@ -755,7 +763,7 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
 
   const addKnowledgeSourceFromPicker = (doc: any) => {
     const sourceId = `public-rag-${doc.id}`;
-    const existingSources = (isEditing ? editedConfig : selectedAgent?.config).agent.knowledge?.sources || [];
+    const existingSources = (isEditing ? editedConfig : agent?.config)?.agent.knowledge?.sources || [];
     
     if (existingSources.some((s: any) => s.documentId === doc.id && s.type === 'public-rag')) {
       toast.info('This document is already added');
@@ -771,7 +779,7 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
       priority: 5
     };
     
-    setEditedConfig(prev => ({
+    setEditedConfig((prev: any) => ({
       ...prev,
       agent: {
         ...prev.agent,
@@ -785,26 +793,26 @@ function AgentDetailModal({ agent, onClose, onDownload, onCopy, onDelete, onUpda
   };
 
   const removeKnowledgeSource = (sourceId: string) => {
-    setEditedConfig(prev => ({
+    setEditedConfig((prev: any) => ({
       ...prev,
       agent: {
         ...prev.agent,
         knowledge: {
           ...prev.agent.knowledge,
-          sources: (prev.agent.knowledge?.sources || []).filter(s => s.id !== sourceId)
+          sources: (prev.agent.knowledge?.sources || []).filter((s: any) => s.id !== sourceId)
         }
       }
     }));
   };
 
   const updateKnowledgeSource = (sourceId: string, updates: any) => {
-    setEditedConfig(prev => ({
+    setEditedConfig((prev: any) => ({
       ...prev,
       agent: {
         ...prev.agent,
         knowledge: {
           ...prev.agent.knowledge,
-          sources: (prev.agent.knowledge?.sources || []).map(s => 
+          sources: (prev.agent.knowledge?.sources || []).map((s: any) => 
             s.id === sourceId ? { ...s, ...updates } : s
           )
         }

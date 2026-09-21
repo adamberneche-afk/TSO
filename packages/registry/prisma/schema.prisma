@@ -31,6 +31,15 @@ model Skill {
   // Metadata
   permissions   Json     // Stored as JSON
   trustScore    Float    @default(0) @map("trust_score")
+  // Weighted, time-decayed score of this skill's community provenance
+  // chain (ProvenanceLink rows below) -- a distinct signal from
+  // trustScore, which is purely the SAFE/SUSPICIOUS/MALICIOUS audit-
+  // verdict ratio used to gate/block malicious skills. provenanceScore
+  // instead reflects *who has vouched for this skill* (author, auditors,
+  // and any community voucher), weighted by role and recency, mirroring
+  // the isnad-chain formula packages/core/src/services/IsnadService.ts
+  // already computes locally per-installation (see services/provenance.ts).
+  provenanceScore Float  @default(0) @map("provenance_score")
   downloadCount Int      @default(0) @map("download_count")
   
   // Status
@@ -45,13 +54,15 @@ model Skill {
   
   // Relations
   audits    Audit[]
+  provenanceLinks ProvenanceLink[]
   categories SkillCategory[]
   tags      SkillTag[]
-  
+
   @@index([skillHash])
   @@index([author])
   @@index([status])
   @@index([trustScore])
+  @@index([provenanceScore])
   @@map("skills")
 }
 
@@ -77,6 +88,56 @@ model Audit {
   @@index([auditor])
   @@index([status])
   @@map("audits")
+}
+
+// A single link in a skill's community provenance chain -- the real,
+// persisted, multi-party version of what
+// packages/core/src/services/IsnadService.ts's isnad chain already does
+// per-installation in a local, unshared JSON cache (see
+// docs/DOCS_VS_CODEBASE.md row 6). Every skill gets exactly one AUTHOR
+// link at publish time; every accepted Audit produces one AUDITOR link
+// (see services/provenance.ts); any wallet can add its own VOUCHER link
+// via POST /api/v1/provenance/:skillHash/vouch, no NFT required -- this
+// is what makes the chain genuinely multi-party rather than just
+// "auditors with NFTs."
+enum ProvenanceRole {
+  AUTHOR
+  AUDITOR
+  VOUCHER
+}
+
+model ProvenanceLink {
+  id        String         @id @default(uuid())
+  skillId   String         @map("skill_id")
+  skill     Skill          @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  wallet    String         // Wallet address that signed this link
+  role      ProvenanceRole
+
+  // Real ECDSA signature proving `wallet` authorized this specific link
+  // (see routes/provenance.ts, routes/audits.ts). Null only for AUTHOR
+  // links, whose authenticity instead comes from the wallet-JWT session
+  // POST /api/v1/skills already requires (itself obtained by signing a
+  // login nonce) -- not a second, redundant raw signature.
+  signature String?
+
+  // Denormalized reference to the Audit that produced an AUDITOR link,
+  // and a free-form note a VOUCHER link can attach. Nullable/non-FK so a
+  // deleted audit never orphans this row.
+  auditId   String?        @map("audit_id")
+  notes     String?
+
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  // Deliberately no DB-level uniqueness: an AUDITOR link is naturally
+  // one-per-Audit (the same wallet may re-audit a skill over time, each
+  // producing its own link), so only VOUCHER needs "one per wallet per
+  // skill" -- enforced at the application layer in routes/provenance.ts
+  // rather than a partial/conditional constraint Prisma's schema
+  // language can't express directly.
+  @@index([skillId])
+  @@index([wallet])
+  @@map("provenance_links")
 }
 
 model Category {
@@ -232,10 +293,74 @@ model AgentConfiguration {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   
+  // Data-model-only Agent Marketplace listing (docs/DOCS_VS_CODEBASE.md row
+  // 22) -- see AgentListing below. Optional: most configurations are never
+  // published.
+  listing     AgentListing?
+
   @@index([walletAddress])
   @@index([nftTokenId])
   @@index([isActive])
   @@map("agent_configurations")
+}
+
+// ============================================
+// Agent Marketplace: data model only (2026-09-12)
+// ============================================
+// docs/DOCS_VS_CODEBASE.md row 22 ("Agent marketplace / skill publishing
+// wizard / web+desktop deployment"). Unlike skill publishing (the other
+// half of row 22, now genuinely built -- see routes/skills.ts, row 5's
+// scanning), there is no existing browsable/listed "Agent" concept
+// anywhere in this schema to build a marketplace UI on top of, so -- the
+// same treatment Enterprise RAG (row 14) got -- this pass designed,
+// migrated, and tested the data model a real marketplace would sit on,
+// without building routes, moderation, or UI against untested product
+// decisions. See docs/AGENT_MARKETPLACE_DATA_MODEL.md.
+
+enum AgentListingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+model AgentListing {
+  id              String   @id @default(uuid())
+  configurationId String   @unique @map("configuration_id")
+  configuration   AgentConfiguration @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+
+  // Denormalized from AgentConfiguration.walletAddress for query/index
+  // convenience -- mirrors Skill.author, which is likewise a plain wallet
+  // string rather than a join through a separate user-account table.
+  walletAddress String @map("wallet_address")
+
+  // A curated public-facing summary, deliberately NOT a read-through to
+  // AgentConfiguration.configData: the full config JSON can carry a
+  // wallet's private skill selections/personality details, and listing an
+  // agent shouldn't leak them just because the config is technically
+  // reachable (see docs/AGENT_MARKETPLACE_DATA_MODEL.md's design notes).
+  name        String
+  description String?
+  category    String?
+
+  // Mirrors Skill's own PENDING/APPROVED/REJECTED/SUSPENDED moderation
+  // states (a distinct enum, not a reuse of SkillStatus -- listings and
+  // skills are different domains that only coincidentally share states).
+  // What moderating an *agent* listing should even check is an open
+  // question this data model does not answer.
+  status AgentListingStatus @default(PENDING)
+
+  // Placeholder for a future "N people are using this agent" signal --
+  // not incremented by anything yet, since no install/invoke flow exists
+  // (row 22's still-undecided web-deployment/API-generation pieces).
+  installCount Int @default(0) @map("install_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([walletAddress])
+  @@index([status])
+  @@map("agent_listings")
 }
 
 // ============================================
@@ -299,24 +424,174 @@ model RAGDocument {
   
   // Access control
   allowedViewers  String[] @map("allowed_viewers") // Array of public keys
-  
+
+  // Enterprise RAG (docs/DOCS_VS_CODEBASE.md row 14, data model only --
+  // see docs/ENTERPRISE_RAG_DATA_MODEL.md): when set, this document is
+  // shared with every member of the organization, governed by
+  // OrganizationMember roles rather than isPublic/allowedViewers.
+  // walletAddress above still records who actually uploaded it.
+  // SetNull rather than Cascade: deleting an org shouldn't destroy a
+  // member's document content, just its org-shared status.
+  organizationId  String?  @map("organization_id")
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
   // Engagement metrics
   downloadCount   Int      @default(0) @map("download_count")
   popularityScore Float    @default(0) @map("popularity_score")
-  
+
   // Timestamps
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
-  
+
   // Relations
   chunks          RAGChunk[]
-  
+
   @@index([walletAddress])
   @@index([isPublic])
   @@index([tags])
   @@index([createdAt])
   @@index([popularityScore])
+  @@index([organizationId])
   @@map("rag_documents")
+}
+
+// ============================================
+// Enterprise RAG -- data model only
+// (docs/DOCS_VS_CODEBASE.md row 14; see
+// docs/ENTERPRISE_RAG_DATA_MODEL.md for the full design writeup,
+// including what's deliberately NOT built yet: no routes, no org
+// creation/invitation flow, no UI, no billing implications worked out.)
+// ============================================
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique // URL-safe identifier, e.g. for org-scoped routes
+  description String?
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  members     OrganizationMember[]
+  invitations OrganizationInvitation[]
+  documents   RAGDocument[]
+
+  @@index([slug])
+  @@map("organizations")
+}
+
+// Wallet <-> Organization membership with an admin-controlled role.
+// OWNER: full control, including deleting the org itself.
+// ADMIN: manage members (invite/remove/change role, except OWNER) and
+//        moderate (delete) any org document, not just their own.
+// MEMBER: upload documents to the org and read every org document;
+//         cannot manage membership or moderate others' documents.
+//
+// "walletAddress" here may be a real wallet or an EmailIdentity's
+// deterministic pseudo-address (see EmailIdentity below) -- this table
+// doesn't need to know or care which, since both authenticate to the
+// exact same {walletAddress} JWT shape.
+model OrganizationMember {
+  id             String           @id @default(uuid())
+  organizationId String           @map("organization_id")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  walletAddress  String           @map("wallet_address")
+  role           OrganizationRole @default(MEMBER)
+
+  invitedBy      String?          @map("invited_by") // wallet address of the inviting admin/owner
+  joinedAt       DateTime         @default(now()) @map("joined_at")
+
+  @@unique([organizationId, walletAddress])
+  @@index([organizationId])
+  @@index([walletAddress])
+  @@map("organization_members")
+}
+
+// ============================================
+// Enterprise RAG -- email/password identity
+// (docs/ENTERPRISE_RAG_IDENTITY.md; built to remove the "must install a
+// crypto wallet" adoption blocker for enterprise org members, without
+// requiring any blockchain infrastructure.)
+// ============================================
+
+// A password-authenticated identity for org members who don't have a
+// wallet. `walletAddress` is NOT a real wallet -- no private key is ever
+// generated, held, or exists anywhere for it. It's a deterministic,
+// non-signable identifier derived from the email
+// (services/emailIdentity.ts's deriveWalletAddressForEmail: a
+// domain-separated keccak256 hash of the lowercased email, checksummed
+// like a normal address), which is what lets every existing
+// wallet-keyed table (OrganizationMember, RAGDocument, ...) and the
+// existing JWT/authMiddleware pipeline work completely unchanged for
+// these accounts -- routes/emailAuth.ts's login just calls the same
+// AuthService.generateToken(walletAddress) a real wallet-signature login
+// uses. These accounts are scoped to Enterprise RAG only: they hold no
+// NFTs and are not expected to hit NFT-gated routes (skill publishing,
+// audits) or own a Skill/AgentConfiguration.
+model EmailIdentity {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  walletAddress String    @unique @map("wallet_address")
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  lastLoginAt   DateTime? @map("last_login_at")
+
+  @@index([walletAddress])
+  @@map("email_identities")
+}
+
+// Single-use, hashed (never stored raw) password-reset token, mirroring
+// the AuthNonce/ApiKey/TokenBlacklist convention of only ever persisting
+// a sha256 hash of a secret handed to the client.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  email     String
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([email])
+  @@map("password_reset_tokens")
+}
+
+// Org membership is invite-only -- there is no self-serve "join an org"
+// or "create your own org" flow. An OWNER/ADMIN invites by email; the
+// recipient accepts via a one-time token, which creates their
+// EmailIdentity (if they don't already have one -- an existing member
+// invited a second time, or a wallet-holding user invited by email,
+// reuses their existing identity) and their OrganizationMember row in
+// the same step (see routes/orgs.ts). Re-inviting the same email to the
+// same org (after removal, or before the first invite was accepted)
+// reuses this row via upsert rather than erroring on the unique
+// constraint below.
+model OrganizationInvitation {
+  id             String           @id @default(uuid())
+  organizationId String           @map("organization_id")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  email          String
+  role           OrganizationRole @default(MEMBER)
+  invitedBy      String           @map("invited_by") // wallet address (real or pseudo) of the inviting admin/owner
+  tokenHash      String           @unique @map("token_hash")
+
+  expiresAt      DateTime         @map("expires_at")
+  acceptedAt     DateTime?        @map("accepted_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([email])
+  @@map("organization_invitations")
 }
 
 // RAG Chunk - Individual chunks of documents with embedding hashes
@@ -330,7 +605,12 @@ model RAGChunk {
   // Encrypted content
   encryptedContent String  @map("encrypted_content") // Base64
   iv              String   // Base64 IV
-  
+  salt            String   // Base64 salt for this chunk's key derivation --
+                            // each chunk is encrypted with its own randomly
+                            // generated salt (see e2eeEncryption.ts encrypt()),
+                            // not the parent document's salt, so it has to be
+                            // stored per chunk to ever be decryptable again.
+
   // Indexing
   index           Int      // Position in document
   embeddingHash   String   @map("embedding_hash") // SHA-256 hash for search (privacy-preserving)
@@ -809,8 +1089,8 @@ model AgentAppPermission {
   id            String   @id @default(uuid())
   walletAddress String   @map("wallet_address")
   appId         String   @map("app_id")
-  app           AgentApp @relation(fields: [appId], references: [id], onDelete: Cascade)
-  
+  app           AgentApp @relation(fields: [appId], references: [appId], onDelete: Cascade)
+
   // Scopes granted
   scopes        String[] // e.g., ["agent:identity:read", "agent:memory:write"]
   
@@ -837,7 +1117,7 @@ model AgentSession {
   sessionId      String   @unique @map("session_id")
   walletAddress  String   @map("wallet_address")
   appId          String   @map("app_id")
-  app            AgentApp @relation(fields: [appId], references: [id], onDelete: Cascade)
+  app            AgentApp @relation(fields: [appId], references: [appId], onDelete: Cascade)
   
   // Session linking (for handoff)
   parentSessionId String? @map("parent_session_id") // If agent came from another app
@@ -901,7 +1181,7 @@ model AgentMemoryEntry {
 model AppUsageMetric {
   id                String     @id @default(uuid())
   appId             String     @map("app_id")
-  app               AgentApp   @relation(fields: [appId], references: [id], onDelete: Cascade)
+  app               AgentApp   @relation(fields: [appId], references: [appId], onDelete: Cascade)
   walletAddress     String     @map("wallet_address")
   
   interactionType   String     @map("interaction_type") // "chat", "context_read", "memory_write"

@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { loadConfig, saveConfig } from './init.js';
+import { loadConfig, saveConfig } from './init';
 
 export async function configCommand(options: { apiKey?: string; endpoint?: string }): Promise<void> {
   const config = loadConfig();

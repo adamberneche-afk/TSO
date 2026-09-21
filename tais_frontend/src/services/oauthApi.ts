@@ -46,6 +46,7 @@ export const oauthApi = {
     redirectUris: string[],
     wallet: string,
     signature: string,
+    timestamp: number,
     options?: {
       description?: string;
       websiteUrl?: string;
@@ -54,14 +55,13 @@ export const oauthApi = {
     }
   ): Promise<RegisteredApp> {
     return api.post<RegisteredApp>('/api/v1/oauth/register-app', {
-      data: {
-        appId,
-        name,
-        redirectUris,
-        wallet,
-        signature,
-        ...options,
-      }
+      appId,
+      name,
+      redirectUris,
+      wallet,
+      signature,
+      timestamp,
+      ...options,
     });
   },
 
@@ -94,11 +94,9 @@ export const oauthApi = {
     appId: string
   ): Promise<{ success: boolean }> {
     return api.post<{ success: boolean }>('/api/v1/oauth/revoke', {
-      data: {
-        access_token: accessToken,
-        wallet,
-        app_id: appId,
-      }
+      access_token: accessToken,
+      wallet,
+      app_id: appId,
     });
   },
 
@@ -135,11 +133,9 @@ export const oauthApi = {
     signature: string
   ): Promise<{ success: boolean; redirectUri: string }> {
     return api.post<{ success: boolean; redirectUri: string }>('/api/v1/oauth/approve', {
-      data: {
-        authorizationId,
-        wallet,
-        signature,
-      }
+      authorizationId,
+      wallet,
+      signature,
     });
   },
 
@@ -179,9 +175,7 @@ export const oauthApi = {
       expires_in: number;
       walletAddress: string;
       scopes: string[];
-    }>('/api/v1/oauth/token', {
-      data: body
-    });
+    }>('/api/v1/oauth/token', body);
 
     return result;
   },
@@ -311,8 +305,10 @@ export const oauthApi = {
     appId: string,
     scopes: string[]
   ): Promise<{ success: boolean; scopes: string[] }> {
+    // routes/enterprise.ts destructures `{ scopes }` from the body, not
+    // a bare array -- `{ data: scopes }` sent neither shape it expects.
     return api.patch<{ success: boolean; scopes: string[] }>(`/api/v1/enterprise/permissions/${appId}?wallet=${wallet}`, {
-      data: scopes
+      scopes,
     });
   },
 
@@ -357,7 +353,10 @@ export const oauthApi = {
     blockedApps: string[]
   ): Promise<{ success: boolean; organization: any }> {
     return api.post<{ success: boolean; organization: any }>('/api/v1/enterprise/organization', {
-      data: { wallet, name, approvedApps, blockedApps }
+      wallet,
+      name,
+      approvedApps,
+      blockedApps,
     });
   },
 
@@ -392,9 +391,7 @@ export const oauthApi = {
       sandbox: boolean;
       app: { appId: string; name: string; appSecret: string; redirectUris: string[] };
       message: string;
-    }>('/api/v1/oauth/sandbox/create', {
-      data: { wallet, name }
-    });
+    }>('/api/v1/oauth/sandbox/create', { wallet, name });
   },
 
   /**
@@ -436,8 +433,6 @@ export const oauthApi = {
       expires_in: number;
       walletAddress: string;
       scopes: string[];
-    }>('/api/v1/oauth/sandbox/token', {
-      data: { wallet, appId }
-    });
+    }>('/api/v1/oauth/sandbox/token', { wallet, appId });
   }
 };

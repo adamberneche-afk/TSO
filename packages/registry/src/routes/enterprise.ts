@@ -303,11 +303,18 @@ export function createEnterpriseRoutes(prisma: any, logger: any): Router {
   // Get organization
   router.get('/organization/:orgId', async (req: AuthenticatedRequest, res: Response) => {
     try {
+      const authenticatedWallet = req.user?.walletAddress;
       const { orgId } = req.params;
-      const { wallet } = req.query;
 
-      if (!wallet || typeof wallet !== 'string') {
-        return res.status(400).json({ error: 'wallet is required' });
+      // IDOR Fix: this used to check org.adminWalletAddress against a
+      // client-supplied `?wallet=` query param instead of the
+      // authenticated identity -- any caller could view any
+      // organization's data by simply passing that organization's real
+      // admin wallet in the query string, without proving they control
+      // it. Mirrors the pattern already used by
+      // PATCH /organization/:orgId/apps below.
+      if (!authenticatedWallet) {
+        return res.status(401).json({ error: 'Authentication required' });
       }
 
       const org = await prisma.agentAppOrganization.findUnique({
@@ -318,7 +325,7 @@ export function createEnterpriseRoutes(prisma: any, logger: any): Router {
         return res.status(404).json({ error: 'Organization not found' });
       }
 
-      if (org.adminWalletAddress !== wallet.toLowerCase()) {
+      if (org.adminWalletAddress !== authenticatedWallet.toLowerCase()) {
         return res.status(403).json({ error: 'Not authorized' });
       }
 

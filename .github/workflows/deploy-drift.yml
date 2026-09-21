@@ -1,0 +1,31 @@
+name: Deploy drift
+
+# Polls the registry's /api/version and the frontend's /version.json
+# against what git expects for each (tools/deploy-drift/), instead of
+# reacting to a push -- see tools/deploy-drift/README.md for why this repo
+# can poll directly where KOS/Mothership had to push. Hourly is frequent
+# enough to catch a real drift same-day without being a meaningful cost --
+# two GET requests plus a git log, no build.
+on:
+  schedule:
+    - cron: '0 * * * *'  # Hourly
+  workflow_dispatch:
+
+jobs:
+  deploy-drift:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history -- expected-marker.js needs `git log` over each service's paths, not just the latest commit
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Poll each deployed service and compare against what git expects
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node tools/deploy-drift/check.js

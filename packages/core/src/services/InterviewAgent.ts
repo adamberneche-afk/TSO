@@ -1,15 +1,24 @@
 import { ILLMProvider } from '../llm/BaseProvider';
 import { AnthropicProvider } from '../llm/AnthropicProvider';
 import { LocalProvider } from '../llm/LocalProvider';
+import { NftService } from './NftService';
 import { InterviewConfig, UserProfile } from '@think/types';
 import { v4 as uuidv4 } from 'uuid';
-
-const PromptCache = new Map<string, any>();
 
 export class InterviewAgent {
   private provider: ILLMProvider;
   private state: UserProfile; // Changed from Partial<UserProfile> to UserProfile
   private config: InterviewConfig;
+  // Was a module-level `const PromptCache = new Map()`, shared by every
+  // InterviewAgent instance in the process -- keyed only on
+  // `${questionId}_${context}`, with no walletAddress/session component,
+  // so one user's cached LLM extraction (askQuestion's `extractedData`)
+  // could be handed back verbatim to a different user's session that
+  // happened to reach the same question with the same context, regardless
+  // of what that second user actually answered. Scoped to the instance:
+  // each interview session gets its own InterviewAgent, so the cache no
+  // longer crosses sessions.
+  private promptCache = new Map<string, any>();
 
   /**
    * Set the internal state (used for cloning agents).
@@ -106,7 +115,7 @@ export class InterviewAgent {
 
   async askQuestion(questionId: string, context: string, userAnswer: string): Promise<{ nextQuestion: string, extractedData: any }> {
     const cacheKey = `${questionId}_${context}`;
-    if (PromptCache.has(cacheKey)) return PromptCache.get(cacheKey);
+    if (this.promptCache.has(cacheKey)) return this.promptCache.get(cacheKey);
 
     const prompt = `Context: ${context}\nUser Answer: ${userAnswer}`;
     const systemPrompt = "You are a JSON extraction engine. Return ONLY valid JSON, no markdown, no conversational filler.";
@@ -142,7 +151,7 @@ export class InterviewAgent {
       };
 
       const result = { nextQuestion: "What else?", extractedData };
-      PromptCache.set(cacheKey, result);
+      this.promptCache.set(cacheKey, result);
       return result;
     } catch (error) {
       console.error("LLM Parse Error:", error);
@@ -150,9 +159,14 @@ export class InterviewAgent {
     }
   }
 
-  finalizeProfile(walletAddress: string): UserProfile {
+  // nftService is optional so existing callers that don't have one handy
+  // keep compiling, but omitting it means genesis_nft_verified can only
+  // honestly be false -- never fabricated true the way this used to be
+  // hardcoded, regardless of the wallet's actual NFT ownership.
+  async finalizeProfile(walletAddress: string, nftService?: NftService): Promise<UserProfile> {
     const now = new Date();
     const deviceId = process.env.DEV_MODE ? 'dev-mode-device-123' : uuidv4();
+    const genesisNftVerified = nftService ? await nftService.verifyOwnership(walletAddress) : false;
 
     const profile: UserProfile = {
       ...this.state,
@@ -162,7 +176,7 @@ export class InterviewAgent {
         ...this.state.metadata,
         device_id: deviceId,
         interview_duration_seconds: Math.floor((now.getTime() - new Date(this.state.created_at).getTime()) / 1000),
-        genesis_nft_verified: true // Set to true when finalizing
+        genesis_nft_verified: genesisNftVerified
       }
     };
 

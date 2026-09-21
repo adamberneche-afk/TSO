@@ -22,10 +22,16 @@ export interface Message {
   timestamp: Date;
 }
 
-export interface ActiveMemory {
+/**
+ * Fields shared by every stage of a memory's lifecycle (active ->
+ * reflective -> immutable). Each stage's own interface adds
+ * `maturityState` as its own literal plus whatever else differs --
+ * they intentionally do NOT extend one another, since a subtype can't
+ * narrow a field like `maturityState` via `extends` (TS2430).
+ */
+export interface BaseMemory {
   memoryId: string;
   timestamp: Date;
-  maturityState: 'active';
   privacyLevel: 'local';
   sessionSummary: {
     appContext: string;
@@ -38,6 +44,10 @@ export interface ActiveMemory {
   citations: Citation[];
   tags: string[];
   linkedDocuments: string[];
+}
+
+export interface ActiveMemory extends BaseMemory {
+  maturityState: 'active';
   validationStatus: ValidationStatus | null;
   relevanceScore: number | null;
   reflection: Reflection | null;
@@ -130,7 +140,7 @@ export interface Contradiction {
   explanation: string;
 }
 
-export interface ReflectiveMemory extends ActiveMemory {
+export interface ReflectiveMemory extends BaseMemory {
   maturityState: 'reflective';
   validationStatus: ValidationStatus;
   relevanceScore: number;
@@ -138,12 +148,19 @@ export interface ReflectiveMemory extends ActiveMemory {
   transitionedAt: Date;
 }
 
-export interface ImmutableMemory extends ReflectiveMemory {
+export interface ImmutableMemory extends BaseMemory {
   maturityState: 'immutable';
+  validationStatus: ValidationStatus;
+  relevanceScore: number;
+  reflection: Reflection;
+  transitionedAt: Date;
   lockedAt: Date;
   citationSnapshots: CitationSnapshot[];
   weight: number;
 }
+
+/** Discriminated union over a memory's lifecycle stage, keyed on maturityState. */
+export type Memory = ActiveMemory | ReflectiveMemory | ImmutableMemory;
 
 export interface CitationSnapshot {
   citationId: string;

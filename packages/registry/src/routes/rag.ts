@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { validateInput, sanitizeValidationErrors } from '../validation/schemas';
 import { z } from 'zod';
+import { encryptCommunityData, decryptCommunityData, isCommunityEncrypted } from '../services/communityCrypto';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -16,14 +17,37 @@ interface AuthenticatedRequest extends Request {
 }
 
 // Validation schemas
+
+// A single E2EE-encrypted chunk. Each chunk is encrypted client-side with
+// its own independently-generated salt (see e2eeEncryption.ts's encrypt()),
+// not the parent document's salt -- it must be persisted per chunk or the
+// chunk can never be decrypted again.
+const uploadChunkSchema = z.object({
+  index: z.number().int().nonnegative(),
+  encryptedContent: z.string(),
+  iv: z.string(),
+  salt: z.string(),
+  embeddingHash: z.string()
+});
+
+// The client (PublicRAGClient.uploadDocument) encrypts the document and its
+// metadata (title/type/tags/author) end-to-end before this ever reaches the
+// server -- the server never sees plaintext content, title, or per-document
+// metadata, only ciphertext plus the salts/IVs needed to derive the keys
+// that produced it.
 const uploadDocumentSchema = z.object({
-  title: z.string(),
-  content: z.string(),
+  encryptedData: z.string(),
+  encryptedMetadata: z.string(),
+  iv: z.string(),
+  salt: z.string(),
+  ownerPublicKey: z.string(),
   tags: z.array(z.string()).default([]),
   isPublic: z.boolean().default(false),
-  metadata: z.object({
-    type: z.string().default('text/plain')
-  }).default({})
+  chunks: z.array(uploadChunkSchema).default([]),
+  // Enterprise RAG (docs/ENTERPRISE_RAG_DATA_MODEL.md): sharing with an
+  // org the caller belongs to, independent of isPublic -- see the
+  // membership check in the handler below.
+  organizationId: z.string().uuid().optional()
 });
 
 const searchSchema = z.object({
@@ -174,32 +198,64 @@ router.post('/documents', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
     
-    const { title, content, tags, isPublic, metadata } = validation.data;
-    
-    // Create document record (simplified - no encryption for now)
+    const { encryptedData, encryptedMetadata, iv, salt, ownerPublicKey, tags, isPublic, chunks = [], organizationId } = validation.data;
+
+    if (organizationId) {
+      const membership = await req.prisma.organizationMember.findUnique({
+        where: { organizationId_walletAddress: { organizationId, walletAddress: walletAddress.toLowerCase() } }
+      });
+      if (!membership) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'You are not a member of this organization'
+        });
+      }
+    }
+
+    // The server never sees plaintext title -- it's inside encryptedMetadata,
+    // which only the owner (or, for public docs, anyone holding the shared
+    // community key) can decrypt. title stays null; the size recorded here
+    // is the size of the stored ciphertext, since that's all the server has.
     const document = await req.prisma.rAGDocument.create({
       data: {
         walletAddress: walletAddress.toLowerCase(),
-        ownerPublicKey: '',
-        encryptedData: Buffer.from(content).toString('base64'), // Simple base64 encoding for now
-        encryptedMetadata: Buffer.from(JSON.stringify({ title, ...metadata })).toString('base64'),
-        iv: '',
-        salt: '',
-        title: title,
-        isPublic: isPublic,
-        tags: tags,
-        size: Buffer.byteLength(content, 'utf8'),
-        chunkCount: 1 // Simplified
+        ownerPublicKey,
+        encryptedData,
+        encryptedMetadata,
+        iv,
+        salt,
+        title: null,
+        isPublic,
+        tags,
+        organizationId,
+        size: Buffer.byteLength(encryptedData, 'utf8'),
+        chunkCount: chunks.length
       }
     });
-    
+
+    if (chunks.length > 0) {
+      await req.prisma.rAGChunk.createMany({
+        data: chunks.map((chunk) => ({
+          documentId: document.id,
+          encryptedContent: chunk.encryptedContent,
+          iv: chunk.iv,
+          salt: chunk.salt,
+          index: chunk.index,
+          embeddingHash: chunk.embeddingHash,
+          size: Buffer.byteLength(chunk.encryptedContent, 'utf8')
+        }))
+      });
+    }
+
     res.status(201).json({
       id: document.id,
       walletAddress: document.walletAddress,
       title: document.title,
       isPublic: document.isPublic,
       tags: document.tags,
+      organizationId: document.organizationId,
       size: document.size,
+      chunkCount: document.chunkCount,
       createdAt: document.createdAt
     });
   } catch (error) {
@@ -558,14 +614,27 @@ router.delete('/documents/:documentId', async (req: AuthenticatedRequest, res: R
       });
     }
     
-    // Check if user owns the document
-    if (document.walletAddress?.toLowerCase() !== walletAddress.toLowerCase()) {
+    // The uploader can always delete their own document. Failing that,
+    // an org ADMIN/OWNER can moderate (delete) any document shared with
+    // their organization -- per OrganizationMember's role comments, this
+    // is exactly the "moderate any org document" power those roles are
+    // documented to have, not something a plain MEMBER gets.
+    const isOwner = document.walletAddress?.toLowerCase() === walletAddress.toLowerCase();
+    let isOrgModerator = false;
+    if (!isOwner && document.organizationId) {
+      const membership = await req.prisma.organizationMember.findUnique({
+        where: { organizationId_walletAddress: { organizationId: document.organizationId, walletAddress: walletAddress.toLowerCase() } }
+      });
+      isOrgModerator = membership?.role === 'ADMIN' || membership?.role === 'OWNER';
+    }
+
+    if (!isOwner && !isOrgModerator) {
       return res.status(403).json({
         error: 'Access denied',
         message: 'You do not have permission to delete this document'
       });
     }
-    
+
     // Delete chunks first (due to foreign key constraint)
     await req.prisma.rAGChunk.deleteMany({
       where: { documentId: documentId }
@@ -630,6 +699,73 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
     });
   } catch (error) {
     handleError(res, error, 'Failed to get stats');
+  }
+});
+
+// ============================================
+// Community/public-tier encryption
+// ============================================
+//
+// This used to be a client-side scheme keyed by a string constant
+// ('TAIS-RAG-COMMUNITY-SHARED-KEY-v1') compiled directly into the
+// public frontend bundle, used as both the PBKDF2 password and salt.
+// Since the JS bundle is downloadable by anyone -- no login required --
+// that "encryption" provided zero real confidentiality: any anonymous
+// visitor could extract the constant and decrypt every community
+// document themselves.
+//
+// The actual cryptography now lives here, server-side, behind
+// authMiddleware (this whole router is mounted with
+// `apiV1Router.use('/rag', authMiddleware, ...)` in index.ts) -- so
+// decrypting a community document now genuinely requires a valid,
+// authenticated TAIS platform account (there is no separate concept of
+// distinct "communities"/groups anywhere in this schema; "the
+// community" is the platform's authenticated user base), not just
+// possession of the public JS bundle.
+//
+// The actual PBKDF2/AES-GCM logic now lives in services/communityCrypto.ts
+// -- extracted so routes/agent.ts's App RAG read path (GET /agent/rag)
+// can decrypt a wallet's community documents on an authorized app's
+// behalf using this exact same, already-tested code, instead of
+// duplicating it.
+router.post('/community/encrypt', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user?.walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { data } = req.body;
+    if (typeof data !== 'string' || data.length === 0) {
+      return res.status(400).json({ error: 'data is required' });
+    }
+    if (Buffer.byteLength(data, 'utf8') > 1_000_000) {
+      return res.status(400).json({ error: 'data too large (max 1MB)' });
+    }
+
+    res.json(encryptCommunityData(data));
+  } catch (error) {
+    handleError(res, error, 'Failed to encrypt community data');
+  }
+});
+
+router.post('/community/decrypt', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user?.walletAddress) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { encrypted, iv, salt } = req.body;
+    if (!encrypted || !iv || !salt) {
+      return res.status(400).json({ error: 'encrypted, iv, and salt are required' });
+    }
+
+    if (!isCommunityEncrypted(salt)) {
+      return res.status(400).json({ error: 'Invalid salt for community document' });
+    }
+
+    res.json({ data: decryptCommunityData(encrypted, iv, salt) });
+  } catch (error) {
+    handleError(res, error, 'Failed to decrypt community data');
   }
 });
 

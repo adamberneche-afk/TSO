@@ -98,29 +98,38 @@ export class RegistryClient {
   }
 
   /**
-   * Publish skill (requires authentication via JWT)
+   * Publish skill (requires authentication via JWT, and the publishing
+   * wallet holding a Publisher/Genesis NFT -- enforced server-side by
+   * `requirePublisherNFT`, which responds 403 with a real message rather
+   * than a generic failure).
+   *
+   * Unlike the read methods above, a create action must not swallow its
+   * error into a fallback value: the caller needs the real reason (401
+   * not logged in, 403 no publisher NFT, 400 a specific field failed
+   * validation) to show the user, so this lets `api.post` throw rather
+   * than catching it. It also used to pass `{ data: skillData }` as the
+   * request body instead of `skillData` itself -- `api.post`'s second
+   * argument *is* the body, so the server was receiving `{ data: {...} }`
+   * and every real call would have failed validation regardless of the
+   * DTO shape.
    */
-  async publishSkill(skillData: CreateSkillDTO): Promise<Skill | null> {
+  async publishSkill(skillData: CreateSkillDTO): Promise<Skill> {
     if (USE_MOCK_DATA) {
       // Simulate successful publish
       const newSkill: Skill = {
         ...skillData,
         id: `mock-${Date.now()}`,
+        owner: skillData.author,
+        trustScore: 0,
+        downloadCount: 0,
+        categories: undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
       return newSkill;
     }
 
-    try {
-      const result = await api.post<Skill | null>(`${API_BASE}/skills`, {
-        data: skillData
-      });
-      return result;
-    } catch (error) {
-      console.error('Error publishing skill:', error);
-      return null;
-    }
+    return api.post<Skill>(`${API_BASE}/skills`, skillData);
   }
 
   /**
@@ -165,8 +174,10 @@ export class RegistryClient {
     }
 
     try {
-      const result = await api.get<Skill[]>(`${API_BASE}/search/trending`);
-      return Array.isArray(result) ? result : result.skills || [];
+      // There is no separate /search/trending endpoint on the backend --
+      // trending is a query flag on the same route getSkills() already uses.
+      const result = await this.getSkills({ trending: true });
+      return result.skills;
     } catch (error) {
       console.error('Error fetching trending skills:', error);
       return [];

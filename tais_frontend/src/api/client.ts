@@ -1,4 +1,3 @@
-import type { OpenAPIV3 } from 'openapi-types';
 import { authApi } from '@/services/authApi';
 
 // Base URL from env or default

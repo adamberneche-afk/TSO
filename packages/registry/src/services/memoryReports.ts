@@ -176,6 +176,88 @@ export async function updatePreferences(
   });
 }
 
+/**
+ * Compute real AlignmentFactors for a wallet over a period, from actual
+ * usage data -- sessions, messages, app usage, and memory-entry counts all
+ * have real backing tables. driftScore/driftTrend and
+ * memoriesPromoted/coreMemories have no real backing data anywhere in the
+ * schema (no behavior-vs-intent tracking exists, and AgentMemoryEntry has
+ * no promoted/core flag), so those report a neutral "not tracked yet"
+ * value (0 / 'stable') rather than a fabricated one -- this used to be
+ * Math.random() for every field here, including driftScore, which could
+ * (and did, ~40% of the time by construction) tell a real user their
+ * agent's behavior was "declining" based on nothing at all.
+ */
+export async function computeAlignmentFactors(
+  walletAddress: string,
+  periodStart: Date,
+  periodEnd: Date
+): Promise<AlignmentFactors> {
+  const sessions = await prisma.agentSession.findMany({
+    where: {
+      walletAddress,
+      startedAt: { gte: periodStart, lte: periodEnd },
+    },
+    select: { appId: true, startedAt: true, lastActiveAt: true },
+  });
+
+  const sessionCount = sessions.length;
+
+  const avgSessionDuration = sessionCount === 0
+    ? 0
+    : sessions.reduce((sum, s) => {
+        const minutes = (s.lastActiveAt.getTime() - s.startedAt.getTime()) / 60000;
+        return sum + Math.max(minutes, 0);
+      }, 0) / sessionCount;
+
+  const messageCount = await prisma.agentSessionMessage.count({
+    where: {
+      session: { walletAddress },
+      createdAt: { gte: periodStart, lte: periodEnd },
+    },
+  });
+
+  const appUsageByApp = await prisma.appUsageMetric.groupBy({
+    by: ['appId'],
+    where: {
+      walletAddress,
+      timestamp: { gte: periodStart, lte: periodEnd },
+    },
+    _count: { _all: true },
+  });
+  const appUsage: Record<string, number> = {};
+  for (const row of appUsageByApp) {
+    appUsage[row.appId] = row._count._all;
+  }
+
+  const memoriesCreated = await prisma.agentMemoryEntry.count({
+    where: {
+      walletAddress,
+      createdAt: { gte: periodStart, lte: periodEnd },
+    },
+  });
+
+  return {
+    // Neutral, not fabricated: no drift-detection or memory-promotion
+    // tracking exists yet (see doc comment above).
+    driftScore: 0,
+    driftTrend: 'stable',
+    memoriesPromoted: 0,
+    coreMemories: 0,
+    // Real, computed from actual usage.
+    sessionCount,
+    avgSessionDuration,
+    messageCount,
+    appUsage,
+    // No historical RAG-query log exists (RAGUserUsage.queriesToday is a
+    // rolling daily counter that resets, not a per-period total), so this
+    // is neutral too rather than an undercount masquerading as real.
+    ragQueries: 0,
+    ragPoolUsage: {},
+    memoriesCreated,
+  };
+}
+
 export async function generateMemoryReport(
   walletAddress: string,
   periodStart: Date,

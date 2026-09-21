@@ -153,14 +153,31 @@ export function bufferToHex(buffer: Uint8Array): string {
 }
 
 export function createChunks(content: string, chunkSize: number = 500, overlap: number = 50): string[] {
+  // The loop advances `start` by `chunkSize - overlap` each iteration.
+  // If overlap >= chunkSize that step is zero or negative, `start` never
+  // passes `content.length`, and this hangs forever (or, previously, the
+  // `if (start < 0) start = 0` guard masked a negative step by resetting
+  // to 0 every time instead of ending the loop -- same infinite hang).
+  if (chunkSize <= 0) {
+    throw new Error(`createChunks: chunkSize must be greater than 0 (got ${chunkSize})`);
+  }
+  if (overlap < 0) {
+    throw new Error(`createChunks: overlap must be >= 0 (got ${overlap})`);
+  }
+  if (overlap >= chunkSize) {
+    throw new Error(
+      `createChunks: overlap (${overlap}) must be smaller than chunkSize (${chunkSize}), or chunking would never advance`
+    );
+  }
+
   const chunks: string[] = [];
+  const step = chunkSize - overlap;
   let start = 0;
 
   while (start < content.length) {
     const end = Math.min(start + chunkSize, content.length);
     chunks.push(content.slice(start, end));
-    start += chunkSize - overlap;
-    if (start < 0) start = 0;
+    start += step;
   }
 
   return chunks;

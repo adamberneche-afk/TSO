@@ -10,13 +10,13 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --release -p rcrt-standalone
       - run: cp target/release/rcrt-standalone ./RCRT-linux-x64
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: RCRT-linux-x64
           path: RCRT-linux-x64
@@ -24,13 +24,13 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --release -p rcrt-standalone
       - run: copy target\release\rcrt-standalone.exe RCRT.exe
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: RCRT-windows
           path: RCRT.exe
@@ -38,13 +38,13 @@ jobs:
   build-mac:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --release -p rcrt-standalone
       - run: cp target/release/rcrt-standalone ./RCRT-mac
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: RCRT-mac
           path: RCRT-mac

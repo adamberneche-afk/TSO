@@ -2,7 +2,8 @@ import chalk from 'chalk';
 import ora from 'ora';
 import fs from 'fs';
 import path from 'path';
-import { TaisServiceManager } from '../services/TaisServiceManager.js';
+import { TaisServiceManager } from '../services/TaisServiceManager';
+import { RegistryClient } from '../services/RegistryClient';
 
 interface VerificationResult {
   valid: boolean;
@@ -65,6 +66,51 @@ function determineVerificationType(target: string, options: any): string {
 }
 
 async function verifySkill(skillHash: string): Promise<VerificationResult> {
+  // Real tier: the community registry's actual audit history and trust
+  // score (see docs/DOCS_VS_CODEBASE.md row 9 -- this used to not exist
+  // at all, so every "Trust Score" below was a hardcoded mock value
+  // regardless of what any real auditor had reported). Falls through to
+  // the local/mock tiers below for a skill the registry has never heard
+  // of, or if the registry can't be reached.
+  try {
+    const registryClient = new RegistryClient();
+    const remote = await registryClient.getSkillAudits(skillHash);
+    if (remote) {
+      const checks: VerificationCheck[] = [
+        {
+          name: 'Hash Format',
+          passed: isValidHash(skillHash),
+          message: isValidHash(skillHash) ? 'Valid SHA-256 hash format' : 'Invalid hash format'
+        },
+        {
+          name: 'Community Safety',
+          passed: !remote.isBlocked,
+          message: remote.isBlocked ? 'Flagged as malicious by community' : 'Not flagged as malicious by community'
+        },
+        {
+          name: 'Trust Score',
+          passed: remote.trustScore > 0.5,
+          message: `Trust score: ${(remote.trustScore * 100).toFixed(1)}%`,
+          details: remote.trustScore > 0.5 ? 'Above minimum threshold (50%)' : 'Below minimum threshold'
+        },
+        {
+          name: 'Community Audits',
+          passed: remote.auditCount > 0,
+          message: `${remote.auditCount} community audit(s) on record`,
+          details: remote.auditCount > 0 ? remote.auditors.slice(0, 3).join(', ') : 'No auditor has reviewed this skill yet'
+        }
+      ];
+
+      return {
+        valid: checks.every(check => check.passed),
+        type: 'skill',
+        checks
+      };
+    }
+  } catch {
+    // Registry unreachable -- fall through to the local/mock tiers below.
+  }
+
   try {
     const serviceManager = new TaisServiceManager();
     const result = await serviceManager.verifySkill(skillHash);
@@ -99,7 +145,11 @@ async function verifySkill(skillHash: string): Promise<VerificationResult> {
     ];
 
     return {
-      valid: result.isValid,
+      // Aggregate from the displayed checks rather than trusting a single
+      // upstream flag: result.isValid only ever reflected "not blocked",
+      // so a failing Trust Score or missing Provenance Chain still showed
+      // as individual ❌ rows while the overall verdict reported PASSED.
+      valid: checks.every(check => check.passed),
       type: 'skill',
       checks
     };
@@ -168,7 +218,12 @@ async function verifyAuthor(walletAddress: string): Promise<VerificationResult> 
     ];
 
     return {
-      valid: result.isValid,
+      // See verifySkill: aggregate from the displayed checks instead of
+      // trusting a single upstream flag. result.isValid here only ever
+      // reflected authorSkills > 0, so a missing Publisher NFT or low
+      // Community Reputation still showed ❌ while the overall verdict
+      // reported PASSED.
+      valid: checks.every(check => check.passed),
       type: 'author',
       checks
     };
@@ -207,10 +262,62 @@ async function verifyAuthor(walletAddress: string): Promise<VerificationResult> 
 }
 
 async function verifyProvenance(skillHash: string): Promise<VerificationResult> {
+  // Real tier: the community registry's actual, persisted provenance
+  // chain (docs/DOCS_VS_CODEBASE.md row 6 -- this used to not exist at
+  // all server-side, so every check below either came from
+  // TaisServiceManager.verifyProvenance, which hardcodes isValid: true
+  // unconditionally regardless of what it found, or the fully-mocked
+  // fallback tier). Falls through to those local/mock tiers only for a
+  // skill the registry has never heard of, or if it can't be reached.
+  try {
+    const registryClient = new RegistryClient();
+    const remote = await registryClient.getSkillAudits(skillHash);
+    if (remote) {
+      const authorLinks = remote.provenanceChain.filter(link => link.role === 'author');
+      const auditorLinks = remote.provenanceChain.filter(link => link.role === 'auditor');
+      const voucherLinks = remote.provenanceChain.filter(link => link.role === 'voucher');
+
+      const checks: VerificationCheck[] = [
+        {
+          name: 'Chain Exists',
+          passed: remote.provenanceChain.length > 0,
+          message: remote.provenanceChain.length > 0
+            ? `Provenance chain found (${remote.provenanceChain.length} link(s))`
+            : 'No provenance chain available'
+        },
+        {
+          name: 'Author Link',
+          passed: authorLinks.length > 0,
+          message: authorLinks.length > 0 ? `Author: ${authorLinks[0].wallet}` : 'No author link on record'
+        },
+        {
+          name: 'Auditor Links',
+          passed: auditorLinks.length > 0,
+          message: `${auditorLinks.length} auditor link(s)`,
+          details: auditorLinks.length > 0 ? auditorLinks.map(l => l.wallet).slice(0, 3).join(', ') : undefined
+        },
+        {
+          name: 'Provenance Score',
+          passed: remote.provenanceScore > 0,
+          message: `Provenance score: ${(remote.provenanceScore * 100).toFixed(1)}%`,
+          details: voucherLinks.length > 0 ? `${voucherLinks.length} community voucher(s)` : undefined
+        }
+      ];
+
+      return {
+        valid: checks.every(check => check.passed),
+        type: 'provenance',
+        checks
+      };
+    }
+  } catch {
+    // Registry unreachable -- fall through to the local/mock tiers below.
+  }
+
   try {
     const serviceManager = new TaisServiceManager();
     const result = await serviceManager.verifyProvenance(skillHash);
-    
+
     const checks: VerificationCheck[] = [
       {
         name: 'Chain Exists',
@@ -236,7 +343,12 @@ async function verifyProvenance(skillHash: string): Promise<VerificationResult> 
     ];
 
     return {
-      valid: result.isValid,
+      // See verifySkill: aggregate from the displayed checks instead of
+      // trusting a single upstream flag. TaisServiceManager.verifyProvenance
+      // hardcodes result.isValid to true unconditionally, so trusting it
+      // directly meant `tais verify --provenance` reported PASSED even
+      // when "Chain Exists" (result.provenance === undefined) showed ❌.
+      valid: checks.every(check => check.passed),
       type: 'provenance',
       checks
     };

@@ -293,12 +293,17 @@ export class TAISClient {
       throw new TAISAPIError('Wallet address required', 400, {});
     }
 
-    const challengeMessage = `TAIS RAG Session Authorization\n\nWallet: ${this.walletAddress}\nTimestamp: ${Date.now()}\n\nAuthorize this session for encrypted document uploads.\n\nSession will be valid for 1 hour.`;
+    // timestamp has to be captured once and sent alongside the signature --
+    // the server verifies by reconstructing this exact challenge string,
+    // and it can't guess what Date.now() was at signing time.
+    const timestamp = Date.now();
+    const challengeMessage = `TAIS RAG Session Authorization\n\nWallet: ${this.walletAddress}\nTimestamp: ${timestamp}\n\nAuthorize this session for encrypted document uploads.\n\nSession will be valid for 1 hour.`;
     const signature = await signMessage(challengeMessage);
 
     const result = await this.request<RAGSession>('POST', '/api/v1/rag/session/start', {
       wallet: this.walletAddress,
       signature,
+      timestamp,
     }, undefined, false);
 
     if (result.success && result.sessionId) {
@@ -459,5 +464,5 @@ export class TAISAPIError extends Error {
   }
 }
 
-export * from './crypto';
+export * from './crypto.js';
 export default TAISClient;

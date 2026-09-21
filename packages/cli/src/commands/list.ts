@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import fs from 'fs';
 import path from 'path';
-import { TaisServiceManager } from '../services/TaisServiceManager.js';
+import { TaisServiceManager } from '../services/TaisServiceManager';
 
 interface InstalledSkill {
   name: string;

@@ -28,7 +28,7 @@ import {
 import { ReflectiveMemoryAPI, CoreMemoryAPI, ActiveMemoryAPI, ImmutableMemoryAPI, exportMemoriesToLocal, importMemoriesFromLocal, getStoredBackupFolderName, syncMemoriesToCloud, restoreMemoriesFromCloud, getCloudBackupStatus } from '@/services/memory';
 import { PromoteToCoreDialog, CoreMemoryCard } from './PromoteToCoreDialog';
 import { useWallet } from '@/hooks/useWallet';
-import { providers } from 'ethers';
+import { BrowserProvider } from 'ethers';
 import { toast } from 'sonner';
 
 interface MemoryFilter {
@@ -148,7 +148,7 @@ export function MemoryArchivePage() {
 
     setExporting(true);
     try {
-      const provider = new providers.Web3Provider(window.ethereum);
+      const provider = new BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const result = await exportMemoriesToLocal(signer);
       if (result.success) {
@@ -233,7 +233,7 @@ export function MemoryArchivePage() {
 
     setImporting(true);
     try {
-      const provider = new providers.Web3Provider(window.ethereum);
+      const provider = new BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const result = await importMemoriesFromLocal(signer);
       if (result.success) {

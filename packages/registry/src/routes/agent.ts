@@ -1,30 +1,20 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import cryptoJS from 'crypto-js';
 import { verifySignature } from '../utils/signature';
 import { verifyNFTOwnership } from '../services/genesisConfigLimits';
 import { normalizeWalletAddress, walletAddressesEqual } from '../utils/wallet';
+import { decryptCommunityData, isCommunityEncrypted } from '../services/communityCrypto';
 
-function getEncryptionKey(): string {
-  const key = process.env.TOKEN_ENCRYPTION_KEY;
-  if (!key) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('TOKEN_ENCRYPTION_KEY environment variable is required in production');
-    }
-    return 'tais-default-encryption-key-32b';
-  }
-  return key;
-}
-
-const ENCRYPTION_KEY = getEncryptionKey();
-
-function encryptToken(token: string): string {
-  return cryptoJS.AES.encrypt(token, ENCRYPTION_KEY).toString();
-}
-
-function decryptToken(encrypted: string): string {
-  const bytes = cryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
-  return bytes.toString(cryptoJS.enc.Utf8);
+// See the matching comment in routes/oauth.ts: the access token is only
+// ever compared for an exact match against the stored value, never read
+// back, so a deterministic hash is the correct primitive here. The prior
+// `cryptoJS.AES.encrypt` produced a different ciphertext every call (random
+// salt per encryption), so re-encrypting an incoming bearer token to look
+// it up could never match the value stored at grant time -- every
+// authenticated /agent/* request failed with "Invalid or expired access
+// token".
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 function generateSessionId(): string {
@@ -37,9 +27,9 @@ interface AuthenticatedRequest extends Request {
   scopes?: string[];
 }
 
-async function authenticateRequest(prisma: any, req: Request): Promise<{ walletAddress: string; scopes: string[] } | null> {
+async function authenticateRequest(prisma: any, req: Request): Promise<{ walletAddress: string; scopes: string[]; appId: string } | null> {
   const authHeader = req.headers.authorization;
-  
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
@@ -48,7 +38,7 @@ async function authenticateRequest(prisma: any, req: Request): Promise<{ walletA
 
   const permission = await prisma.agentAppPermission.findFirst({
     where: {
-      accessToken: encryptToken(accessToken),
+      accessToken: hashToken(accessToken),
       revokedAt: null,
     },
   });
@@ -64,6 +54,7 @@ async function authenticateRequest(prisma: any, req: Request): Promise<{ walletA
   return {
     walletAddress: permission.walletAddress,
     scopes: permission.scopes,
+    appId: permission.appId,
   };
 }
 
@@ -250,6 +241,87 @@ export function createAgentRoutes(prisma: any, logger: any): Router {
     }
   });
 
+  // GET /agent/rag -- App RAG (docs/DOCS_VS_CODEBASE.md row 14): lets an
+  // OAuth-authorized third-party app read the authorizing wallet's own
+  // public/community RAG documents. Every community document is
+  // encrypted with a single server-side key (see
+  // services/communityCrypto.ts) rather than a per-wallet or
+  // per-recipient one, so the server can legitimately decrypt on this
+  // app's behalf -- the same way it already does for the wallet's own
+  // browser session via POST /rag/community/decrypt -- without any new
+  // key-sharing/wrapping scheme. A public document predating that
+  // community-crypto scheme (encrypted client-side with an ordinary
+  // wallet-derived key the server never has) is skipped rather than
+  // errored on, since the server genuinely cannot decrypt those.
+  router.get('/rag', async (req: AuthenticatedRequest, res: Response) => {
+    const startedAt = Date.now();
+    try {
+      const auth = await authenticateRequest(prisma, req);
+      if (!auth) {
+        return res.status(401).json({ error: 'Invalid or expired access token' });
+      }
+
+      if (!auth.scopes.includes('rag:read')) {
+        return res.status(403).json({ error: 'Insufficient permissions: rag:read required' });
+      }
+
+      const walletAddress = auth.walletAddress.toLowerCase();
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const query = typeof req.query.query === 'string' ? req.query.query : undefined;
+
+      const where: any = { walletAddress, isPublic: true };
+      if (query) {
+        where.OR = [
+          { title: { contains: query, mode: 'insensitive' } },
+          { tags: { hasSome: [query] } },
+        ];
+      }
+
+      const candidates = await prisma.rAGDocument.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      });
+
+      const documents: Array<{ id: string; title: string | null; content: string; tags: string[]; createdAt: Date }> = [];
+      let skipped = 0;
+
+      for (const doc of candidates) {
+        if (!isCommunityEncrypted(doc.salt)) {
+          skipped++;
+          continue;
+        }
+        try {
+          const content = decryptCommunityData(doc.encryptedData, doc.iv, doc.salt);
+          documents.push({
+            id: doc.id,
+            title: doc.title,
+            content,
+            tags: doc.tags,
+            createdAt: doc.createdAt,
+          });
+        } catch {
+          skipped++;
+        }
+      }
+
+      await prisma.rAGAuditLog.create({
+        data: {
+          walletAddress,
+          action: 'app_query',
+          queryHash: query ? crypto.createHash('sha256').update(query).digest('hex') : null,
+          resultCount: documents.length,
+          duration: Date.now() - startedAt,
+        },
+      }).catch((error: any) => logger.warn('Failed to write RAG audit log entry:', error));
+
+      res.json({ documents, skipped });
+    } catch (error) {
+      logger.error('Agent RAG error:', error);
+      res.status(500).json({ error: 'Failed to retrieve RAG documents' });
+    }
+  });
+
   router.post('/chat', async (req: AuthenticatedRequest, res: Response) => {
     try {
       const auth = await authenticateRequest(prisma, req);
@@ -265,7 +337,16 @@ export function createAgentRoutes(prisma: any, logger: any): Router {
 
       const sessionId = generateSessionId();
       const walletAddress = auth.walletAddress.toLowerCase();
-      const appId = req.headers['x-app-id'] as string || 'unknown';
+      // agent_sessions.app_id and app_usage_metrics.app_id both carry a
+      // foreign key into agent_apps, so this must be the app the caller
+      // actually authenticated as (auth.appId, from the OAuth token
+      // exchanged for this access token) -- not the client-supplied
+      // X-App-ID header. Trusting that header let any authenticated
+      // caller crash this endpoint with a foreign key violation (no
+      // X-App-ID -> the literal string 'unknown', which is never a real
+      // app) or silently misattribute usage to a different, arbitrary
+      // app it merely happens to name.
+      const appId = auth.appId;
 
       let inheritedMessages: any[] = [];
       

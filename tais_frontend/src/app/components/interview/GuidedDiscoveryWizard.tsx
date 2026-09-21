@@ -570,16 +570,18 @@ export function GuidedDiscoveryWizard({ onComplete, onCancel }: GuidedDiscoveryW
         ) : (
           <AnimatePresence mode="wait">
             <motion.div
-              key={question.id}
+              key={question?.id ?? 'review'}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
-            <div>
-              <h2 className="text-2xl font-bold mb-2">{question.question}</h2>
-              <p className="text-[#888888]">{question.description}</p>
-            </div>
+            {question && (
+              <div>
+                <h2 className="text-2xl font-bold mb-2">{question.question}</h2>
+                <p className="text-[#888888]">{question.description}</p>
+              </div>
+            )}
 
              {/* Text Input */}
              {question && question.type === 'text' && (

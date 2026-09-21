@@ -10,9 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Weekly Insights Email
-        run: |
-          curl -X POST ${{ secrets.RENDER_URL }}/admin/cron/weekly-insights \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json"
         env:
           RENDER_URL: https://tso.onrender.com
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body -X POST "${RENDER_URL}/admin/cron/weekly-insights" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "Content-Type: application/json"

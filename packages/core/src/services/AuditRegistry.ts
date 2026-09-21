@@ -1,8 +1,10 @@
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs/promises';
+import { accessSync, readFileSync, writeFileSync } from 'fs';
 import { ethers } from 'ethers';
 import { AuditReport, YARAFinding, AuditReportSchema } from '@think/types';
+import { verifySignature } from '../utils/signature';
 
 // Default to THINK Genesis Bundle for beta testing
 // Future: Custom contracts deployed via $THINK staking
@@ -37,16 +39,20 @@ export class AuditRegistry {
     this.loadCache();
   }
 
-  private async ensureSigningKey() {
+  // Synchronous by design -- see the matching comment in TokenService's
+  // ensureSigningKey. Was `async`, called fire-and-forget from the
+  // constructor, letting its secret-file write still be in flight when a
+  // caller (or a test's teardown) moved on.
+  private ensureSigningKey() {
     try {
       const secretPath = path.join(path.dirname(this.cachePath), '.audit_secret');
       try {
-        await fs.access(secretPath);
-        const secretContent = await fs.readFile(secretPath, 'utf-8');
+        accessSync(secretPath);
+        const secretContent = readFileSync(secretPath, 'utf-8');
         this.signingKey = secretContent.trim();
       } catch (accessError) {
         const newSecret = crypto.randomBytes(32).toString('hex');
-        await fs.writeFile(secretPath, newSecret, { mode: 0o600 });
+        writeFileSync(secretPath, newSecret, { mode: 0o600 });
         this.signingKey = newSecret;
       }
     } catch (error) {
@@ -100,9 +106,15 @@ export class AuditRegistry {
   }
 
   private verifyReportSignature(report: AuditReport): boolean {
+    // Same issue as IsnadService.addLink: a plain hash of public fields
+    // (skill_hash, auditor, status, findings, timestamp) proves nothing --
+    // anyone can compute the same hash for any auditor wallet without
+    // ever touching that wallet's private key, letting them forge a
+    // "malicious" report against a competitor's skill (or a fraudulent
+    // "safe" report for their own). Real ECDSA verification actually
+    // ties the report to the wallet that claims to have authored it.
     const payload = `${report.skill_hash}:${report.auditor}:${report.status}:${JSON.stringify(report.findings)}:${report.timestamp}`;
-    const expectedSignature = crypto.createHash('sha256').update(payload).digest('hex');
-    return report.signature === expectedSignature;
+    return verifySignature(payload, report.signature, report.auditor).valid;
   }
 
   async submitAudit(report: AuditReport): Promise<{ success: boolean; error?: string }> {

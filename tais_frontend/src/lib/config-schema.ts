@@ -52,7 +52,19 @@ export const KnowledgeSchema = z.object({
     similarityThreshold: z.number().min(0).max(1).default(0.7),
     reranking: z.boolean().default(false),
     citationStyle: z.enum(['inline', 'footnote', 'none']).default('inline'),
-  }).default({}),
+  }).default({
+    // zod's inferred input type for .default() on an object schema
+    // requires every field the schema declares, even though each one
+    // individually has its own .default() -- {} satisfied this at
+    // runtime (each field's own default still applies) but not the
+    // type checker ("Type '{}' is missing the following properties...").
+    // Spelling out the same values .default({}) always produced at
+    // runtime keeps the behavior identical while satisfying the type.
+    topK: 5,
+    similarityThreshold: 0.7,
+    reranking: false,
+    citationStyle: 'inline',
+  }),
 });
 
 // Owner information

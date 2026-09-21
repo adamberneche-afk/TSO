@@ -19,10 +19,14 @@
 //   1. actionlint against every .github/workflows/*.yml file — catches
 //      both plain YAML errors and GitHub-Actions-expression-context
 //      errors a generic YAML parser would miss.
-//   2. For every workflow file with an `on.schedule` trigger, the most
-//      recent scheduled run's conclusion via the Actions REST API —
-//      flagged only if that run's conclusion isn't 'success', never based
-//      on how long ago it ran.
+//   2. For every workflow file with an `on.schedule` trigger: whether the
+//      workflow itself is still 'active' (GitHub auto-disables one after
+//      60 days of repo inactivity, or a human can disable it manually --
+//      either way it then never fires again, silently), the most recent
+//      scheduled run's conclusion via the Actions REST API, and whether
+//      that run happened suspiciously long ago relative to the workflow's
+//      own cron interval (a schedule can silently stop firing even while
+//      its last real run still shows 'success').
 //
 // No dependencies beyond Node's own built-ins + global fetch (Node 20+) —
 // this repo's root package.json carries none for GitHub API access, so
@@ -100,13 +104,85 @@ function githubHeaders(token) {
   };
 }
 
-// `fetchImpl` is injectable (same convention as octokitFactory/fetchImpl
-// elsewhere in this account) so tests never make a real network call.
-async function checkScheduledWorkflowRuns(owner, repo, token, { dir = WORKFLOWS_DIR, fetchImpl = fetch } = {}) {
+function extractCronExpression(fileContent) {
+  const m = fileContent.match(/cron:\s*['"]([^'"]+)['"]/);
+  return m ? m[1] : null;
+}
+
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+// Best-effort estimate of the expected interval between runs from a
+// 5-field cron expression -- used only to flag "this hasn't run in far
+// longer than its own schedule would ever produce", not a full cron
+// parser. Returns null (skip the staleness check entirely) rather than
+// guessing wrong for any shape it doesn't confidently recognize (this
+// repo's own schedules are all daily or single-weekday-weekly, which this
+// covers exactly).
+function estimateCronIntervalMs(cronExpr) {
+  const parts = cronExpr.trim().split(/\s+/);
+  if (parts.length !== 5) return null;
+  const [min, hour, dom, month, dow] = parts;
+
+  if (month !== '*') return null; // yearly/complex -- don't guess
+
+  const stepOf = (field) => {
+    const m = field.match(/^\*\/(\d+)$/);
+    return m ? parseInt(m[1], 10) : null;
+  };
+  const isPlainValue = (field) => field !== '*' && !field.includes(',') && !field.includes('/');
+
+  const minStep = stepOf(min);
+  if (minStep) return minStep * MINUTE_MS;
+
+  const hourStep = stepOf(hour);
+  if (hourStep && isPlainValue(min)) return hourStep * HOUR_MS;
+
+  if (dom !== '*') {
+    return dow === '*' ? 30 * DAY_MS : null; // both restricted -- ambiguous
+  }
+
+  if (dow !== '*') {
+    const days = dow.split(',');
+    return Math.round((7 * DAY_MS) / days.length);
+  }
+
+  if (isPlainValue(hour)) return DAY_MS;
+
+  return null;
+}
+
+// `fetchImpl`/`now` are injectable (same convention as octokitFactory
+// elsewhere in this account) so tests never make a real network call or
+// depend on wall-clock time.
+async function checkScheduledWorkflowRuns(owner, repo, token, { dir = WORKFLOWS_DIR, fetchImpl = fetch, now = () => new Date() } = {}) {
   const findings = [];
   for (const f of listWorkflowFiles(dir)) {
     const content = fs.readFileSync(path.join(dir, f), 'utf8');
     if (!hasScheduleTrigger(content)) continue;
+
+    // GitHub auto-disables a scheduled workflow after 60 days of repo
+    // inactivity (state becomes 'disabled_inactivity', or a human can
+    // disable one manually) -- it then silently never fires again, with
+    // no failing run to notice; the run-history check below only ever
+    // sees whatever the last run before that was, however long ago.
+    try {
+      const stateRes = await fetchImpl(
+        `${GITHUB_API}/repos/${owner}/${repo}/actions/workflows/${f}`,
+        { headers: githubHeaders(token) }
+      );
+      if (stateRes.ok) {
+        const workflow = await stateRes.json();
+        if (workflow.state && workflow.state !== 'active') {
+          findings.push({ file: f, issue: `workflow is not active (state: '${workflow.state}') -- it will never fire on schedule until re-enabled` });
+        }
+      }
+    } catch {
+      // Best-effort only -- the run-history check below still runs
+      // regardless of whether this side check succeeded.
+    }
+
     try {
       const res = await fetchImpl(
         `${GITHUB_API}/repos/${owner}/${repo}/actions/workflows/${f}/runs?event=schedule&per_page=1`,
@@ -120,8 +196,26 @@ async function checkScheduledWorkflowRuns(owner, repo, token, { dir = WORKFLOWS_
       const run = (data.workflow_runs || [])[0];
       if (!run) {
         findings.push({ file: f, issue: 'has a schedule trigger but has never had a scheduled run recorded' });
-      } else if (run.conclusion && run.conclusion !== 'success') {
+        continue;
+      }
+
+      if (run.conclusion && run.conclusion !== 'success') {
         findings.push({ file: f, issue: `last scheduled run concluded '${run.conclusion}' (${run.html_url})` });
+      }
+
+      const cronExpr = extractCronExpression(content);
+      const intervalMs = cronExpr ? estimateCronIntervalMs(cronExpr) : null;
+      if (intervalMs) {
+        const runStartedAt = new Date(run.run_started_at || run.created_at).getTime();
+        const ageMs = now().getTime() - runStartedAt;
+        const staleThresholdMs = 2 * intervalMs;
+        if (ageMs > staleThresholdMs) {
+          const ageHours = Math.round(ageMs / HOUR_MS);
+          findings.push({
+            file: f,
+            issue: `last scheduled run was ${ageHours}h ago, more than 2x its own schedule interval -- it may have silently stopped firing (${run.html_url})`
+          });
+        }
       }
     } catch (e) {
       findings.push({ file: f, issue: `could not check run history: ${e.message}` });
@@ -232,6 +326,8 @@ if (require.main === module) {
 module.exports = {
   listWorkflowFiles,
   hasScheduleTrigger,
+  extractCronExpression,
+  estimateCronIntervalMs,
   runActionlint,
   checkScheduledWorkflowRuns,
   buildWatchdogReport,

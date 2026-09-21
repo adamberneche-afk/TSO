@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
 import path from 'path';
 import fs from 'fs/promises';
+import { accessSync, readFileSync, writeFileSync } from 'fs';
 import crypto from 'crypto';
 
 const GENESIS_NFT_ADDRESS = '0x1234567890123456789012345678901234567890';
@@ -29,15 +30,20 @@ export class NftService {
     this.ensureSigningKey();
   }
 
-  private async ensureSigningKey() {
+  // Synchronous by design -- see the matching comment on ensureSigningKey
+  // in TokenService/IsnadService/AuditRegistry/StakingService. Was
+  // `async`, called fire-and-forget from the constructor, letting its
+  // secret-file write still be in flight when a caller (or a test's
+  // teardown) moved on.
+  private ensureSigningKey() {
     try {
       try {
-        await fs.access(this.secretPath);
-        const secretContent = await fs.readFile(this.secretPath, 'utf-8');
+        accessSync(this.secretPath);
+        const secretContent = readFileSync(this.secretPath, 'utf-8');
         this.signingKey = secretContent.trim();
       } catch (accessError) {
         const newSecret = crypto.randomBytes(32).toString('hex');
-        await fs.writeFile(this.secretPath, newSecret, { mode: 0o600 });
+        writeFileSync(this.secretPath, newSecret, { mode: 0o600 });
         this.signingKey = newSecret;
       }
     } catch (error) {

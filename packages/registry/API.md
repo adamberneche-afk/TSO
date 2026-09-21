@@ -111,7 +111,7 @@ Trust scores range from 0.0 to 1.0 based on:
 
 ### Security Scanning
 
-`yaraScanner.ts` implements real detection logic for credential theft, data exfiltration, malicious domains, process injection, suspicious imports, and obfuscated code - but it isn't currently wired into the live scan endpoint (see [Security Scanning](#security-scanning-1) below and [YARA.md](./YARA.md)), so skills are not actually auto-scanned on the running server today.
+`yaraScanner.ts` implements real detection logic for credential theft, data exfiltration, malicious domains, process injection, suspicious imports, and obfuscated code, and is wired into both the standalone scan endpoint and the skill publish path (see [Security Scanning](#security-scanning-1) below and [YARA.md](./YARA.md)). `securityScannerService.ts`'s PII detector (SSN/credit-card/email/phone patterns — something `yaraScanner.ts` doesn't attempt) is also wired into the standalone scan endpoint as an advisory-only `piiFindings` field; its cruder, overlapping exploit/malware detectors were left unused (see `YARA.md`).
 
 ## API Endpoints
 
@@ -122,26 +122,29 @@ Trust scores range from 0.0 to 1.0 based on:
 GET /api/v1/skills
 ```
 
-**Query Parameters:**
-- `limit` (integer): Items per page (default: 20, max: 100)
-- `offset` (integer): Items to skip (default: 0)
-- `q` (string): Search query
-- `category` (string): Filter by category
-- `minTrustScore` (float): Minimum trust score (0.0 - 1.0)
-- `status` (string): Filter by status (PENDING, APPROVED, REJECTED)
+**Query Parameters** (`routes/skills.ts`'s current implementation):
+- `category` (string): Filter by category name
+- `search` (string): Case-insensitive match against name or description
+- `trending` (boolean): If present/truthy, order by `downloadCount` descending instead of the default `createdAt` descending
+- `limit` (number): Max results per page, default 20, capped at 100
+- `offset` (number): Results to skip, default 0
+
+Only `APPROVED`, non-blocked skills are ever returned; there is no way to
+request other statuses.
 
 **Example:**
 ```bash
-curl "https://tso.onrender.com/api/v1/skills?limit=10&minTrustScore=0.8"
+curl "https://tso.onrender.com/api/v1/skills?category=weather&search=api&trending=true&limit=10"
 ```
 
-**Response:**
+**Response** (shape matches `tais_frontend`'s `SearchResults` type, the one
+real consumer already parsing it):
 ```json
 {
   "skills": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
-      "skillHash": "0x1234...",
+      "skillHash": "Qm...",
       "name": "weather-api",
       "version": "1.2.0",
       "description": "Get weather data from multiple sources",
@@ -149,15 +152,14 @@ curl "https://tso.onrender.com/api/v1/skills?limit=10&minTrustScore=0.8"
       "trustScore": 0.85,
       "downloadCount": 1523,
       "status": "APPROVED",
-      "createdAt": "2024-02-01T12:00:00Z"
+      "createdAt": "2024-02-01T12:00:00Z",
+      "categories": [ ],
+      "audits": [ ]
     }
   ],
-  "pagination": {
-    "total": 150,
-    "limit": 10,
-    "offset": 0,
-    "hasMore": true
-  }
+  "total": 1,
+  "page": 1,
+  "limit": 20
 }
 ```
 
@@ -175,6 +177,12 @@ curl https://tso.onrender.com/api/v1/skills/0x1234...
 ```http
 POST /api/v1/skills
 ```
+
+Requires a wallet-authenticated JWT (or API key) and a Publisher NFT. If
+`packageCid` is set and IPFS is enabled (`IPFS_ENABLED=true`), the uploaded
+package is fetched and scanned with the real YARA-backed scanner (see
+[Security Scanning](#security-scanning-1)) before the skill is created; a
+`malicious` verdict rejects the publish with `403`.
 
 **Request Body:**
 ```json
@@ -211,7 +219,75 @@ Note: there is no audit-submission endpoint currently implemented - `routes/audi
 
 ### Security Scanning
 
-There is a `scan.ts` route module implementing a `POST /` handler, but it is a placeholder — it always returns a fake `"clean"` result and does not run any actual scanning logic — and it is not mounted anywhere in `src/index.ts`, so it is not reachable on the running server. See [YARA.md](./YARA.md) for the current state of security scanning.
+```http
+POST /api/v1/scan
+```
+
+Requires wallet authentication. Runs the real YARA-backed scanner
+(`yaraScanner.ts`) over submitted content and returns real findings — no
+longer the hardcoded placeholder described in older versions of this doc.
+See [YARA.md](./YARA.md) for backend details (native/CLI/pattern-mode
+detection) and how this ties into skill publishing.
+
+**Request Body:**
+```json
+{
+  "content": "...",
+  "encoding": "utf8",
+  "filename": "index.js"
+}
+```
+`encoding` is `"utf8"` (default) or `"base64"`.
+
+**Response:** `200` with `{ success: true, result: "safe", findings: [...], summary: {...}, piiFindings: [...] }`
+on a clean scan, or `403` with `{ success: false, result: "malicious", findings: [...], piiFindings: [...] }`
+if the content matches a critical/high-severity rule. `piiFindings` (from
+`securityScannerService.ts`'s PII detector) is always present, defaulting
+to `[]` — it's advisory only and never affects `success`/`result`, since
+its patterns (e.g. any 10-digit number as a "phone number") are
+approximate enough that blocking on them would be its own bug.
+
+### Analytics
+
+```http
+POST /api/v1/analytics/track
+```
+No authentication required — records anonymous SDK/CTO-agent session
+telemetry (a session can start before a wallet is ever connected). If the
+caller *is* authenticated, the verified wallet is recorded instead of any
+`walletAddress` claimed in the body.
+
+```http
+GET /api/v1/analytics/insights
+GET /api/v1/analytics/summary
+GET /api/v1/analytics/reports
+```
+Admin-only (wallet must be in `ADMIN_WALLET_ADDRESSES`). Aggregate
+platform-wide usage stats — session/error counts, active wallets, weekly
+insight reports.
+
+### CTO Agent
+
+```http
+GET  /api/v1/cto/info
+POST /api/v1/cto/projects
+GET  /api/v1/cto/projects
+GET  /api/v1/cto/projects/{id}
+POST /api/v1/cto/projects/{id}/phase
+POST /api/v1/cto/projects/{id}/pain-points
+POST /api/v1/cto/projects/{id}/blockers
+POST /api/v1/cto/projects/{id}/pain-points/{painPointId}/resolve
+POST /api/v1/cto/projects/{id}/blockers/{blockerId}/resolve
+GET  /api/v1/cto/insights
+POST /api/v1/cto/insights
+```
+Requires wallet authentication. Every route derives its wallet from the
+authenticated caller (never a client-submitted one), and the `:id`-scoped
+project routes verify the caller owns the project before any read or
+mutation. `/insights` is the Community Knowledge Base feature
+(`GoldTierDashboard.tsx`'s Knowledge Base tab): `category` must be one of
+`value-prop`, `customer-pain`, `technical`, `architecture`,
+`lessons-learned`.
 
 ### Search
 
@@ -227,7 +303,9 @@ curl "https://tso.onrender.com/api/v1/search?query=weather&limit=5"
 
 ### Monitoring
 
-Monitoring routes are unversioned and mounted at `/monitoring` (not under `/api/v1`).
+Monitoring routes are unversioned and mounted at `/monitoring` (not under
+`/api/v1`), and require wallet authentication plus admin status
+(`ADMIN_WALLET_ADDRESSES`).
 
 #### Get Metrics
 ```http
@@ -331,21 +409,23 @@ skill = client.skills.register(
 
 ### 1. Handle Pagination
 
-Always check for `hasMore` and implement pagination:
+`GET /api/v1/skills` returns `{ skills, total, page, limit }` (no
+`pagination`/`hasMore` field — see [List Skills](#list-skills) above).
+Keep paging while the accumulated offset is still less than `total`:
 
 ```javascript
 let offset = 0;
-let hasMore = true;
+let total = Infinity;
 
-while (hasMore) {
-  const response = await fetch(`/api/v1/skills?offset=${offset}`);
+while (offset < total) {
+  const response = await fetch(`/api/v1/skills?offset=${offset}&limit=20`);
   const data = await response.json();
-  
+
   // Process skills
   processSkills(data.skills);
-  
-  hasMore = data.pagination.hasMore;
-  offset += data.pagination.limit;
+
+  total = data.total;
+  offset += data.limit;
 }
 ```
 
@@ -413,6 +493,31 @@ async function makeRequest(url, options) {
 
 ## Changelog
 
+### v1.1.1 (2026-09-07)
+- `GET /api/v1/skills` now actually implements `trending` (previously
+  destructured and never read) and `limit`/`offset` pagination, and
+  returns `{ skills, total, page, limit }` instead of a bare array —
+  matching the shape `tais_frontend`'s `RegistryClient` already expected
+- `POST /api/v1/scan` now also runs `securityScannerService.ts`'s PII
+  detector and returns its findings as an advisory-only `piiFindings`
+  field; the service's overlapping exploit/malware detectors were left
+  unused (see `YARA.md`)
+
+### v1.1.0 (2026-09-07)
+- Security scanning is now real and reachable: `POST /api/v1/scan` runs the
+  actual YARA-backed scanner (previously a hardcoded placeholder, and the
+  route wasn't even mounted), and skill publishing now scans uploaded
+  package content before persisting
+- Added `/api/v1/analytics/*` (usage telemetry, admin-only aggregate
+  insights) and `/api/v1/cto/*` (CTO Agent projects + Community Knowledge
+  Base insights) — both existed as unmounted code before this release
+- `/monitoring/*` now requires wallet auth + admin status (previously
+  public)
+- Corrected this doc's `GET /api/v1/skills` description to match its
+  actual behavior at the time (no pagination, plain array response) —
+  since superseded by v1.1.1 below, which implemented the gap this
+  bullet only documented
+
 ### v1.0.0 (2024-02-05)
 - Initial release
 - Skills management
@@ -433,5 +538,5 @@ This API is licensed under the MIT License.
 
 ---
 
-**Last Updated:** February 5, 2026
+**Last Updated:** September 7, 2026
 **API Version:** 1.0.0

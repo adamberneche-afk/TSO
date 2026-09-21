@@ -5,54 +5,48 @@ import { TelemetryService } from '../services/TelemetryService';
 import { MOCK_PROFILE } from '../services/MockProfileService';
 import { InterviewAgent } from '../services/InterviewAgent';
 import { InterviewConfig } from '@think/types';
-import { IsnadService } from '../services/IsnadService>;
-import { AuditRegistry } from '../services/AuditRegistry>;
-import { SkillInstaller } from '../services/SkillInstaller>;
-import { TokenService } from '../services/TokenService>;
-import { StakingService } from '../services/StakingService>;
-import { SkillManifest } from '@think_types>;
-import { AuditReport } from '@think_types>;
+import { IsnadService } from '../services/IsnadService';
+import { AuditRegistry } from '../services/AuditRegistry';
+import { SkillInstaller } from '../services/SkillInstaller';
+import { TokenService } from '../services/TokenService';
+import { StakingService } from '../services/StakingService';
+import { SkillManifest } from '@think/types';
+import { AuditReport } from '@think/types';
 
 const MAX_PROFILE_SIZE_BYTES = 500 * 1024;
 const MAX_CONCURRENT_SESSIONS = 10;
 
-const telemetry = new TelemetryService();
-const fsService = new FileSystemService(app);
-const nftService = new NftService(
-  process.env.RPC_URL || 'https://eth-mainnet.g.alchemy.com/v2/demo',
-  app.getPath('userData')
-);
-
-const tokenService = new TokenService(
-  process.env.RPC_URL || 'https://eth-mainnet.g.alchemy.com/v2/demo',
-  app.getPath('userData')
-);
-
-const stakingService = new StakingService(
-  process.env.RPC_URL || 'https://eth-mainnet.g.alchemy.com/v2/demo',
-  app.getPath('userData')
-);
-
-const isnadService = new IsnadService(
-  process.env.RPC_URL || 'https://eth-mainnet.g.alchemy.com/v2/demo',
-  app.getPath('userData')
-);
-
-const auditRegistry = new AuditRegistry(
-  process.env.RPC_URL || 'https://eth-mainnet.g.alchemy.com/v2/demo',
-  app.getPath('userData')
-);
-
-const skillInstaller = new SkillInstaller(isnadService, auditRegistry, app.getPath('userData'));
+// These all depend on Electron's `app` being ready (FileSystemService takes
+// the App instance directly; the others take app.getPath('userData')), so
+// they're constructed lazily on first use rather than at module load time --
+// importing this module must not require a running, ready Electron app.
+let telemetry: TelemetryService;
+let fsService: FileSystemService;
+let tokenService: TokenService;
+let stakingService: StakingService;
+let isnadService: IsnadService;
+let auditRegistry: AuditRegistry;
+let skillInstaller: SkillInstaller;
 
 const activeSessions = new Map<number, { agent: InterviewAgent, config: InterviewConfig }>();
 let nextCloneSessionId = 1000000; // Start at a high number to avoid collision with event.sender.id
 
-app.on('window-all-closed', () => {
-  activeSessions.clear();
-});
-
 export const registerProfileIpcHandlers = () => {
+  const rpcUrl = process.env.RPC_URL || 'https://eth-mainnet.g.alchemy.com/v2/demo';
+  const userDataPath = app.getPath('userData');
+
+  telemetry = new TelemetryService();
+  fsService = new FileSystemService(app);
+  tokenService = new TokenService(rpcUrl, userDataPath);
+  stakingService = new StakingService(rpcUrl, userDataPath);
+  isnadService = new IsnadService(rpcUrl, userDataPath);
+  auditRegistry = new AuditRegistry(rpcUrl, userDataPath);
+  skillInstaller = new SkillInstaller(isnadService, auditRegistry, userDataPath);
+
+  app.on('window-all-closed', () => {
+    activeSessions.clear();
+  });
+
   ipcMain.handle('tais:start-interview', async (event, configParam: Partial<InterviewConfig>, walletAddress: string) => {
     try {
       if (!walletAddress) return { success: false, error: "MISSING_WALLET_ADDRESS" };

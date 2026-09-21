@@ -8,15 +8,103 @@ The Multi-RAG system provides contextual knowledge retrieval from four different
 
 1. **Private RAG** - Local-only, 100% private
 2. **Public RAG** - E2EE community knowledge sharing
-3. **App RAG** - Third-party developer SDK (planned)
-4. **Enterprise RAG** - Organization-level with admin controls (planned)
+3. **App RAG** - Third-party developer SDK, via OAuth
+4. **Enterprise RAG** - Organization-level with admin controls, invite-only, no wallet required
 
 ## Current Implementation Status
 
 ✅ **Phase 1: Private RAG** - COMPLETE
-✅ **Phase 2: Public RAG** - COMPLETE  
-🚧 **Phase 3: App RAG** - Planned
-🚧 **Phase 4: Enterprise RAG** - Planned
+✅ **Phase 2: Public RAG** - COMPLETE
+✅ **Phase 3: App RAG** - COMPLETE (2026-09-12) -- see below
+✅ **Phase 4: Enterprise RAG** - COMPLETE (2026-09-13) -- see below
+
+---
+
+## App RAG
+
+A registered, OAuth-authorized third-party app can read a wallet's own
+public/community RAG documents with the user's consent -- reusing the
+exact same app-registration and OAuth authorize/approve/token-exchange
+flow already built for Cross-App Agent Portability
+(`packages/registry/src/routes/oauth.ts`), just with a new scope:
+
+```
+rag:read
+```
+
+An app requests it like any other scope (`GET /oauth/authorize?...&scopes=rag:read`) and the existing `OAuthAuthorize.tsx` consent screen displays and approves it with no changes needed -- it already renders whatever scopes an app requests generically.
+
+Once authorized, the app calls the registry directly (or via `@think/agent-sdk`'s `TAISAgent.getRagDocuments()`):
+
+```typescript
+import { TAISAgent } from '@think/agent-sdk';
+
+const agent = new TAISAgent({ appId: 'my-app', appSecret: '...' });
+// ... after the user completes OAuth with rag:read granted ...
+const { documents, skipped } = await agent.getRagDocuments();
+```
+
+**Why this needed no new encryption scheme:** every "community"
+(`isPublic: true`) document is already encrypted server-side with a
+single server-held key (`packages/registry/src/services/
+communityCrypto.ts`), not a per-wallet or per-recipient one -- the
+server already legitimately decrypts a community document on behalf of
+its owning wallet's own browser session (`POST /rag/community/decrypt`).
+`GET /api/v1/agent/rag` does the same decryption, just on an authorized
+app's behalf instead, gated by the OAuth scope. A user's **private**
+documents (`isPublic: false`) are never included -- those stay encrypted
+with a wallet-derived key the server never has, exactly as designed.
+
+A public document created before the community-crypto scheme existed
+(encrypted client-side with an ordinary wallet-derived key) can't be
+decrypted server-side either -- it's counted in the response's `skipped`
+field rather than returned or erroring the whole request.
+
+---
+
+## Enterprise RAG
+
+Organization-level document sharing for teams, with membership that's
+**invite-only and requires no crypto wallet** -- see
+`docs/ENTERPRISE_RAG_IDENTITY.md` (backend) and `docs/ENTERPRISE_RAG_DATA_MODEL.md`
+(data model) for the full design. This is a deliberate exception to
+every other tier here: Private/Public/App RAG all assume a connected
+wallet is the user's identity; an Enterprise RAG member logs in with
+just an email and password.
+
+An org admin invites a member's email; accepting the invitation link
+(`/orgs/invitations/:token`) sets a password and logs them straight in.
+That login issues the exact same `{walletAddress}` JWT a wallet-signature
+login does -- just over a deterministic, non-signable address derived
+from the email (`packages/registry/src/services/emailIdentity.ts`), never
+a real wallet. Every other RAG-tier component on this page, and every
+`api.*` call in this app, keeps working unchanged for that session.
+
+Org documents reuse Public RAG's community-key encryption exactly like
+App RAG does above (`POST /rag/community/encrypt`/`/decrypt`) -- not
+`PublicRAGClient`, which requires a connected wallet just to derive its
+own encryption key, something an email-identity member never has.
+
+```tsx
+import { EnterprisePage } from '../enterprise/EnterprisePage';
+
+<EnterprisePage />
+```
+
+`EnterprisePage` shows email sign-in (or the org dashboard, if already
+signed in) and, separately, an admin-only "provision a new organization"
+panel that's the one part of this feature that legitimately still uses
+the existing wallet-connect flow (creating an org is a platform-admin
+action, not something a member does).
+
+**Components** (`src/app/components/enterprise/`): `EnterpriseLogin`,
+`ForgotPasswordForm`, `ResetPasswordForm`, `InvitationAccept`,
+`OrgDashboard` (members, roles, invite form, document panel),
+`CreateOrganizationForm`.
+
+**Services:** `src/services/enterpriseAuthApi.ts` (email session,
+stored under the same `localStorage` keys `authApi.ts`'s wallet login
+uses), `src/services/orgsApi.ts` (org/member/invitation/document calls).
 
 ---
 
@@ -398,8 +486,11 @@ VITE_PUBLIC_RAG_API_URL=https://api.taisplatform.com/v1/rag
 All types are exported from:
 - `src/types/rag.ts` - Base RAG types
 - `src/types/rag-public.ts` - Public RAG types
-- `src/types/rag-app.ts` - App RAG types
 - `src/types/rag-enhanced.ts` - Enhanced types with context isolation
+- App RAG's types (`RagDocumentResult`/`RagQueryResult`) live in
+  `packages/agent-sdk/src/types.ts` -- App RAG is a third-party app
+  concern (via `@think/agent-sdk`), not a `tais_frontend` one; see the
+  "App RAG" section above.
 
 ---
 
@@ -414,8 +505,7 @@ src/
 │   ├── publicRAGClient.ts       # E2EE platform client
 │   ├── e2eeEncryption.ts        # Encryption service
 │   ├── ragRouter.ts             # Multi-source router
-│   ├── platformDetection.ts     # Platform detection
-│   └── appRAGAuth.ts            # App authentication
+│   └── platformDetection.ts     # Platform detection
 ├── hooks/
 │   ├── index.ts                 # Hook exports
 │   ├── useRAG.ts                # RAG hooks
@@ -425,12 +515,28 @@ src/
 │   ├── RAGSourceManager.tsx     # Source configuration
 │   ├── PrivateRAGManager.tsx    # Private RAG UI
 │   └── PublicRAGManager.tsx     # Public RAG UI
+├── app/components/enterprise/    # Enterprise RAG (email/password, no wallet)
+│   ├── EnterprisePage.tsx
+│   ├── EnterpriseLogin.tsx
+│   ├── ForgotPasswordForm.tsx / ResetPasswordForm.tsx
+│   ├── InvitationAccept.tsx
+│   ├── OrgDashboard.tsx
+│   └── CreateOrganizationForm.tsx
+├── services/
+│   ├── enterpriseAuthApi.ts      # Enterprise RAG email session
+│   └── orgsApi.ts                # Org/member/invitation/document calls
 └── types/
     ├── rag.ts                   # Base types
     ├── rag-public.ts            # Public RAG types
-    ├── rag-app.ts               # App RAG types
-    └── rag-enhanced.ts          # Enhanced types
+    ├── rag-enhanced.ts          # Enhanced types
+    └── enterprise.ts            # Enterprise RAG types
 ```
+
+App RAG has no `tais_frontend` component of its own -- the consuming
+app calls the registry directly (or via `@think/agent-sdk`), and the
+OAuth consent UI it goes through
+(`src/app/components/oauth/OAuthAuthorize.tsx`) is the same one every
+other cross-app scope already uses.
 
 ---
 
@@ -465,6 +571,18 @@ src/
 - [x] TLS 1.3 for all communication
 - [x] API key authentication
 
+✅ **App RAG**
+- [x] OAuth-scoped access (`rag:read`), no new credential type
+- [x] Private documents never included, regardless of scope
+- [x] Server-side-only community key -- an app never sees it
+
+✅ **Enterprise RAG**
+- [x] Invite-only membership -- no self-serve join or org creation
+- [x] No wallet, private key, or blockchain call anywhere in the login path
+- [x] Org creation is a separate, admin-wallet-gated action from member login
+- [x] Org documents use the same server-held community key as Public/App RAG -- no new crypto
+- [x] Password hashing (bcrypt), single-use hashed invite/reset tokens
+
 ✅ **Encryption Service**
 - [x] Deterministic key generation
 - [x] Secure key storage
@@ -494,9 +612,9 @@ src/
 
 ## Version
 
-**Current:** 2.4.0  
-**Status:** Phases 1 & 2 Complete  
-**Last Updated:** February 18, 2026
+**Current:** 2.7.0  
+**Status:** Phases 1-4 Complete (Private, Public, App, Enterprise RAG)  
+**Last Updated:** September 13, 2026
 
 ---
 

@@ -1,0 +1,27 @@
+name: Doc currency
+
+# Push/PR-gated, same reasoning as coverage-gaps.yml: this checks static
+# text against static source, not live state, so the right moment to catch
+# a stale citation is before it merges, not on a clock.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  doc-currency:
+    runs-on: ubuntu-latest
+    # Only checks out and runs a local static-analysis script -- no GitHub
+    # API calls, no artifacts -- so GITHUB_TOKEN needs nothing beyond
+    # reading repo contents.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Check every doc's file/function citations still exist
+        run: node tools/doc-currency/check.js

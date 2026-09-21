@@ -12,6 +12,16 @@ TAIS Registry includes comprehensive monitoring and observability features:
 - **Performance Monitoring** - Response times, throughput, resource usage
 - **Business Metrics** - Skills registered, audits submitted, downloads
 
+## Authentication
+
+Every `/monitoring/*` route (metrics, dashboard, performance, alerts) now
+requires a wallet-authenticated JWT belonging to an admin wallet
+(`ADMIN_WALLET_ADDRESSES`) — previously unauthenticated and reachable by
+anyone. Add `-H "Authorization: Bearer <jwt>"` to every `curl` example
+below (a real admin JWT, minted via the normal nonce → sign → login →
+API-key flow — see `API.md`); a Prometheus scrape config needs a
+`bearer_token`/`bearer_token_file` entry too.
+
 ## Quick Start
 
 ### 1. Sentry Error Tracking

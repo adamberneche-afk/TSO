@@ -2,11 +2,37 @@ import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import WeeklyInsightsEmailService from '../services/weeklyInsightsEmail';
 import { pruneExpiredVersions } from '../services/configurationVersioning';
-import { generateMemoryReport, getAggregatedStats, getOrCreatePreferences } from '../services/memoryReports';
+import { generateMemoryReport, getAggregatedStats, getOrCreatePreferences, computeAlignmentFactors } from '../services/memoryReports';
 import { sendMemoryReportEmail } from '../services/memoryReportEmail';
 
 interface AuthUser {
   walletAddress: string;
+}
+
+// These endpoints trigger real side effects (emails to real users, DB
+// deletes) and are meant to be called only by a scheduled job presenting
+// a shared secret. `if (expectedToken && authHeader !== ...)` fails OPEN,
+// not closed, when CRON_SECRET is unset: the whole check short-circuits
+// to false and every request is let through unauthenticated -- the
+// comment calling this "development" behavior notwithstanding, nothing
+// here actually restricts it to non-production. Refuses to serve at all
+// (in every environment) when the secret isn't configured, rather than
+// silently becoming public.
+function requireCronSecret(req: Request, res: Response, logger: any): boolean {
+  const expectedToken = process.env.CRON_SECRET;
+
+  if (!expectedToken) {
+    logger.error('[Cron] CRON_SECRET is not set -- refusing to serve this endpoint');
+    res.status(503).json({ error: 'Cron endpoint disabled: CRON_SECRET is not configured' });
+    return false;
+  }
+
+  if (req.headers.authorization !== `Bearer ${expectedToken}`) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return false;
+  }
+
+  return true;
 }
 
 export function createAdminRoutes(prisma: PrismaClient, logger: any): Router {
@@ -14,13 +40,7 @@ export function createAdminRoutes(prisma: PrismaClient, logger: any): Router {
 
   // Weekly insights cron endpoint
   router.post('/weekly-insights', async (req: Request, res: Response) => {
-    const authHeader = req.headers.authorization;
-    const expectedToken = process.env.CRON_SECRET;
-
-    // Allow if no secret configured (development) or secret matches
-    if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+    if (!requireCronSecret(req, res, logger)) return;
 
     try {
       logger.info('[Cron] Starting weekly insights generation...');
@@ -43,12 +63,7 @@ export function createAdminRoutes(prisma: PrismaClient, logger: any): Router {
 
   // Prune expired configuration versions
   router.post('/prune-versions', async (req: Request, res: Response) => {
-    const authHeader = req.headers.authorization;
-    const expectedToken = process.env.CRON_SECRET;
-
-    if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+    if (!requireCronSecret(req, res, logger)) return;
 
     try {
       logger.info('[Cron] Starting configuration version pruning...');
@@ -65,12 +80,7 @@ export function createAdminRoutes(prisma: PrismaClient, logger: any): Router {
 
   // Memory reports cron - generates weekly alignment reports
   router.post('/memory-reports', async (req: Request, res: Response) => {
-    const authHeader = req.headers.authorization;
-    const expectedToken = process.env.CRON_SECRET;
-
-    if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+    if (!requireCronSecret(req, res, logger)) return;
 
     try {
       logger.info('[Cron] Starting memory report generation...');
@@ -106,29 +116,8 @@ export function createAdminRoutes(prisma: PrismaClient, logger: any): Router {
             continue;
           }
 
-          const sessionCount = Math.floor(Math.random() * 20) + 1;
-          const avgDuration = Math.random() * 30 + 5;
-          const messageCount = Math.floor(Math.random() * 100) + 10;
-          const memoriesCreated = Math.floor(Math.random() * 10);
-          const memoriesPromoted = Math.floor(memoriesCreated * 0.3);
-          const coreMemories = Math.floor(Math.random() * 3);
-          const driftScore = Math.random() * 0.6;
-          const driftTrend = driftScore > 0.4 ? 'declining' : (driftScore > 0.2 ? 'stable' : 'improving');
-          
-          const factors = {
-            driftScore,
-            driftTrend: driftTrend as 'improving' | 'stable' | 'declining',
-            sessionCount,
-            avgSessionDuration: avgDuration,
-            messageCount,
-            appUsage: { 'conversation': sessionCount - 1, 'rag': Math.floor(sessionCount * 0.3) },
-            ragQueries: Math.floor(messageCount * 0.2),
-            ragPoolUsage: { 'public': Math.floor(messageCount * 0.15), 'private': Math.floor(messageCount * 0.05) },
-            memoriesCreated,
-            memoriesPromoted,
-            coreMemories,
-          };
-          
+          const factors = await computeAlignmentFactors(user.walletAddress, periodStart, periodEnd);
+
           const report = await generateMemoryReport(
             user.walletAddress,
             periodStart,

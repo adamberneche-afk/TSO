@@ -1,0 +1,51 @@
+name: Header drift
+
+# Checks that the live static site actually serves the response headers
+# render.yaml says it does.
+#
+# WHY: render.yaml is NOT synced to Render. The services were hand-created
+# in the dashboard and nothing reconciles the file against them, so it is
+# documentation shaped like configuration. A single pass on 2026-09-20 found
+# five values in it that disagreed with reality, three of them wrong for
+# months with nothing noticing. This closes the loop for the subset of those
+# claims that can be checked from outside with nothing but an HTTP request.
+#
+# EXPECT THIS TO BE RED AT FIRST. As of the commit that added it, the
+# tais-frontend headers block exists in render.yaml but has NOT been applied
+# in the Render dashboard. A red run here is the tool correctly reporting
+# real drift, not a broken check -- it goes green when the dashboard catches
+# up (Settings -> Headers), which is also the cheapest possible proof that
+# it works.
+#
+# No pinned issue of its own: tools/watchdog already inspects every workflow
+# with an `on.schedule` trigger and reports a non-success conclusion into
+# its own pinned issue. Reusing that beats a third copy of the GitHub-issue
+# plumbing db-health and deploy-drift each already carry.
+on:
+  schedule:
+    # Daily at 09:15 UTC. Headers change only when someone changes them, so
+    # hourly would be noise; daily still catches a dashboard edit long
+    # before anyone would otherwise notice. Offset from the other scheduled
+    # jobs so they don't all wake at once.
+    - cron: '15 9 * * *'
+  workflow_dispatch:
+
+# Reads the repo and makes unauthenticated GETs. Nothing is written, and
+# the issue reporting is watchdog's job, so no `issues: write` here.
+permissions:
+  contents: read
+
+jobs:
+  header-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      # No `npm ci`: this tool has no dependencies beyond Node's built-ins,
+      # matching db-health and deploy-drift. It parses render.yaml itself
+      # rather than pulling in a YAML library for one narrow shape.
+      - name: Compare live response headers against render.yaml
+        run: node tools/header-drift/check.js

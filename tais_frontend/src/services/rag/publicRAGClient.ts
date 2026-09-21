@@ -38,7 +38,7 @@ export class PublicRAGClient {
        throw new Error('No wallet detected');
      }
 
-     const provider = new ethers.providers.Web3Provider(window.ethereum);
+     const provider = new ethers.BrowserProvider(window.ethereum);
      const signer = await provider.getSigner();
      this.walletAddress = await signer.getAddress();
 
@@ -59,10 +59,21 @@ export class PublicRAGClient {
        return storedKey;
      }
 
-     // Create new API key by signing a message
-     const message = 'TAIS RAG API Key Creation';
+     // Create new API key by signing a message. The message includes a
+     // nonce generated locally, right here, rather than being a fixed
+     // string -- personal_sign is deterministic (RFC 6979) for a given
+     // wallet + message, so a fixed string meant any unrelated site that
+     // got a user to sign that exact text could compute the exact same
+     // signature, and therefore the exact same derived API key, without
+     // ever touching the wallet's private key. The nonce is generated
+     // and consumed entirely on this client, so a phishing site has no
+     // way to predict or reproduce it, and can no longer derive a real
+     // session's key from a phished signature.
+     const nonce = crypto.getRandomValues(new Uint8Array(16));
+     const nonceB64 = btoa(String.fromCharCode(...nonce));
+     const message = `TAIS RAG API Key Creation\n\nNonce: ${nonceB64}`;
      const signature = await signer.signMessage(message);
-     
+
      // Derive API key from signature
      const encoder = new TextEncoder();
      const hash = await crypto.subtle.digest('SHA-256', encoder.encode(signature));
@@ -124,6 +135,11 @@ export class PublicRAGClient {
            index,
            encryptedContent: encrypted.encrypted,
            iv: encrypted.iv,
+           // Each chunk is encrypted with its own freshly-generated salt
+           // (encrypt()/encryptForCommunity() derive a new key per call),
+           // not the document's salt -- it has to travel with the chunk or
+           // the chunk can never be decrypted again.
+           salt: encrypted.salt,
            embeddingHash,
          };
        })
@@ -165,7 +181,7 @@ export class PublicRAGClient {
     * Returns encrypted results that must be decrypted client-side
     */
    async search(request: PublicRAGSearchRequest): Promise<PublicRAGSearchResult[]> {
-     if (!this.apiKey) {
+     if (!this.apiKey || !this.walletAddress) {
        throw new Error('Not authenticated');
      }
 
@@ -197,8 +213,13 @@ export class PublicRAGClient {
        ? await this.encryptionService.decryptCommunity(result.encryptedContent, result.iv, result.salt)
        : await this.encryptionService.decrypt(result.encryptedContent, result.iv, result.salt);
 
-     // Parse metadata (it's also encrypted but returned as part of search result)
-     const metadata = JSON.parse(content); // Content contains both text and metadata
+     // result.metadata is already a plain object on the search result --
+     // title/type/tags are never encrypted or bundled into
+     // encryptedContent. (encryptedContent decrypts to just the chunk's
+     // raw prose text, the same way uploadDocument encrypted each chunk
+     // in isolation; JSON.parse(content) here threw a SyntaxError on
+     // every real result, since prose text is never valid JSON.)
+     const metadata = result.metadata;
 
      return { content, metadata };
    }
@@ -276,8 +297,24 @@ export class PublicRAGClient {
 
      const metadata = JSON.parse(metadataStr);
 
-     const chunks = await ragApi.getDocumentChunks(this.walletAddress, documentId);
-     
+     const rawChunks = await ragApi.getDocumentChunks(this.walletAddress, documentId);
+
+     // Each chunk was encrypted with its own salt (see uploadDocument), not
+     // the document's salt -- it has to be decrypted with that same
+     // per-chunk salt/iv, never the document-level ones.
+     const chunks = await Promise.all(
+       rawChunks.map(async (chunk: any) => {
+         if (isPublicDoc) {
+           try {
+             return await this.encryptionService.decryptCommunity(chunk.encryptedContent, chunk.iv, chunk.salt);
+           } catch {
+             return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, chunk.salt);
+           }
+         }
+         return await this.encryptionService.decrypt(chunk.encryptedContent, chunk.iv, chunk.salt);
+       })
+     );
+
      return { content, metadata, chunks };
    }
 

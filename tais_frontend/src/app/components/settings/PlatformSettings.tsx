@@ -100,7 +100,7 @@ const DEFAULT_SETTINGS: PlatformSettings = {
 const STORAGE_KEY = 'tais_platform_settings';
 
 export function PlatformSettingsPage({ onBack }: { onBack: () => void }) {
-  const { isConnected, wallet } = useWallet();
+  const { isConnected } = useWallet();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_SETTINGS);
@@ -140,21 +140,19 @@ export function PlatformSettingsPage({ onBack }: { onBack: () => void }) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
       
-       if (isConnected && wallet.signer) {
+       if (isConnected) {
          try {
            const token = localStorage.getItem('auth_token');
            if (token) {
              await api.patch('/api/v1/auth/memory-preferences', {
-               data: {
-                 reportFrequency: settings.memoryReports.frequency,
-                 includeDriftStats: settings.memoryReports.includeDriftStats,
-                 includeUsagePatterns: settings.memoryReports.includeUsagePatterns,
-                 includeAppUsage: settings.memoryReports.includeAppUsage,
-                 includeRagPools: settings.memoryReports.includeRagPools,
-                 includeAlignmentIndex: settings.memoryReports.includeAlignmentIndex,
-                 notifyOnFlag: settings.memoryReports.notifyOnFlag,
-                 notifyOnDrift: settings.memoryReports.notifyOnDrift,
-               }
+               reportFrequency: settings.memoryReports.frequency,
+               includeDriftStats: settings.memoryReports.includeDriftStats,
+               includeUsagePatterns: settings.memoryReports.includeUsagePatterns,
+               includeAppUsage: settings.memoryReports.includeAppUsage,
+               includeRagPools: settings.memoryReports.includeRagPools,
+               includeAlignmentIndex: settings.memoryReports.includeAlignmentIndex,
+               notifyOnFlag: settings.memoryReports.notifyOnFlag,
+               notifyOnDrift: settings.memoryReports.notifyOnDrift,
              });
            }
          } catch (e) {

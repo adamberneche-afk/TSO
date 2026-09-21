@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs/promises';
+import { accessSync, readFileSync, writeFileSync } from 'fs';
 import { ethers } from 'ethers';
 import { TokenBalance, TokenType, TokenHolding } from '@think/types';
 
@@ -37,16 +38,26 @@ export class TokenService {
     console.log(`   Cache Path: ${this.cachePath}`);
   }
 
-  private async ensureSigningKey() {
+  // Synchronous by design: this used to be `async`, called fire-and-forget
+  // from the constructor (a constructor can't be awaited). That let a
+  // caller start using this service -- or a test tear down the very
+  // directory this writes into -- while the secret-file read/write was
+  // still in flight, racing a synchronous `fs.rmSync(userDataPath, {
+  // recursive: true })` in SkillInstaller's test suite into an
+  // intermittent ENOTEMPTY. This is a one-time local file check at
+  // startup; there's no benefit to doing it asynchronously, and doing it
+  // synchronously guarantees signingKey is already resolved by the time
+  // the constructor returns.
+  private ensureSigningKey() {
     try {
       const secretPath = path.join(path.dirname(this.cachePath), '.token_secret');
       try {
-        await fs.access(secretPath);
-        const secretContent = await fs.readFile(secretPath, 'utf-8');
+        accessSync(secretPath);
+        const secretContent = readFileSync(secretPath, 'utf-8');
         this.signingKey = secretContent.trim();
       } catch (accessError) {
         const newSecret = crypto.randomBytes(32).toString('hex');
-        await fs.writeFile(secretPath, newSecret, { mode: 0o600 });
+        writeFileSync(secretPath, newSecret, { mode: 0o600 });
         this.signingKey = newSecret;
       }
     } catch (error) {
@@ -182,16 +193,53 @@ export class TokenService {
       const thinkBalance = holding.holdings.find((h: any) => h.tokenAddress === THINK_TOKEN_ADDRESS);
       if (!thinkBalance) return false;
 
+      // thinkBalance.balance is already a human-readable decimal string
+      // (ethers.formatUnits'd in getTokenBalance/getTokenHoldings), not raw
+      // base units -- BigInt(thinkBalance.balance) either threw on any
+      // fractional balance (caught below, silently returning false) or
+      // compared a tiny whole-number string against `amount` scaled by
+      // 10^decimals, which is never true for a real balance. Parse both
+      // sides through parseUnits so they're compared in the same base
+      // units, mirroring validateTokenTransfer's correct pattern below.
       const amount = ethers.parseUnits(minAmount, thinkBalance.decimals || 18);
-      return BigInt(thinkBalance.balance) >= amount;
+      const availableBalance = ethers.parseUnits(thinkBalance.balance, thinkBalance.decimals || 18);
+      return BigInt(availableBalance) >= amount;
     } catch (error) {
       console.error(`THINK token verification failed:`, error);
       return false;
     }
   }
 
-  calculateTrustScore(walletAddress: string): number {
-    const cacheEntry = this.cacheMap.get(walletAddress);
+  // Cache TTL for a live-fetched balance before it's considered stale
+  // enough to re-fetch.
+  private static readonly CACHE_TTL_MS = 15 * 60 * 1000;
+
+  async calculateTrustScore(walletAddress: string): Promise<number> {
+    let cacheEntry = this.cacheMap.get(walletAddress);
+    const isFresh = cacheEntry && (Date.now() - cacheEntry.timestamp < TokenService.CACHE_TTL_MS);
+
+    if (!isFresh) {
+      // Nothing anywhere in this class ever populated cacheMap with a
+      // live balance -- loadCache() only restores a previous saveCache()
+      // call, and saveCache() was never invoked from anywhere -- so this
+      // always returned 0 for every wallet. Fetch a real balance on a
+      // miss or stale entry and persist it via the existing (until now
+      // unused) signed-cache infrastructure.
+      const tokenBalance = await this.getTokenBalance(walletAddress);
+      if (tokenBalance) {
+        cacheEntry = {
+          balance: tokenBalance.balance,
+          decimals: tokenBalance.decimals ?? 18,
+          symbol: tokenBalance.symbol || 'THINK',
+          timestamp: Date.now(),
+        };
+        this.cacheMap.set(walletAddress, cacheEntry);
+        await this.saveCache();
+      }
+      // If the live fetch failed, fall back to whatever was cached (even
+      // if stale) rather than reporting 0.
+    }
+
     if (!cacheEntry) return 0;
 
     try {

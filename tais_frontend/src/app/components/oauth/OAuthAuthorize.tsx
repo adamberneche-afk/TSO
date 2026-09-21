@@ -80,8 +80,12 @@ export function OAuthAuthorize({ onComplete }: OAuthAuthorizeProps) {
       const response = await fetch(authUrl);
       const { authorizationId } = await response.json();
 
-      // 2. Sign the challenge
-      const challenge = `TAIS OAuth Authorization\n\nApp: ${authData.appId}\nScopes: ${authData.scopes.join(', ')}\nWallet: ${wallet}\nNonce: ${authorizationId}`;
+      // 2. Sign the challenge. The server reconstructs this from the
+      // stored pending-authorization record, whose walletAddress is
+      // always lowercased (see /authorize) -- match that here or the
+      // signed message and the server's reconstruction diverge on case
+      // and verification fails even for a genuine signature.
+      const challenge = `TAIS OAuth Authorization\n\nApp: ${authData.appId}\nScopes: ${authData.scopes.join(', ')}\nWallet: ${wallet.toLowerCase()}\nNonce: ${authorizationId}`;
       
       if (!window.ethereum) throw new Error('MetaMask not found');
       

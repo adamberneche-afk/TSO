@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs/promises';
+import { accessSync, readFileSync, writeFileSync } from 'fs';
 import { ethers } from 'ethers';
 import { TokenBalance, TokenType } from '@think/types';
 
@@ -66,16 +67,20 @@ export class StakingService {
     console.log(`   Cache Path: ${this.cachePath}`);
   }
 
-  private async ensureSigningKey() {
+  // Synchronous by design -- see the matching comment in TokenService's
+  // ensureSigningKey. Was `async`, called fire-and-forget from the
+  // constructor, letting its secret-file write still be in flight when a
+  // caller (or a test's teardown) moved on.
+  private ensureSigningKey() {
     try {
       const secretPath = path.join(path.dirname(this.cachePath), '.staking_secret');
       try {
-        await fs.access(secretPath);
-        const secretContent = await fs.readFile(secretPath, 'utf-8');
+        accessSync(secretPath);
+        const secretContent = readFileSync(secretPath, 'utf-8');
         this.signingKey = secretContent.trim();
       } catch (accessError) {
         const newSecret = crypto.randomBytes(32).toString('hex');
-        await fs.writeFile(secretPath, newSecret, { mode: 0o600 });
+        writeFileSync(secretPath, newSecret, { mode: 0o600 });
         this.signingKey = newSecret;
       }
     } catch (error) {
@@ -208,8 +213,44 @@ export class StakingService {
     }
   }
 
-  calculateStakingWeight(walletAddress: string): number {
-    const cacheEntry = this.cacheMap.get(walletAddress);
+  // Cache TTL for a live-fetched staking snapshot before it's considered
+  // stale enough to re-fetch.
+  private static readonly CACHE_TTL_MS = 15 * 60 * 1000;
+
+  async calculateStakingWeight(walletAddress: string): Promise<number> {
+    let cacheEntry = this.cacheMap.get(walletAddress);
+    const isFresh = cacheEntry && (Date.now() - cacheEntry.timestamp < StakingService.CACHE_TTL_MS);
+
+    if (!isFresh) {
+      // The cache used to be purely read-only here: nothing anywhere in
+      // this class ever populated cacheMap with a live balance (loadCache()
+      // only restores whatever was saved by a previous saveCache() call,
+      // and saveCache() itself was never invoked from anywhere), so this
+      // always returned 0 for every wallet, forever -- not just on a cold
+      // cache, permanently. Fetch a real, live staking snapshot on a miss
+      // or a stale entry, and actually persist it via the existing (until
+      // now unused) signed-cache infrastructure.
+      const [tokenBalance, stakingInfo] = await Promise.all([
+        this.getTokenBalance(walletAddress),
+        this.getStakingInfo(walletAddress),
+      ]);
+
+      if (stakingInfo) {
+        cacheEntry = {
+          balance: tokenBalance?.balance || '0',
+          decimals: tokenBalance?.decimals ?? 18,
+          symbol: tokenBalance?.symbol || 'THINK',
+          staked: stakingInfo.stakedAmount,
+          rewards: stakingInfo.rewardsAmount,
+          timestamp: Date.now(),
+        };
+        this.cacheMap.set(walletAddress, cacheEntry);
+        await this.saveCache();
+      }
+      // If the live fetch failed (e.g. RPC unreachable), fall back to
+      // whatever was cached -- even if stale -- rather than reporting 0.
+    }
+
     if (!cacheEntry) return 0;
 
     try {
@@ -245,7 +286,7 @@ export class StakingService {
       ]);
 
       const tokenWeight = 0.3; // Token balance weight
-      const stakingWeight = this.calculateStakingWeight(walletAddress);
+      const stakingWeight = await this.calculateStakingWeight(walletAddress);
       const totalWeight = Math.min(1.0, tokenWeight + stakingWeight);
 
       // Check combined requirements for skill publishing
@@ -289,7 +330,7 @@ export class StakingService {
       
       const unstakeAmount = ethers.parseUnits(amount, 18);
       
-      const tx = await contract.ununstake(unstakeAmount);
+      const tx = await contract.unstake(unstakeAmount);
       await tx.wait(); // Wait for confirmation
       
       return { success: true };

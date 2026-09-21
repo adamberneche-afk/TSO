@@ -142,8 +142,11 @@ export const useConversationStore = create<ConversationState>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // Convert entities array back to Map after rehydration
-          state.entities = new Map(state.entities as [string, Entity[]][]);
+          // Convert entities array back to Map after rehydration -- the
+          // persisted JSON shape (an array, from partialize above) is not
+          // what the in-memory type says, so this cast has to go via
+          // unknown rather than a direct Map<->array reinterpretation.
+          state.entities = new Map(state.entities as unknown as [string, Entity[]][]);
         }
       },
     }

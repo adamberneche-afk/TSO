@@ -30,7 +30,11 @@ router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunct
       return res.status(400).json({ error: 'Search query is required' });
     }
     
-    const limitNum = parseInt(limit as string) || 20;
+    // Public, unauthenticated endpoint -- cap take like every other list
+    // route in this codebase (agent.ts, audits.ts, rag.ts, rcrt.ts all use
+    // the same Math.min(..., 100) pattern), or an attacker-supplied limit
+    // forces an unbounded findMany + join + count aggregate in one request.
+    const limitNum = Math.min(parseInt(limit as string) || 20, 100);
     const offsetNum = parseInt(offset as string) || 0;
     
     const skills = await req.prisma.skill.findMany({

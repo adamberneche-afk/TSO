@@ -99,11 +99,37 @@ VITE_GENESIS_CONTRACT=0x11B3EfbF04F0bA505F380aC20444B6952970AdA6
 
 The platform connects to the TAIS Registry at `https://tso.onrender.com/api/v1`:
 
-- `GET /api/v1/skills` - List available skills
+- `GET /api/v1/skills` - List available skills (`?trending=true` sorts by
+  download count instead of recency — there is no separate trending
+  endpoint)
 - `GET /api/v1/skills/:hash` - Get skill details
 - `POST /api/v1/skills` - Publish new skill (requires Genesis NFT)
 - `GET /api/v1/search` - Search skills
-- `GET /api/v1/search/trending` - Get trending skills
+
+### Agent Marketplace API
+
+- `GET /api/v1/agent-listings` - Browse published agents (public,
+  approved-only, filterable by `category`/`query`)
+- `GET /api/v1/agent-listings/mine` - Your own listings, any status
+- `POST /api/v1/agent-listings` - List one of your own agent
+  configurations (starts pending review)
+- `PUT /api/v1/agent-listings/:id` - Update your listing (resets it to
+  pending review)
+- `DELETE /api/v1/agent-listings/:id` - Withdraw your listing
+- `POST /api/v1/agent-listings/:id/install` - Copy a listed agent's
+  configuration into your own (requires Genesis NFT, same as creating
+  any configuration)
+
+### Enterprise RAG API
+
+No wallet required for these -- see [docs/ENTERPRISE_RAG_IDENTITY.md](../docs/ENTERPRISE_RAG_IDENTITY.md).
+
+- `POST /api/v1/auth/email/login` - Email/password sign-in
+- `POST /api/v1/orgs/invitations/:token/accept` - Accept an org
+  invitation (sets your password on first use)
+- `GET /api/v1/orgs` - Organizations you belong to
+- `GET/POST /api/v1/orgs/:orgId/rag/documents` - An org's shared,
+  community-key-encrypted document library
 
 ### Wallet Integration
 
@@ -214,11 +240,11 @@ src/
 - [x] Skill registry integration
 - [x] Configuration generation
 - [x] Wallet integration
+- [x] Skill publishing flow
+- [x] Agent marketplace
 - [ ] Web agent deployment
 - [ ] Desktop app download
 - [ ] API endpoint generation
-- [ ] Agent marketplace
-- [ ] Skill publishing flow
 
 ## 📝 License
 

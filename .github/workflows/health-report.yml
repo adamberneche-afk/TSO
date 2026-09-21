@@ -9,21 +9,30 @@ jobs:
   analyze:
     runs-on: ubuntu-latest
     permissions:
+      contents: read  # Required for actions/checkout -- specifying any
+                      # permission at all switches this job from the
+                      # default (permissive) to an explicit allowlist,
+                      # implicitly setting every unlisted permission
+                      # (including contents) to `none`; checkout 403'd on
+                      # every run until this was added.
       issues: read  # Only needs read access to issues
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: '.nvmrc'
 
       - name: Install Dependencies
-        run: |
-          npm ci
-          npx prisma generate  # Ensures Prisma types are fresh
+        run: npm ci
+        # health-analyzer.js only calls the GitHub REST API via @octokit/rest -
+        # it never touches Prisma, so there's no schema to generate here (and
+        # none exists at repo root; the real schema lives under
+        # packages/registry/prisma). A prior version of this step ran
+        # `npx prisma generate` unconditionally, which failed every run.
 
       - name: Run Health Analysis
         env:
@@ -32,7 +41,7 @@ jobs:
           node scripts/health-analyzer.js > daily_issues_report.md
 
       - name: Save Report as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: daily-issues-report
           path: daily_issues_report.md

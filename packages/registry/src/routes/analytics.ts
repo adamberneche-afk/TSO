@@ -36,7 +36,13 @@ export function createAnalyticsRoutes(prisma: PrismaClient, logger: any): Router
       await service.trackEvent({
         eventType,
         source,
-        walletAddress,
+        // Prefer the authenticated caller's wallet (set by JWT/API-key auth
+        // upstream) over a client-submitted one -- this endpoint is
+        // intentionally left open for anonymous SDK telemetry (a session
+        // can start tracking before a wallet is ever connected), so an
+        // unauthenticated caller's walletAddress claim can't be verified.
+        // Trust it only when there's no authenticated identity to prefer.
+        walletAddress: req.user?.walletAddress || walletAddress,
         sessionId,
         metadata,
         duration,

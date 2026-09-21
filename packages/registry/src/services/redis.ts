@@ -1,4 +1,4 @@
-let redisClient: any = null;
+const redisClient: any = null;
 let isConnected = false;
 
 export function initRedis(url?: string): void {

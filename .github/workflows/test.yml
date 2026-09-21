@@ -5,6 +5,12 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  # This workflow was disabled at the GitHub Actions level for an
+  # extended period (see HANDOFF.md) with no push/PR-based way to
+  # verify a fix to it without waiting for the next real push. Adding
+  # workflow_dispatch gives it a manual "Run workflow" button for
+  # exactly that case going forward.
+  workflow_dispatch: {}
 
 jobs:
   test:
@@ -26,20 +32,42 @@ jobs:
           - 5432:5432
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v7
       with:
-        node-version: '18'
+        node-version-file: '.nvmrc'
         cache: 'npm'
 
     - name: Install dependencies
       run: |
         cd packages/registry
         npm ci
+
+    # @think/types is a `file:../types` dependency of packages/registry
+    # (routes/audits.ts imports AuditReportSchema from it) -- the "npm
+    # ci" above (run from packages/registry, an npm workspace member)
+    # already hoists a full, correctly-pinned install -- including
+    # typescript -- to the repo root, but never compiles packages/types
+    # itself, so tsc/ts-jest fail with "Cannot find module '@think/
+    # types' or its corresponding type declarations" (dist/index.d.ts
+    # doesn't exist yet) without this step. Deliberately does NOT run
+    # its own `npm ci` here: doing so once regressed this fix by pruning
+    # the already-hoisted root node_modules down to just this one
+    # workspace member's own (typescript-free) dependency list, deleting
+    # the very typescript install the previous step had just hoisted
+    # (reproduced locally: after a scoped `npm ci` in packages/types,
+    # root node_modules/typescript no longer exists). `npx tsc` alone
+    # resolves the already-hoisted, correctly-pinned typescript via
+    # ordinary ancestor node_modules lookup -- verified against a fresh
+    # clone running this exact two-step sequence.
+    - name: Build packages/types (registry's @think/types dependency)
+      run: |
+        cd packages/types
+        npx tsc
 
     - name: Generate Prisma Client
       run: |
@@ -57,38 +85,85 @@ jobs:
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tais_registry_test
         TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tais_registry_test
-        JWT_SECRET: test-secret-key
+        # AuthService (src/services/auth.ts) rejects any JWT_SECRET under
+        # 32 characters -- this one was 15, so `npm test` here never got
+        # past `import app from '../../index'` and every e2e suite failed
+        # before running a single test. The "build" job below already
+        # used a 32+ char value; this job just never got the same fix.
+        JWT_SECRET: test-secret-key-that-is-at-least-32-characters-long
         NODE_ENV: test
+        # analytics.e2e.test.ts, admin-migration-auth.e2e.test.ts, and
+        # monitoring-security.e2e.test.ts each read
+        # process.env.ADMIN_WALLET_ADDRESSES! at module load time (no
+        # fallback) to build their own test wallet -- unset, all three
+        # suites failed to even load, before running a single test.
+        ADMIN_WALLET_ADDRESSES: '0x1111111111111111111111111111111111111111'
       run: |
         cd packages/registry
         npm test -- --coverage
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
+      # No CODECOV_TOKEN secret is configured for this repo, so a
+      # tokenless upload is all this step can ever attempt -- and
+      # Codecov now rejects those outright ("Token required - not valid
+      # tokenless upload"), independent of anything the actual test run
+      # does. With fail_ci_if_error: true that turned a passing test
+      # suite into a failed job on every single run. Coverage reporting
+      # failing to upload is not the same signal as a test failing, so
+      # it shouldn't gate CI the same way; flip to false rather than
+      # requiring a secret this job has no way to provision. (Also
+      # renamed the deprecated `file` input to `files` -- codecov-action
+      # v7 warns "Unexpected input(s) 'file'".)
+      uses: codecov/codecov-action@v7
       with:
-        file: ./packages/registry/coverage/lcov.info
+        files: ./packages/registry/coverage/lcov.info
         flags: unittests
         name: codecov-umbrella
+        fail_ci_if_error: false
 
   build:
     runs-on: ubuntu-latest
     needs: test
 
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tais_registry_build
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v7
       with:
-        node-version: '18'
+        node-version-file: '.nvmrc'
         cache: 'npm'
 
     - name: Install dependencies
       run: |
         cd packages/registry
         npm ci
+
+    # See the same step in the `test` job above: @think/types must be
+    # compiled before packages/registry's own `tsc` build can resolve
+    # it, and this deliberately doesn't run its own `npm ci` (that
+    # pruned the already-hoisted typescript install right back out).
+    - name: Build packages/types (registry's @think/types dependency)
+      run: |
+        cd packages/types
+        npx tsc
 
     - name: Generate Prisma Client
       run: |
@@ -107,18 +182,56 @@ jobs:
         test -d dist/routes
         test -d dist/services
 
+    # A build that emits JS without a compiler error isn't the same as JS
+    # that runs -- this is exactly the class of bug (ESM/CJS packaging
+    # mismatches, a corrupted import, a route registered with invalid
+    # syntax) that "does dist/ exist" cannot catch. Actually boot the
+    # compiled server against a real database and hit a real endpoint.
+    - name: Run database migrations
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tais_registry_build
+      run: |
+        cd packages/registry
+        npx prisma migrate deploy
+
+    - name: Smoke test the compiled server actually starts and serves requests
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tais_registry_build
+        JWT_SECRET: build-smoke-test-secret-32-characters-min
+        PORT: 3099
+      run: |
+        cd packages/registry
+        node dist/index.js &
+        SERVER_PID=$!
+        for i in $(seq 1 20); do
+          if curl -sf http://localhost:3099/health > /dev/null; then
+            echo "Server is up"
+            break
+          fi
+          if [ "$i" -eq 20 ]; then
+            echo "Server never became healthy"
+            kill $SERVER_PID 2>/dev/null || true
+            exit 1
+          fi
+          sleep 0.5
+        done
+        response=$(curl -sf http://localhost:3099/health)
+        echo "$response"
+        echo "$response" | grep -q '"database":"connected"' || (echo "Database not reported as connected" && exit 1)
+        kill $SERVER_PID
+
   lint:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v7
       with:
-        node-version: '22'
+        node-version-file: '.nvmrc'
         cache: 'npm'
 
     - name: Install dependencies
@@ -132,24 +245,38 @@ jobs:
         npm run lint
 
   root-tests:
-    # The root-level tests/ suite (currently tests/silent_errors.test.js,
+    # The root-level tests/ suite (currently tests/watchdog.test.js,
     # exercised via the root package.json's own `npm test`) had no CI job
     # running it at all before this one - it could pass or fail locally and
     # neither push nor PR would ever notice.
+    #
+    # `npm test` also runs tests/e2e-hybrid-config.ts via tsx (P1.6 fix:
+    # this real, 30+-assertion suite existed but was never run anywhere --
+    # wrong extension for the old `tests/*.test.js` node:test glob). It
+    # imports directly from tais_frontend/src, which is a separate project
+    # with its own package.json/node_modules (not an npm workspace member),
+    # so its dependencies need their own install step here.
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v7
       with:
-        node-version: '22'
+        node-version-file: '.nvmrc'
         cache: 'npm'
 
     - name: Install dependencies
+      run: npm ci
+
+    - name: Install tais_frontend dependencies
+      # tests/e2e-hybrid-config.ts imports from tais_frontend/src, which
+      # resolves its own npm packages (marked, isomorphic-dompurify) from
+      # tais_frontend/node_modules -- root `npm ci` above never touches it.
+      working-directory: tais_frontend
       run: npm ci
 
     - name: Run root-level tests

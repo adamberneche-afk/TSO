@@ -14,7 +14,7 @@ import {
   ExternalLink,
   Loader2
 } from 'lucide-react';
-import type { KnowledgeSource } from '../../../lib/config-schema';
+import type { KnowledgeSource } from '../../../types/agent';
 
 interface KnowledgeStepProps {
   onNext?: () => void;

@@ -1,0 +1,55 @@
+name: Frontend CI
+
+# Was "Deploy to Vercel" (deploy.yml) -- renamed as part of the Render
+# migration (2026-09-19, see HANDOFF.md). The old `deploy` job here (vercel
+# pull/build/deploy via the Vercel CLI) is gone entirely: it had failed at
+# the first step on every run since at least Feb 2026 (VERCEL_TOKEN was
+# never actually configured as a repo secret -- confirmed by tools/doctor/
+# check.js's first real run), so removing it changes nothing about what
+# was actually happening in production. Deploying tais_frontend is now
+# Render's job (render.yaml's tais-frontend static site, autoDeploy: true
+# on push to main), the same way tais-registry already deploys -- no
+# GitHub Actions step pushes code to either host.
+#
+# What's left is exactly the CI signal this repo's own docs/BUG_AUDIT_2026-09.md
+# (P1.2) added: typecheck + test on every push/PR, tais_frontend's only such
+# coverage (it isn't part of the npm-workspace build-all-packages.yml builds).
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# Only checks out and runs npm/tsc/vitest -- nothing here needs anything
+# beyond read access to repo contents.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tais_frontend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: tais_frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test

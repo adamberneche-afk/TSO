@@ -1,0 +1,26 @@
+name: Doctor
+
+# Deliberately workflow_dispatch-only, no schedule -- see tools/doctor/check.js's
+# own header for why. Run this manually when setting up a new deploy-pipeline
+# credential, rotating one, or troubleshooting a broken deploy step -- not on
+# a clock.
+on:
+  workflow_dispatch:
+
+jobs:
+  doctor:
+    runs-on: ubuntu-latest
+    # Only checks out and calls Vercel's own API (not GitHub's) -- no GitHub
+    # API calls, no artifacts -- so GITHUB_TOKEN needs nothing beyond
+    # reading repo contents.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check every deploy-pipeline secret this repo actually uses
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+          VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: node tools/doctor/check.js

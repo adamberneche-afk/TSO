@@ -35,7 +35,7 @@ export const getCorsConfig = (): CORSConfig => {
   if (isProduction && prodOrigins.length === 0) {
     throw new Error(
       'CORS_ORIGIN environment variable is required in production. ' +
-      'Set it to your frontend domain(s), e.g., https://yourapp.vercel.app'
+      'Set it to your frontend domain(s), e.g., https://yourapp.onrender.com'
     );
   }
 

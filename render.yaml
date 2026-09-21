@@ -1,25 +1,102 @@
+# NOTE: This file is NOT the live Render Blueprint source. The services
+# below were hand-configured in the Render dashboard and nothing syncs
+# this file to them (confirmed in packages/registry/DEPLOYMENT.md), so
+# editing a value here changes NOTHING in production by itself.
+#
+# 2026-09-20 (Sprint C): every value below was checked against the live
+# dashboard via the Render API rather than assumed, and the drift was
+# real -- the service's own name, its start command, its health check
+# path, the number of databases, and all three of the frontend's build
+# settings were each wrong here. Each correction carries a comment
+# saying what it was and why it changed.
+#
+# Two values in this file are now AHEAD of live rather than behind it,
+# and still need a human with dashboard access to apply them:
+#   1. CORS_ORIGIN -- narrowed here to the Render origin only; live
+#      still carries the Vercel origin too.
+#   2. The tais-frontend `headers` block -- ported from the deleted
+#      vercel.json; live has no custom headers configured.
+# Everything else below now matches what is actually running.
 services:
   - type: web
-    name: tais-registry
+    # 2026-09-20 (Sprint C): the live service is named "TSO" (slug "tso",
+    # hence tso.onrender.com), NOT "tais-registry" as every prior version
+    # of this file claimed. Corrected against the live dashboard rather
+    # than left as a pleasant fiction: a Blueprint sync matches services
+    # by name, so "tais-registry" here would CREATE A SECOND SERVICE
+    # alongside the real one instead of updating it.
+    name: TSO
     runtime: node
-    repo: https://github.com/YOUR_USERNAME/TSO
+    repo: https://github.com/adamberneche-afk/TSO
     branch: main
     rootDir: packages/registry
     buildCommand: chmod +x build.sh && ./build.sh
-    startCommand: npm start
+    # NOT `npm start`, which is what this file said until 2026-09-20.
+    # That is not a cosmetic difference: package.json's "start" is a bare
+    # `node dist/index.js`, while start.sh runs `prisma migrate deploy`
+    # against BOTH database URLs first. Applying this Blueprint with
+    # `npm start` would have silently stopped running migrations on every
+    # deploy -- the failure would surface later, as a schema mismatch,
+    # far from its cause. Matches the live dashboard.
+    startCommand: chmod +x start.sh && ./start.sh
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
-      - key: DATABASE_URL
+      # 2026-09-20: this file previously declared a single `tais-db` /
+      # `DATABASE_URL` pair here -- wrong, and not just a naming
+      # mismatch. packages/registry/src/config/database.ts creates two
+      # entirely separate PrismaClient instances (createRAGPrismaClient,
+      # createSkillsPrismaClient), each pointed at its own connection
+      # string via `datasources.db.url`, and the live service's own
+      # startup log confirms it: "Database Configuration: Dual-Database
+      # Mode". build.sh's migration step already reflected this (it runs
+      # `prisma migrate deploy` twice, once per URL) -- this file just
+      # never caught up. Discovered while investigating why the live
+      # service had zero working database connectivity: both
+      # `RAG_DATABASE_URL` and `SKILLS_DATABASE_URL` pointed at Render
+      # Postgres instances that no longer existed (one suspended/deleted
+      # for inactivity, `P1017`; one fully unreachable, `P1001` -- the
+      # live service had not deployed since 2026-03-24, so nothing had
+      # touched either database in ~6 months). No backup existed for
+      # either; both are being recreated empty (see HANDOFF.md's
+      # 2026-09-20 entry for the full incident account).
+      #
+      # 2026-09-20 (Sprint C): both URLs now point at the SAME database.
+      # Render allows only one active free-tier Postgres per account, so
+      # when both original instances were lost there was no way to
+      # recreate two without paying; the user chose to consolidate rather
+      # than pay for a second. This is a deliberate cost decision, not an
+      # oversight -- the code still creates two independent PrismaClient
+      # instances (that architecture is unchanged), they just happen to
+      # resolve to one server now. Splitting back out later means
+      # creating a second instance and repointing SKILLS_DATABASE_URL;
+      # nothing in the application code needs to change.
+      - key: RAG_DATABASE_URL
         fromDatabase:
-          name: tais-db
+          name: tais-rag
+          property: connectionString
+      - key: SKILLS_DATABASE_URL
+        fromDatabase:
+          name: tais-rag
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      - key: GITHUB_TOKEN_ENCRYPTION_KEY
+        # REQUIRED, not just recommended: services/githubToken.ts falls
+        # back to a hardcoded key when this is unset, silently encrypting
+        # stored GitHub tokens with a value visible in this repo's own
+        # source. No prior version of this file provisioned it.
+        generateValue: true
+      # IPFS was never actually configured with real credentials
+      # (IPFS_PROJECT_ID/IPFS_PROJECT_SECRET below are unset placeholders),
+      # so leaving IPFS_ENABLED=true made it silently error on every call
+      # rather than working -- see docs/E2E_TEST_REPORT.md's "IPFS: error"
+      # finding. Disabled explicitly; flip back to true once real
+      # Pinata/Infura credentials are set (Sprint 1, item I3).
       - key: IPFS_ENABLED
-        value: true
+        value: false
       - key: IPFS_HOST
         value: ipfs.infura.io
       - key: IPFS_PORT
@@ -32,29 +109,166 @@ services:
         sync: false
       - key: ENABLE_BLOCKCHAIN_VERIFICATION
         value: false
+      # Neither of these two flags is read anywhere in
+      # packages/registry/src as of this pass (grepped, not assumed) --
+      # they don't currently do anything either way. Left in rather than
+      # removed in case something reads them at a layer this pass didn't
+      # check; verify before relying on either.
       - key: ENABLE_IPFS_STORAGE
         value: true
       - key: ENABLE_FIAT_PAYMENTS
         value: false
+      # config/cors.ts treats this as a literal, comma-separated origin
+      # allow-list (getCorsConfig splits on ","), not a wildcard -- a
+      # literal "*" rejects every real browser origin outright rather than
+      # allowing all of them.
+      #
+      # 2026-09-20 (Sprint C): narrowed to the Render origin alone. The
+      # Vercel origin was dropped as part of decommissioning Vercel on
+      # the user's decision. Two findings made that safe rather than
+      # merely tidy:
+      #   - Vercel's native git integration was still deploying
+      #     production from main on every merge (#2033 through #2039 all
+      #     have READY production deployments) -- only the *GitHub
+      #     Action* was dead, which is not the same thing as Vercel
+      #     being dead. This file previously guessed at that; it was
+      #     confirmed via the Vercel API.
+      #   - That project has ssoProtection enabled with deploymentType
+      #     "all_except_custom_domains", and owns no custom domain -- so
+      #     by Vercel's documented behaviour every one of its URLs sits
+      #     behind Vercel Authentication and taisplatform.vercel.app was
+      #     almost certainly never publicly reachable. Not directly
+      #     proven (no anonymous fetch was possible from where this was
+      #     checked), so treat it as strongly indicated, not certain.
+      # The Render origin is confirmed live: tais-frontend has served
+      # real builds since 2026-09-19 and its latest deploy is live on
+      # current main.
+      #
+      # NOTE: this file is not synced to the live service, so editing
+      # this line changes nothing by itself -- the live CORS_ORIGIN env
+      # var has to be updated in the dashboard too.
       - key: CORS_ORIGIN
-        value: "*"
+        value: "https://tais-frontend.onrender.com"
       - key: CRON_SECRET
         generateValue: true
-    healthCheckPath: /api/health
+    # Deliberately blank, matching the live service (2026-09-20, Sprint C).
+    #
+    # This said `/api/health` until now, which is a route that has never
+    # existed in packages/registry/src -- the only /api prefix mounted is
+    # /api/v1 (plus /api/version); the health router mounts at bare
+    # /health. Render would have polled a 404 forever. It caused no live
+    # damage only because the dashboard's value was blank, so this file
+    # was the sole place the mistake lived.
+    #
+    # Left blank rather than repointed at the real /health, on purpose:
+    # that endpoint runs `SELECT 1` and returns 503 when the database is
+    # unreachable. As a Render health check that would mean a database
+    # outage blocks the deploy and takes the whole service down --
+    # including every endpoint that needs no database at all. Render
+    # falls back to port-open detection, and the database question is
+    # answered from outside instead, by tools/db-health (which polls this
+    # very /health endpoint hourly). That gets the alerting without
+    # coupling the service's liveness to its database.
+    #
+    # If a real health check is ever wanted here, add a SHALLOW liveness
+    # route that proves only that the process is up, and point this at
+    # that -- do not point it at /health.
+    healthCheckPath: ""
     autoDeploy: true
+
+  # Added 2026-09-19 as part of migrating tais_frontend off Vercel (see
+  # HANDOFF.md for the cost/pros/cons review that led here): Render was
+  # already the trusted, working platform for tais-registry above, and its
+  # static sites are free with no commercial-use restriction and no PR-preview
+  # paywall, unlike Vercel's Hobby tier. This block is the same kind of
+  # best-effort record tais-registry's own block above already is -- it has
+  # NOT been applied via a live Render Blueprint sync, and a human with
+  # dashboard access still needs to actually create this service (or run a
+  # Blueprint sync from this file) before it exists anywhere. Once it does:
+  # confirm the assigned onrender.com URL (or custom domain) matches what
+  # CORS_ORIGIN above and tools/deploy-drift/services.js's tais-frontend
+  # entry assume, and update either if it doesn't.
+  - type: web
+    name: tais-frontend
+    runtime: static
+    repo: https://github.com/adamberneche-afk/TSO
+    branch: main
+    # 2026-09-20 (Sprint C): these three now match what the live service
+    # actually runs. It was created with an empty root directory and
+    # paths relative to the repo root, not with rootDir: tais_frontend --
+    # equivalent in effect, but this file claimed the other shape.
+    rootDir: ""
+    buildCommand: cd tais_frontend && npm ci && npm run build
+    staticPublishPath: tais_frontend/dist
+    envVars:
+      # Build-time Vite env vars -- previously set via tais_frontend/vercel.json's
+      # own "env" block (left in place, unused by Render, in case Vercel's
+      # native git integration is still independently live -- see that
+      # file's own note). Values copied from vercel.json verbatim so a
+      # cutover doesn't also silently change what's live.
+      - key: VITE_REGISTRY_URL
+        value: "https://tso.onrender.com"
+      - key: VITE_PUBLIC_RAG_API_URL
+        value: "https://tso.onrender.com/api/v1/rag"
+      - key: VITE_RPC_URL
+        value: "https://cloudflare-eth.com"
+      - key: VITE_GENESIS_CONTRACT
+        value: "0x11B3EfbF04F0bA505F380aC20444B6952970AdA6"
+    routes:
+      # Static files (including /version.json, /assets/*) win over this by
+      # default on Render, same as they did on Vercel -- see
+      # tais_frontend/scripts/write-version.cjs's own header. Only the SPA
+      # catch-all needs a real entry; vercel.json's "/api/:path* -> /api/:path*"
+      # and "/assets/:path* -> /assets/:path*" rules were no-ops for the same
+      # reason and have no Render equivalent needed.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    # Ported from tais_frontend/vercel.json when that file was deleted
+    # (2026-09-20, Sprint C). Deleting it would otherwise have silently
+    # dropped both rules, and the second one matters: Vite emits
+    # content-hashed asset filenames, so index.html MUST NOT be cached or
+    # a returning visitor keeps requesting asset URLs that no longer
+    # exist and sees a blank page after every deploy. The immutable rule
+    # is safe for exactly the same reason -- hashed names never change
+    # content.
+    #
+    # NOTE: like everything else in this file, this is not synced to the
+    # live service. The live tais-frontend static site currently has NO
+    # custom headers configured, so these two rules still need adding in
+    # the Render dashboard to actually take effect.
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
 
 cron:
   - name: memory-reports
     schedule: "0 1 * * *"
-    url: https://tso.onrender.com/api/v1/cron/memory-reports
+    url: https://tso.onrender.com/admin/cron/memory-reports
     method: POST
     headers:
       - key: Authorization
         value: "Bearer {{ .Envs.CRON_SECRET }}"
 
 databases:
-  - name: tais-db
-    databaseName: tais_registry
+  # One instance, not two -- see the RAG_DATABASE_URL/SKILLS_DATABASE_URL
+  # note above for why. A `tais-registry` database was declared here
+  # between 2026-09-20's two passes; it never existed live (Render's free
+  # tier permits a single active Postgres per account) and has been
+  # removed rather than left as an aspiration this file can't deliver.
+  #
+  # `plan: free` is load-bearing and dangerous: a free Render Postgres
+  # DELETES ITSELF 30 days after creation. That is the literal root cause
+  # of the 2026-03 -> 2026-09 outage. tools/db-health/probes.js tracks
+  # this instance's expiry date and warns ahead of it; if this database
+  # is ever recreated, that file's `expiresAt` MUST be updated to match
+  # or every warning it emits is fiction.
+  - name: tais-rag
+    databaseName: tais_rag
     user: tais
     plan: free
 

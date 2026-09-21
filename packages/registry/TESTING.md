@@ -144,7 +144,11 @@ Coverage reports are generated in the `coverage/` directory:
 open coverage/lcov-report/index.html
 ```
 
-`jest.config.js` does not currently define a `coverageThreshold`, so there is no enforced minimum coverage percentage — coverage is reported but not gated.
+`jest.config.js` defines a `coverageThreshold.global` (statements 33% /
+branches 19% / functions 29% / lines 33%), set a few points below the real
+measured baseline as a regression floor rather than an aspirational
+target — a real coverage drop fails the build, but the numbers aren't
+meant to block a PR before coverage has actually improved past them.
 
 ## Best Practices
 

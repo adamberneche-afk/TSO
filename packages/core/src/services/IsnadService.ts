@@ -1,10 +1,12 @@
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs/promises';
+import { accessSync, readFileSync, writeFileSync } from 'fs';
 import { ethers } from 'ethers';
 import { SkillProvenanceSchema, IsnadLink } from '@think/types';
 import { TokenService } from './TokenService';
 import { StakingService } from './StakingService';
+import { verifySignature } from '../utils/signature';
 
 // Default to THINK Genesis Bundle for beta testing
 // Future: Custom contracts deployed via $THINK staking
@@ -55,16 +57,20 @@ export class IsnadService {
     console.log(`   Mode: ${process.env.PUBLISHER_NFT_ADDRESS ? 'Custom Contracts' : 'Genesis Bundle (Beta)'}`);
   }
 
-  private async ensureSigningKey() {
+  // Synchronous by design -- see the matching comment in TokenService's
+  // ensureSigningKey. Was `async`, called fire-and-forget from the
+  // constructor, letting its secret-file write still be in flight when a
+  // caller (or a test's teardown) moved on.
+  private ensureSigningKey() {
     try {
       const secretPath = path.join(path.dirname(this.cachePath), '.isnad_secret');
       try {
-        await fs.access(secretPath);
-        const secretContent = await fs.readFile(secretPath, 'utf-8');
+        accessSync(secretPath);
+        const secretContent = readFileSync(secretPath, 'utf-8');
         this.signingKey = secretContent.trim();
       } catch (accessError) {
         const newSecret = crypto.randomBytes(32).toString('hex');
-        await fs.writeFile(secretPath, newSecret, { mode: 0o600 });
+        writeFileSync(secretPath, newSecret, { mode: 0o600 });
         this.signingKey = newSecret;
       }
     } catch (error) {
@@ -149,10 +155,17 @@ export class IsnadService {
         }
       }
 
+      // The "signature" here must actually prove link.wallet's owner
+      // authorized this link -- a plain hash of public fields (skillHash,
+      // wallet, role, timestamp) proves nothing, since anyone can compute
+      // the same hash without ever touching that wallet's private key.
+      // Real ECDSA verification (recover the signer from the signature
+      // and compare against link.wallet) is the only thing that actually
+      // ties this submission to the claimed wallet.
       const signaturePayload = `${skillHash}:${link.wallet}:${link.role}:${link.timestamp}`;
-      const expectedSignature = crypto.createHash('sha256').update(signaturePayload).digest('hex');
+      const verification = verifySignature(signaturePayload, link.signature, link.wallet);
 
-      if (link.signature !== expectedSignature) {
+      if (!verification.valid) {
         return { success: false, error: "Invalid signature" };
       }
 
@@ -199,7 +212,7 @@ export class IsnadService {
     // Additional score from THINK token holdings
     if (walletAddress) {
       try {
-        const stakingWeight = this.stakingService.calculateStakingWeight(walletAddress);
+        const stakingWeight = await this.stakingService.calculateStakingWeight(walletAddress);
         score += Math.min(30, stakingWeight * 30); // Up to 30 points for staking
       } catch (error) {
         console.warn('Failed to get THINK staking weight for trust scoring:', error);
@@ -214,10 +227,12 @@ export class IsnadService {
       const validated = SkillProvenanceSchema.parse(provenance);
 
       for (const link of validated.auditors) {
+        // See addLink above: this must be a real signature from
+        // link.wallet, not a hash of public fields anyone could compute.
         const signaturePayload = `${link.role}:${link.wallet}:${link.timestamp}`;
-        const expectedSignature = crypto.createHash('sha256').update(signaturePayload).digest('hex');
+        const verification = verifySignature(signaturePayload, link.signature, link.wallet);
 
-        if (link.signature !== expectedSignature) {
+        if (!verification.valid) {
           return false;
         }
       }

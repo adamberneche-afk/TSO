@@ -78,7 +78,7 @@ async function extractBrowserData(): Promise<BrowserData> {
         data.conversations.totalMessages += session.messages.length;
         
         const recentMessages = session.messages.slice(-3);
-        recentTopics.push(...recentMessages.map(m => m.content.substring(0, 50)));
+        allTopics.push(...recentMessages.map(m => m.content.substring(0, 50)));
         
         if (session.updatedAt > maxTimestamp) {
           maxTimestamp = session.updatedAt;

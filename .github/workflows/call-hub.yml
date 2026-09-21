@@ -30,13 +30,13 @@ jobs:
   call-central-brain:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Determine Mode
         id: mode
         run: |
-          echo "mode=${{ inputs.mode }}" >> $GITHUB_OUTPUT
+          echo "mode=${{ inputs.mode }}" >> "$GITHUB_OUTPUT"
       - name: Send Payload to Hub
         env:
           VERCEL_URL: ${{ secrets.VERCEL_URL }}
