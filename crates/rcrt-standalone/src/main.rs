@@ -13,7 +13,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use rand::Rng;
+use rand::RngExt;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 const CURRENT_VERSION: &str = "1.0.0";
@@ -170,8 +170,8 @@ fn save_db(data_dir: &std::path::Path, db: &Database) {
 }
 
 fn generate_token() -> String {
-    let mut rng = rand::thread_rng();
-    let bytes: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+    let mut rng = rand::rng();
+    let bytes: Vec<u8> = (0..32).map(|_| rng.random()).collect();
     BASE64.encode(&bytes)
 }
 
