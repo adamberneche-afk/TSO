@@ -4,7 +4,6 @@
     "outDir": "./dist",
     "rootDir": ".",
     "module": "commonjs",
-    "moduleResolution": "node",
     "jsx": "react",
     "lib": ["ES2022", "DOM"],
     "noEmit": true

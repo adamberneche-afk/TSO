@@ -1,5 +1,14 @@
 import request from 'supertest';
 import crypto from 'crypto';
+// jest.spyOn can't redefine this module's exports under @swc/jest (its
+// ESM->CJS output defines them as non-configurable getters, unlike
+// ts-jest's plain-assignment output) -- mock the module instead, keeping
+// every other export real via requireActual so only verifyNFTOwnership's
+// single test below needs a stand-in.
+jest.mock('../../services/genesisConfigLimits', () => {
+  const actual = jest.requireActual('../../services/genesisConfigLimits');
+  return { ...actual, verifyNFTOwnership: jest.fn(actual.verifyNFTOwnership) };
+});
 import * as genesisConfigLimits from '../../services/genesisConfigLimits';
 import app from '../../index';
 import { createTestWallet, signRegisterAppChallenge } from '../testSigning';
@@ -184,20 +193,17 @@ describe('OAuth E2E', () => {
       // relaxing the assertion. Mocking verifyNFTOwnership is what
       // actually exercises "a valid, sufficiently-tiered wallet" the
       // way this test's name describes.
-      const nftSpy = jest
-        .spyOn(genesisConfigLimits, 'verifyNFTOwnership')
-        .mockResolvedValue({ isHolder: true, tokenCount: 1, tokenIds: ['1'] });
+      const nftMock = genesisConfigLimits.verifyNFTOwnership as jest.MockedFunction<
+        typeof genesisConfigLimits.verifyNFTOwnership
+      >;
+      nftMock.mockResolvedValueOnce({ isHolder: true, tokenCount: 1, tokenIds: ['1'] });
 
-      try {
-        const response = await request(app)
-          .get('/api/v1/oauth/apps')
-          .query({ wallet: TEST_WALLET })
-          .expect(200);
+      const response = await request(app)
+        .get('/api/v1/oauth/apps')
+        .query({ wallet: TEST_WALLET })
+        .expect(200);
 
-        expect(Array.isArray(response.body.apps)).toBe(true);
-      } finally {
-        nftSpy.mockRestore();
-      }
+      expect(Array.isArray(response.body.apps)).toBe(true);
     });
 
     it('should require wallet parameter', async () => {

@@ -1,12 +1,22 @@
-/** @type {import('ts-jest').JestConfigWithTsJest} */
 module.exports = {
-  preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  // ts-jest needs the classic TS compiler API (createLanguageService,
+  // ModuleKind, ...), which TypeScript 7's native compiler doesn't expose
+  // (see https://github.com/kulshekhar/ts-jest -- no fix published yet).
+  // @swc/jest only transpiles (no type-checking), which `tsc --noEmit`
+  // already covers separately in this package's own build/CI step.
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\.tsx?$': ['@swc/jest', {
+      jsc: {
+        parser: { syntax: 'typescript', decorators: true },
+        transform: { legacyDecorator: true, decoratorMetadata: true },
+        target: 'es2020',
+      },
+      module: { type: 'commonjs' },
+    }],
   },
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   collectCoverageFrom: [
