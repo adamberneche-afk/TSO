@@ -1,0 +1,9 @@
+{
+  "_comment": "Per-repo configuration for the portfolio CI/CD floor - see the Mothership hub's CICD_FLOOR.md, which is the standard this repo is a consumer of. Only checks adopted FROM the floor read this file; TSO's own tools/doc-currency and tools/coverage-gaps predate it and are the versions Mothership's were built from, so they keep their own configuration. scripts/secrets-doctor.mjs is byte-identical to Mothership's copy and must not be edited locally - a change belongs upstream. The generated env block in .github/workflows/secrets-doctor.yml is rewritten by `node scripts/secrets-doctor.mjs --sync` and drift-gated on every pull request by its own `drift` job.",
+  "floorVersion": "1",
+  "doctor": {
+    "optionalSecrets": {
+      "VERCEL_BYPASS_TOKEN": "only needed if the Mothership hub's deployment has Vercel Deployment Protection enabled - see call-hub.yml. tools/doctor/check.js already classified this one required:false for the same reason; that judgement is carried over rather than re-litigated."
+    }
+  }
+}
