@@ -25,7 +25,7 @@
   "dependencies": {
     "@think/core": "file:../core",
     "@think/types": "file:../types",
-    "chalk": "^4.1.2",
+    "chalk": "^6.0.0",
     "commander": "^11.1.0",
     "ethers": "^6.17.0",
     "fs-extra": "^11.1.1",
