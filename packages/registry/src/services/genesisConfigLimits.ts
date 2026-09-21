@@ -5,7 +5,19 @@ import { ethers } from 'ethers';
 import { PrismaClient } from '@prisma/client';
 import { createSkillsPrismaClient } from '../config/database';
 import { cacheGet, cacheSet, cacheDelete, isRedisAvailable } from './redis';
-import { createVersionSnapshot } from './configurationVersioning';
+// configurationVersioning.ts imports canCreateConfiguration from this same
+// file -- a real circular dependency. tsc's compiled output tolerated it
+// fine, but @swc/jest's ESM->CJS output hoists every export as a getter
+// ahead of this module's own top-level code, so a fresh circular load (as
+// jest.requireActual triggers in tests) can hit a "Cannot access before
+// initialization" TDZ error partway through. A lazy require at the two
+// call sites below breaks the cycle at load time instead.
+import type { createVersionSnapshot as CreateVersionSnapshot } from './configurationVersioning';
+
+// Deliberately lazy (not a stray CJS habit) to break the circular-load cycle described above.
+const createVersionSnapshot: typeof CreateVersionSnapshot = (...args) =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  (require('./configurationVersioning').createVersionSnapshot)(...args);
 
 const skillsPrisma = createSkillsPrismaClient();
 const prisma = skillsPrisma;

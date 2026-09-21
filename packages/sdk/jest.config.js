@@ -1,15 +1,22 @@
-/** @type {import('ts-jest').JestConfigWithTsJest} */
 module.exports = {
-  preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  // ts-jest needs the classic TS compiler API, which TypeScript 7's
+  // native compiler doesn't expose (see https://github.com/kulshekhar/
+  // ts-jest -- no fix published yet). @swc/jest only transpiles (no
+  // type-checking, so tsconfig's "types": [] is irrelevant here), which
+  // `tsc --noEmit` already covers separately in this package's own
+  // build/CI step.
   transform: {
-    // The package's own tsconfig.json sets "types": [] (it targets a
-    // browser/Electron runtime, not Node) so jest's globals wouldn't
-    // otherwise resolve -- override just for the test compile.
-    '^.+\\.tsx?$': ['ts-jest', { tsconfig: { types: ['jest', 'node'] } }],
+    '^.+\\.tsx?$': ['@swc/jest', {
+      jsc: {
+        parser: { syntax: 'typescript' },
+        target: 'es2022',
+      },
+      module: { type: 'commonjs' },
+    }],
   },
   testTimeout: 15000,
   verbose: true,
