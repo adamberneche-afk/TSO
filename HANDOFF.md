@@ -1807,3 +1807,13 @@ The hub's set adds two patterns TSO never had: an unreplaced-marker word and an 
 
 `tools/doc-currency` and `tools/coverage-gaps` (checks 6 and 9) stay TSO's own, as before.
 
+
+## 2026-10-31 — the hub now pulls; `call-hub.yml` is being retired
+
+The Mothership hub now reviews TSO **on its own timer** instead of waiting to be called. A time-driven trigger inside the hub polls every active spoke (debug every 6 hours, hunt Wednesdays at noon, refactor Sundays at midnight), reads TSO's latest commit with the hub's own GitHub credential, and reviews it with that commit's real diff. That answers the precondition this repo's `call-hub.yml` header set for ever re-enabling a schedule ("the payload needs to carry real context"), without TSO calling anything. Details: Mothership's README, [The Pull Model](https://github.com/adamberneche-afk/Mothership#the-pull-model-gasspoke_pollerjs), and its SESSION_HANDOFF.md item 28.
+
+So `call-hub.yml` (already dispatch-only) is redundant and will be removed. **Do not re-enable or repair it.** Removal waits on one owner step, so the pull model is confirmed working first:
+
+1. The owner deploys the hub with KOS's clasp-sync runner (`--hub latest`), which also installs the hub's triggers.
+2. The hub's poll status (showSpokePollStatus, in its Apps Script editor) lists tso as `settled` or `unchanged`.
+3. Then, in one PR: delete `.github/workflows/call-hub.yml` and run `node scripts/secrets-doctor.mjs --sync`. `VERCEL_URL` and `VERCEL_BYPASS_TOKEN` are also hand-listed by `tools/doctor/check.js` (run by `doctor.yml`), and `VERCEL_BYPASS_TOKEN` has an entry in `.github/floor.json`'s `doctor.optionalSecrets`; drop them from both in the same PR, then delete the two repository secrets. The hub's own Vercel deployment is a separate question from this repo's secrets.

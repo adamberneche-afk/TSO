@@ -1,3 +1,9 @@
+# BEING RETIRED (2026-10-31). The Mothership hub now pulls: it reviews this
+# repo on its own timer, with the latest commit's real diff and its own
+# credential, so this workflow is redundant. Do not re-enable or repair it.
+# It is deleted once the owner has deployed the hub and the hub's poll status
+# shows tso settled. See HANDOFF.md, "the hub now pulls".
+#
 name: Ping CTO Hub
 # NOTE: The automatic schedule is disabled (see below). This workflow was firing
 # every 10 minutes against https://ai-cto-hub.vercel.app/api/autonomous_agent,
