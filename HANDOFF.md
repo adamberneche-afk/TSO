@@ -1793,3 +1793,17 @@ It confirms every secret this repo's workflows reference is configured and non-e
 `tools/doctor/` and `doctor.yml` are **deliberately left in place**. The generic check is a strict superset of what they do, but they are referenced by seven files here — including `tests/doctor.test.js`, `tools/coverage-gaps/check.js`, `tools/db-health/probes.js` and this document — so removing them is its own change with its own blast radius, not a side effect of this one. Doing it would also need `tools/doc-currency` re-run, since docs cite the file paths.
 
 The `drift` job runs on every pull request and touches no secrets context; the `probe` job runs on dispatch only. Regenerate the env block with `node scripts/secrets-doctor.mjs --sync`.
+
+## 2026-10-31 — floor checks 7 and 8 replaced with the canonical copies
+
+`.github/workflows/doc-link-check.yml` and `.github/workflows/doc-placeholder-check.yml` are now **byte-identical to the Mothership hub's canonical copies**. Do not edit them locally; a change belongs upstream. The hub's versions were adapted *from* the ones that ran here, so behavior is unchanged: the settings that used to be written into these two files moved to `.github/floor.json`.
+
+| setting | was | now |
+| --- | --- | --- |
+| excluded paths | `node_modules`, `archive`, `exports` in each workflow | `docExcludePaths` |
+| placeholder patterns | one regex in the workflow, including TSO's two fictitious-address strings | `placeholderPatterns`: the hub's six plus those two |
+
+The hub's set adds two patterns TSO never had: an unreplaced-marker word and an angle-bracket URL placeholder. A line that must quote placeholder text on purpose can carry `floor-allow-placeholder`. Checked before pushing: the placeholder step's own script against the new `floor.json` is clean, and an offline relative-link pass finds no broken links outside the excluded paths.
+
+`tools/doc-currency` and `tools/coverage-gaps` (checks 6 and 9) stay TSO's own, as before.
+
