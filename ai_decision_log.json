@@ -478,5 +478,13 @@
     "outcome": "bot_or_generated_commit_skip",
     "issueUrl": null,
     "summary": null
+  },
+  {
+    "timestamp": "2026-11-17T06:28:36.374Z",
+    "mode": "debug",
+    "commitSha": "c1ed9a959847be2a624597b5c99923fc42208b6f",
+    "outcome": "no_findings",
+    "issueUrl": null,
+    "summary": null
   }
 ]
